@@ -1,58 +1,47 @@
-import { useState } from "react";
-import { ShoppingCart, Plus, Minus, AlertCircle, Star } from "lucide-react";
-import { Package } from "lucide-react";
+import { Package, Star } from 'lucide-react';
 
 export default function ProductCard({ producto, cantidad, onAdd, onQtyChange }) {
   const multiplo = producto.multiplo || 1;
-  const [imgError, setImgError] = useState(false);
-  const disponible = producto.disponible !== false;
+  const minimo = producto.minimo || multiplo;
+  const agotado = producto.disponible === false;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden hover:shadow-md transition-shadow">
-      <div className="relative bg-gray-50 flex items-center justify-center" style={{ height: "160px" }}>
-        {(!imgError && producto.imagen_url) ? (
-          <img src={producto.imagen_url} alt={producto.nombre}
-            className={`w-full h-full object-contain p-2 ${!disponible ? "grayscale opacity-50" : ""}`}
-            onError={() => setImgError(true)} />
-        ) : (
-          <Package size={48} className="text-gray-300" />
-        )}
+    <div className={`bg-white rounded-2xl border-2 border-gray-100 flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-all ${agotado ? 'opacity-75' : ''}`}>
+      <div className="relative h-32 bg-gray-50 flex items-center justify-center">
         {producto.favorito && (
-          <div className="absolute top-2 right-2"><Star size={16} fill="#facc15" className="text-yellow-400" /></div>
+          <span className="absolute top-1.5 right-1.5 text-yellow-400"><Star size={14} fill="currentColor" /></span>
         )}
-        {!disponible && (
-          <div className="absolute top-2 left-2"><span className="badge-agotado">No disponible</span></div>
+        {agotado && (
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+            Agotado
+          </div>
+        )}
+        {producto.imagen_url ? (
+          <img src={producto.imagen_url} alt={producto.nombre}
+            className="w-full h-full object-contain p-2"
+            onError={e => { e.target.onerror=null; e.target.style.display='none'; }} />
+        ) : (
+          <Package size={32} className="text-gray-200" />
         )}
       </div>
-      <div className="p-3 flex flex-col flex-1 gap-1">
-        {producto.categoria && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full self-start bg-blue-50 text-blue-600">
-            {producto.categoria}
-          </span>
-        )}
-        <h3 className="font-bold text-sm leading-snug text-gray-900 mt-1 line-clamp-2">{producto.nombre}</h3>
-        {producto.codigo && <p className="text-xs text-gray-400">SKU: {producto.codigo}</p>}
-        <div className="mt-auto pt-3">
-          {!disponible ? (
-            <div className="flex items-center justify-center gap-1.5 text-red-400 text-xs py-2">
-              <AlertCircle size={13} /><span>Sin stock</span>
-            </div>
-          ) : cantidad > 0 ? (
-            <div className="flex items-center justify-between gap-2">
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-white bg-blue-600"
-                onClick={() => onQtyChange(Math.max(0, cantidad - multiplo))}>
-                <Minus size={14} />
-              </button>
-              <span className="font-bold text-base text-gray-800">{cantidad}</span>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-white bg-blue-600"
-                onClick={() => onQtyChange(cantidad + multiplo)}>
-                <Plus size={14} />
-              </button>
+      <div className="p-3 flex flex-col gap-1 flex-1">
+        <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2 min-h-[2rem]">{producto.nombre}</h3>
+        {producto.formato && <p className="text-xs text-gray-400 truncate">{producto.formato}</p>}
+        {producto.codigo && <p className="text-xs text-gray-400 font-mono">{producto.codigo}</p>}
+        <p className="text-xs text-blue-600 font-semibold">x{multiplo}</p>
+        <div className="mt-auto pt-1">
+          {cantidad > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => onQtyChange(Math.max(0, cantidad - multiplo))}
+                className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700">−</button>
+              <span className="flex-1 text-center font-bold text-sm">{cantidad}</span>
+              <button onClick={() => onQtyChange(cantidad + multiplo)}
+                className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700">+</button>
             </div>
           ) : (
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-sm font-semibold bg-slate-800 hover:opacity-90"
-              onClick={(e) => { e.stopPropagation(); onAdd(producto); }}>
-              <ShoppingCart size={15} />Agregar
+            <button onClick={() => !agotado && onAdd(producto)} disabled={agotado}
+              className="w-full py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              {agotado ? 'Agotado' : 'Añadir'}
             </button>
           )}
         </div>
