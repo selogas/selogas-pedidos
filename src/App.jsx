@@ -8,43 +8,39 @@ import MisPedidos from './pages/MisPedidos';
 import Productos from './pages/Productos';
 import ImportarProductos from './pages/ImportarProductos';
 import Configuracion from './pages/Configuracion';
-import AlmacenTiendas from './pages/AlmacenTiendas';
-
-function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-    </div>
-  );
-  if (!user) return <Navigate to="/login" replace />;
-  return children;
-}
+import Tiendas from './pages/Tiendas';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+    <div className="fixed inset-0 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
     </div>
   );
 
-  return (
+  if (!user) return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/inicio" replace /> : <Login />} />
-      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="/inicio" replace />} />
-        <Route path="inicio" element={<Inicio />} />
-        <Route path="catalogo" element={<Catalogo />} />
-        <Route path="mis-pedidos" element={<MisPedidos />} />
-        <Route path="almacen" element={<AlmacenTiendas />} />
-        <Route path="productos" element={<Productos />} />
-        <Route path="importar" element={<ImportarProductos />} />
-        <Route path="configuracion" element={<Configuracion />} />
-        <Route path="*" element={<Navigate to="/inicio" replace />} />
-      </Route>
+      <Route path="/login" element={<Login />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+  );
+
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/" element={<Navigate to="/Catalogo" replace />} />
+        <Route path="/login" element={<Navigate to="/Catalogo" replace />} />
+        <Route path="/Inicio" element={<Inicio />} />
+        <Route path="/Catalogo" element={<Catalogo />} />
+        <Route path="/MisPedidos" element={<MisPedidos />} />
+        <Route path="/Productos" element={<Productos />} />
+        <Route path="/ImportarProductos" element={<ImportarProductos />} />
+        <Route path="/Configuracion" element={<Configuracion />} />
+        <Route path="/Tiendas" element={<Tiendas />} />
+        <Route path="*" element={<Navigate to="/Catalogo" replace />} />
+      </Routes>
+    </Layout>
   );
 }
 
