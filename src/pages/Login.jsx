@@ -8,20 +8,20 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await login(email, password);
-    if (error) {
-      setError('Email o contraseña incorrectos');
-    } else {
-      navigate('/Catalogo');
+    try {
+      await signIn(email, password);
+      navigate('/inicio');
+    } catch (err) {
+      setError('Email o contraseña incorrectos: ' + (err?.message || err));
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -45,6 +45,7 @@ export default function Login() {
               onChange={e => setEmail(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500"
               required
+              autoComplete="email"
             />
           </div>
           <div>
@@ -55,16 +56,20 @@ export default function Login() {
               onChange={e => setPassword(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500"
               required
+              autoComplete="current-password"
             />
           </div>
-          {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : null}
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? <><Loader2 size={16} className="animate-spin" /> Entrando...</> : 'Entrar'}
           </button>
         </form>
       </div>
