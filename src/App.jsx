@@ -1,52 +1,50 @@
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'react-hot-toast';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
 import Layout from './Layout';
 import Login from './pages/Login';
+import Inicio from './pages/Inicio';
 import Catalogo from './pages/Catalogo';
 import MisPedidos from './pages/MisPedidos';
-import Inicio from './pages/Inicio';
-import Tiendas from './pages/Tiendas';
 import Productos from './pages/Productos';
 import ImportarProductos from './pages/ImportarProductos';
 import Configuracion from './pages/Configuracion';
+import AlmacenTiendas from './pages/AlmacenTiendas';
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } }
-});
-
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading, isAdmin } = useAuth();
   if (loading) return (
-    <div className="fixed inset-0 flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && !isAdmin) return <Navigate to="/Catalogo" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/catalogo" replace />;
   return children;
-};
+}
 
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return (
-    <div className="fixed inset-0 flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
     </div>
   );
+
   return (
     <Routes>
-      <Route path="/login" element={!user ? <Login /> : <Navigate to="/Catalogo" replace />} />
-      <Route path="/" element={<Navigate to="/Catalogo" replace />} />
-      <Route path="/Inicio" element={<ProtectedRoute><Layout currentPageName="Inicio"><Inicio /></Layout></ProtectedRoute>} />
-      <Route path="/Catalogo" element={<ProtectedRoute><Layout currentPageName="Catalogo"><Catalogo /></Layout></ProtectedRoute>} />
-      <Route path="/MisPedidos" element={<ProtectedRoute><Layout currentPageName="MisPedidos"><MisPedidos /></Layout></ProtectedRoute>} />
-      <Route path="/Tiendas" element={<ProtectedRoute adminOnly><Layout currentPageName="Tiendas"><Tiendas /></Layout></ProtectedRoute>} />
-      <Route path="/Productos" element={<ProtectedRoute adminOnly><Layout currentPageName="Productos"><Productos /></Layout></ProtectedRoute>} />
-      <Route path="/ImportarProductos" element={<ProtectedRoute adminOnly><Layout currentPageName="ImportarProductos"><ImportarProductos /></Layout></ProtectedRoute>} />
-      <Route path="/Configuracion" element={<ProtectedRoute adminOnly><Layout currentPageName="Configuracion"><Configuracion /></Layout></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/Catalogo" replace />} />
+      <Route path="/login" element={user ? <Navigate to="/inicio" replace /> : <Login />} />
+      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+        <Route index element={<Navigate to="/inicio" replace />} />
+        <Route path="inicio" element={<Inicio />} />
+        <Route path="catalogo" element={<Catalogo />} />
+        <Route path="mis-pedidos" element={<MisPedidos />} />
+        <Route path="almacen" element={<ProtectedRoute adminOnly><AlmacenTiendas /></ProtectedRoute>} />
+        <Route path="productos" element={<ProtectedRoute adminOnly><Productos /></ProtectedRoute>} />
+        <Route path="importar" element={<ProtectedRoute adminOnly><ImportarProductos /></ProtectedRoute>} />
+        <Route path="configuracion" element={<ProtectedRoute adminOnly><Configuracion /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/inicio" replace />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
@@ -54,12 +52,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <AppRoutes />
-        </Router>
-        <Toaster position="top-center" />
-      </QueryClientProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
     </AuthProvider>
   );
 }
