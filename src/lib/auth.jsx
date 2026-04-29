@@ -9,29 +9,86 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   async function loadPerfil(authUser) {
-    if (!authUser) { setPerfil(null); setUser(null); return; }
-    const { data } = await supabase
+    if (!authUser) {
+      setPerfil(null);
+      setUser(null);
+      return;
+    }
+
+    let data = null;
+
+    // First try by auth uid
+    const res1 = await supabase
       .from('perfiles')
-      .select('*, tiendas(nombre, grupo, activa)')
+      .select('*')
       .eq('id', authUser.id)
-      .single();
+      .maybeSingle();
+
+    if (res1.data) {
+      data = res1.data;
+    } else {
+      // Fallback: try by email
+      const res2 = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('email', authUser.email)
+        .maybeSingle();
+      if (res2.data) {
+        data = res2.data;
+        // Fix the id mismatch
+        await supabase.from('perfiles').update({ id: authUser.id }).eq('email', authUser.email);
+      }
+    }
+
     if (data) {
+      let tienda_nombre = '';
+      let tienda_grupo = 'ambos';
+      let tienda_activa = true;
+
+      if (data.tienda_id) {
+        const { data: tiendaData } = await supabase
+          .from('tiendas')
+          .select('nombre, grupo, activa')
+          .eq('id', data.tienda_id)
+          .maybeSingle();
+        if (tiendaData) {
+          tienda_nombre = tiendaData.nombre || '';
+          tienda_grupo = tiendaData.grupo || 'ambos';
+          tienda_activa = tiendaData.activa !== false;
+        }
+      }
+
       const enriched = {
         ...authUser,
         nombre: data.nombre,
         rol: data.rol,
         tienda_id: data.tienda_id,
-        tienda_nombre: data.tiendas?.nombre || '',
-        tienda_grupo: data.tiendas?.grupo || 'ambos',
-        tienda_activa: data.tiendas?.activa !== false,
+        tienda_nombre,
+        tienda_grupo,
+        tienda_activa,
         activo: data.activo,
         perfil_id: data.id,
       };
       setUser(enriched);
       setPerfil(data);
     } else {
-      setUser(authUser);
-      setPerfil(null);
+      console.warn('[Auth] No perfil found for', authUser.email);
+      // Create a basic profile if none exists
+      const newPerfil = {
+        id: authUser.id,
+        email: authUser.email,
+        nombre: authUser.email.split('@')[0],
+        rol: 'tienda',
+        activo: true,
+      };
+      const { data: created } = await supabase.from('perfiles').insert(newPerfil).select().single();
+      if (created) {
+        setUser({ ...authUser, ...newPerfil });
+        setPerfil(created);
+      } else {
+        setUser({ ...authUser, rol: 'tienda' });
+        setPerfil(null);
+      }
     }
   }
 
@@ -39,9 +96,11 @@ export function AuthProvider({ children }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       loadPerfil(session?.user || null).finally(() => setLoading(false));
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       loadPerfil(session?.user || null);
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
