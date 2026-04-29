@@ -4,7 +4,7 @@ import { Home, ShoppingBag, ClipboardList, Store, Package, Upload, Settings, Log
 import { useState } from 'react';
 
 export default function Layout() {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -13,20 +13,15 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const adminLinks = [
+  const allLinks = [
+    { to: '/inicio', icon: Home, label: 'Inicio' },
+    { to: '/catalogo', icon: ShoppingBag, label: 'Catálogo' },
+    { to: '/mis-pedidos', icon: ClipboardList, label: 'Mis pedidos' },
     { to: '/almacen', icon: Store, label: 'Almacén / Tiendas' },
     { to: '/productos', icon: Package, label: 'Productos' },
     { to: '/importar', icon: Upload, label: 'Importar' },
     { to: '/configuracion', icon: Settings, label: 'Configuración' },
   ];
-
-  const commonLinks = [
-    { to: '/inicio', icon: Home, label: 'Inicio' },
-    { to: '/catalogo', icon: ShoppingBag, label: 'Catálogo' },
-    { to: '/mis-pedidos', icon: ClipboardList, label: 'Mis pedidos' },
-  ];
-
-  const allLinks = isAdmin ? [...commonLinks, ...adminLinks] : commonLinks;
 
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
@@ -34,6 +29,8 @@ export default function Layout() {
         ? 'bg-blue-600 text-white shadow-md'
         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
     }`;
+
+  const nombre = user?.email?.split('@')[0] || 'Usuario';
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -61,11 +58,11 @@ export default function Layout() {
         <div className="p-4 border-t border-gray-100">
           <div className="flex items-center gap-3 mb-3 px-2">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-              {(user?.nombre || user?.email || 'U')[0].toUpperCase()}
+              {nombre[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-gray-800 truncate">{user?.nombre || user?.email}</div>
-              <div className="text-xs text-gray-400 capitalize">{user?.rol || 'tienda'}</div>
+              <div className="text-xs font-semibold text-gray-800 truncate">{nombre}</div>
+              <div className="text-xs text-gray-400">Admin</div>
             </div>
           </div>
           <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-red-500 hover:bg-red-50 font-medium transition-colors">
