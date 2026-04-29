@@ -1,172 +1,167 @@
-import { useState, useEffect, useMemo } from 'react';
-import { productosApi, categoriasApi, uploadFile } from '../api';
-import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, Star, Tag, X, Save, ChevronUp, ChevronDown, ImageIcon, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
+import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Check, Upload, Globe } from "lucide-react";
 
-const GRUPOS_PROD = [
-  { value: 'ambos', label: 'Ambos', color: 'bg-blue-100 text-blue-700' },
-  { value: 'estacion', label: 'Estación', color: 'bg-orange-100 text-orange-700' },
-  { value: 'cafeteria', label: 'Cafetería', color: 'bg-purple-100 text-purple-700' },
+const GRUPOS = [
+  { value: 'ambas', label: '🌐 Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
+  { value: 'estacion', label: '🏪 Estación', desc: 'Solo estaciones', color: 'bg-blue-100 text-blue-700' },
+  { value: 'cafeteria', label: '☕ Cafetería', desc: 'Solo cafeterías', color: 'bg-orange-100 text-orange-700' },
 ];
 
 function EditProductoModal({ producto, categorias, onClose, onSave }) {
   const [form, setForm] = useState({
-    nombre: '', codigo: '', formato: '', categoria: '', imagen_url: '',
-    multiplo: 1, minimo: 1, disponible: true, favorito: false, visibilidad_grupo: 'ambos',
-    ...producto
+    nombre: producto.nombre || '',
+    codigo: producto.codigo || '',
+    categoria: producto.categoria || '',
+    formato: producto.formato || '',
+    multiplo: producto.multiplo || 1,
+    imagen_url: producto.imagen_url || '',
+    disponible: producto.disponible !== false,
+    grupo_visualizacion: producto.grupo_visualizacion || 'ambas',
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    try {
-      const { file_url } = await uploadFile(file);
-      setForm(f => ({ ...f, imagen_url: file_url }));
-    } catch(err) { alert('Error al subir imagen: ' + err.message); }
-    finally { setUploading(false); }
+    const ext = file.name.split('.').pop();
+    const fileName = `productos/${Date.now()}.${ext}`;
+    const { data, error } = await supabase.storage.from('imagenes').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data: url } = supabase.storage.from('imagenes').getPublicUrl(fileName);
+      setForm(f => ({ ...f, imagen_url: url.publicUrl }));
+    }
+    setUploading(false);
   };
 
   const handleSave = async () => {
-    if (!form.nombre.trim()) return alert('El nombre es obligatorio');
     setSaving(true);
-    const updated = await productosApi.update(producto.id, form);
+    const { error } = await supabase.from('productos').update(form).eq('id', producto.id);
     setSaving(false);
-    onSave(updated);
+    if (!error) onSave({ ...producto, ...form });
+    else alert('Error: ' + error.message);
   };
 
+  const grupoActual = GRUPOS.find(g => g.value === form.grupo_visualizacion) || GRUPOS[0];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
-        <div className="flex items-center justify-between p-6 border-b">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="font-bold text-lg">Editar producto</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
         </div>
-        <div className="p-6 space-y-4">
-          {[
-            { field: 'nombre', label: 'Nombre *' },
-            { field: 'codigo', label: 'Código SKU' },
-            { field: 'formato', label: 'Formato / Unidad' },
-          ].map(({ field, label }) => (
-            <div key={field}>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
-              <input className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-                value={form[field] || ''} onChange={e => setForm(f => ({...f, [field]: e.target.value}))} />
-            </div>
-          ))}
+
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Imagen</label>
-            <div className="flex gap-2">
-              <input className="flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-                value={form.imagen_url || ''} onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))} placeholder="URL de imagen..." />
-              <label className="px-3 py-2.5 rounded-xl border border-dashed border-gray-300 cursor-pointer hover:bg-gray-50 text-sm text-gray-500 flex items-center gap-1">
-                {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-              </label>
-            </div>
-            {form.imagen_url && <img src={form.imagen_url} alt="" className="mt-2 h-20 object-contain rounded-xl border" />}
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre *</label>
+            <input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Categoría</label>
-            <select className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-              value={form.categoria || ''} onChange={e => setForm(f => ({...f, categoria: e.target.value}))}>
-              <option value="">Sin categoría</option>
-              {categorias.map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
-            </select>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Código SKU</label>
+            <input type="text" value={form.codigo} onChange={e => setForm(f => ({...f, codigo: e.target.value}))}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Visible en</label>
-            <div className="flex gap-2">
-              {GRUPOS_PROD.map(g => (
-                <button key={g.value} type="button" onClick={() => setForm(f => ({...f, visibilidad_grupo: g.value}))}
-                  className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${form.visibilidad_grupo === g.value ? g.color + ' border-transparent' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
-                  {g.label}
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Categoría</label>
+            {categorias.length > 0 ? (
+              <select value={form.categoria} onChange={e => setForm(f => ({...f, categoria: e.target.value}))}
+                className="w-full border rounded-xl px-4 py-2.5 text-sm">
+                <option value="">Sin categoría</option>
+                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            ) : (
+              <input type="text" value={form.categoria} onChange={e => setForm(f => ({...f, categoria: e.target.value}))}
+                className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Formato</label>
+            <input type="text" value={form.formato} onChange={e => setForm(f => ({...f, formato: e.target.value}))}
+              placeholder="ej: X12, 70CL" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Múltiplo de pedido</label>
+            <input type="number" min="1" value={form.multiplo} onChange={e => setForm(f => ({...f, multiplo: Number(e.target.value)}))}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+          </div>
+
+          {/* GRUPO VISUALIZACION */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Visibilidad por tipo de tienda
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {GRUPOS.map(g => (
+                <button
+                  key={g.value}
+                  onClick={() => setForm(f => ({...f, grupo_visualizacion: g.value}))}
+                  className={`flex flex-col items-center p-3 rounded-xl border-2 text-center transition-all ${
+                    form.grupo_visualizacion === g.value
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-sm font-bold">{g.label}</span>
+                  <span className="text-xs text-gray-500 mt-0.5">{g.desc}</span>
                 </button>
               ))}
             </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Selecciona qué tipo de tiendas pueden ver este producto
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Múltiplo</label>
-              <input type="number" min="1" className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-                value={form.multiplo || 1} onChange={e => setForm(f => ({...f, multiplo: Number(e.target.value)}))} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mínimo</label>
-              <input type="number" min="1" className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-                value={form.minimo || 1} onChange={e => setForm(f => ({...f, minimo: Number(e.target.value)}))} />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-xl flex-1">
-              <input type="checkbox" checked={form.disponible !== false}
-                onChange={e => setForm(f => ({...f, disponible: e.target.checked}))} className="w-4 h-4 accent-blue-600" />
-              <span className="text-sm font-medium text-gray-700">Disponible</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-xl flex-1">
-              <input type="checkbox" checked={!!form.favorito}
-                onChange={e => setForm(f => ({...f, favorito: e.target.checked}))} className="w-4 h-4 accent-yellow-500" />
-              <span className="text-sm font-medium text-gray-700">Favorito ⭐</span>
-            </label>
-          </div>
-        </div>
-        <div className="flex gap-3 p-6 border-t">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 disabled:opacity-60 flex items-center justify-center gap-2">
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {saving ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function CategoriaModal({ cat, onClose, onSave }) {
-  const [form, setForm] = useState(cat || { nombre: '', grupo: 'ambos', orden: 99 });
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!form.nombre.trim()) return alert('El nombre es obligatorio');
-    setSaving(true);
-    try {
-      let result;
-      if (form.id) result = await categoriasApi.update(form.id, form);
-      else result = await categoriasApi.create(form);
-      onSave(result);
-    } catch(e) { alert('Error: ' + e.message); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="font-bold text-lg">{form.id ? 'Editar categoría' : 'Nueva categoría'}</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
-        </div>
-        <div className="p-6 space-y-4">
+          {/* IMAGEN */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nombre *</label>
-            <input className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-              value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} placeholder="Nombre de la categoría" />
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
+            <div className="flex gap-3 items-center">
+              <div className="w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {form.imagen_url ? (
+                  <img src={form.imagen_url} alt="" className="w-full h-full object-contain p-1" />
+                ) : (
+                  <Package size={32} className="text-gray-300" />
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="cursor-pointer flex items-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-600 hover:border-blue-400">
+                  {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                  {uploading ? "Subiendo..." : "Subir imagen"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+                </label>
+                <input
+                  type="text"
+                  value={form.imagen_url}
+                  onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))}
+                  placeholder="O pega una URL..."
+                  className="w-full text-xs border rounded-lg px-3 py-1.5 text-gray-600"
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Visible en</label>
-            <select className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-              value={form.grupo || 'ambos'} onChange={e => setForm(f => ({...f, grupo: e.target.value}))}>
-              <option value="estacion">Estación de Servicio</option>
-              <option value="cafeteria">Cafetería</option>
-              <option value="ambos">Ambos</option>
-            </select>
+
+          {/* DISPONIBLE */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+            <div>
+              <div className="text-sm font-semibold text-gray-700">Disponible</div>
+              <div className="text-xs text-gray-400">Visible en el catálogo</div>
+            </div>
+            <button
+              onClick={() => setForm(f => ({...f, disponible: !f.disponible}))}
+              className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-blue-600" : "bg-gray-300"}`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.disponible ? "translate-x-6" : "translate-x-0.5"}`} />
+            </button>
           </div>
         </div>
-        <div className="flex gap-3 p-6 border-t">
+
+        <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 disabled:opacity-60 flex items-center justify-center gap-2">
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Guardar
+          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-70">
+            {saving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </div>
@@ -176,209 +171,169 @@ function CategoriaModal({ cat, onClose, onSave }) {
 
 export default function Productos() {
   const [productos, setProductos] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [categoriaActiva, setCategoriaActiva] = useState('__todas__');
-  const [busqueda, setBusqueda] = useState('');
+  const [categoriaActiva, setCategoriaActiva] = useState("__todas__");
+  const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState(null);
-  const [catModal, setCatModal] = useState(null);
-  const [showCats, setShowCats] = useState(false);
-  const [selected, setSelected] = useState(new Set());
+  const [filtroGrupo, setFiltroGrupo] = useState("__todos__");
 
   useEffect(() => {
-    Promise.all([productosApi.list('orden_excel', 2000), categoriasApi.list()]).then(([p, c]) => {
-      setProductos(p);
-      setCategorias(c);
+    supabase.from('productos').select('*').order('orden_excel').then(({ data }) => {
+      setProductos(data || []);
       setLoading(false);
     });
   }, []);
 
+  const categorias = useMemo(() => {
+    const seen = [];
+    const s = new Set();
+    for (const p of productos) {
+      if (p.categoria && !s.has(p.categoria)) { s.add(p.categoria); seen.push(p.categoria); }
+    }
+    return seen;
+  }, [productos]);
+
   const productosFiltrados = useMemo(() => {
-    let list = categoriaActiva !== '__todas__' ? productos.filter(p => p.categoria === categoriaActiva) : productos;
+    let list = productos;
+    if (categoriaActiva !== "__todas__") list = list.filter(p => p.categoria === categoriaActiva);
+    if (filtroGrupo !== "__todos__") list = list.filter(p => (p.grupo_visualizacion || 'ambas') === filtroGrupo);
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
       list = list.filter(p => p.nombre?.toLowerCase().includes(q) || p.codigo?.toLowerCase().includes(q));
     }
     return list;
-  }, [productos, categoriaActiva, busqueda]);
+  }, [productos, categoriaActiva, busqueda, filtroGrupo]);
 
   const handleToggle = async (prod) => {
-    const nuevo = prod.disponible === false;
-    await productosApi.update(prod.id, { disponible: nuevo });
-    setProductos(prev => prev.map(p => p.id === prod.id ? {...p, disponible: nuevo} : p));
+    const nuevo = prod.disponible === false ? true : false;
+    await supabase.from('productos').update({ disponible: nuevo }).eq('id', prod.id);
+    setProductos(prev => prev.map(p => p.id === prod.id ? { ...p, disponible: nuevo } : p));
   };
 
-  const handleFavorito = async (prod) => {
-    const nuevo = !prod.favorito;
-    await productosApi.update(prod.id, { favorito: nuevo });
-    setProductos(prev => prev.map(p => p.id === prod.id ? {...p, favorito: nuevo} : p));
+  const handleSave = (updated) => {
+    setProductos(prev => prev.map(p => p.id === updated.id ? updated : p));
+    setEditando(null);
   };
 
-  const handleEliminar = async (prod) => {
+  const handleDelete = async (prod) => {
     if (!confirm(`¿Eliminar "${prod.nombre}"?`)) return;
-    await productosApi.delete(prod.id);
+    await supabase.from('productos').delete().eq('id', prod.id);
     setProductos(prev => prev.filter(p => p.id !== prod.id));
   };
 
-  const handleEliminarSeleccionados = async () => {
-    if (selected.size === 0) return;
-    if (!confirm(`¿Eliminar ${selected.size} productos seleccionados?`)) return;
-    await productosApi.bulkDelete([...selected]);
-    setProductos(prev => prev.filter(p => !selected.has(p.id)));
-    setSelected(new Set());
+  const handleGrupoChange = async (prod, nuevoGrupo) => {
+    await supabase.from('productos').update({ grupo_visualizacion: nuevoGrupo }).eq('id', prod.id);
+    setProductos(prev => prev.map(p => p.id === prod.id ? { ...p, grupo_visualizacion: nuevoGrupo } : p));
   };
 
-  const handleSaveCat = (saved) => {
-    setCategorias(prev => {
-      const exists = prev.find(c => c.id === saved.id);
-      return exists ? prev.map(c => c.id === saved.id ? saved : c).sort((a,b) => (a.orden||0)-(b.orden||0))
-        : [...prev, saved].sort((a,b) => (a.orden||0)-(b.orden||0));
-    });
-    setCatModal(null);
-  };
-
-  const handleDeleteCat = async (id) => {
-    if (!confirm('¿Eliminar esta categoría? Los productos quedarán sin categoría.')) return;
-    await categoriasApi.delete(id);
-    setCategorias(prev => prev.filter(c => c.id !== id));
-  };
-
-  const handleMoveCat = async (idx, dir) => {
-    const arr = [...categorias];
-    const target = idx + dir;
-    if (target < 0 || target >= arr.length) return;
-    [arr[idx], arr[target]] = [arr[target], arr[idx]];
-    arr.forEach((c, i) => { c.orden = i; });
-    setCategorias([...arr]);
-    for (const c of arr) await categoriasApi.update(c.id, { orden: c.orden });
-  };
-
-  const GRUPO_COLOR = { estacion: 'bg-orange-100 text-orange-700', cafeteria: 'bg-purple-100 text-purple-700', ambos: 'bg-blue-100 text-blue-700' };
-  const GRUPO_LABEL = { estacion: 'Estación', cafeteria: 'Cafetería', ambos: 'Ambos' };
-
-  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 size={40} className="animate-spin text-blue-600" /></div>;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Loader2 size={40} className="animate-spin" style={{ color: "var(--color-primary)" }} />
+    </div>
+  );
 
   return (
     <div>
-      {editando && <EditProductoModal producto={editando} categorias={categorias} onClose={() => setEditando(null)}
-        onSave={(updated) => { setProductos(prev => prev.map(p => p.id === updated.id ? updated : p)); setEditando(null); }} />}
-      {catModal !== null && <CategoriaModal cat={catModal === 'new' ? null : catModal} onClose={() => setCatModal(null)} onSave={handleSaveCat} />}
-
-      {/* Barra de herramientas */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h1 className="text-xl font-bold text-gray-900 mr-2">Productos</h1>
-        <button onClick={() => setCatModal('new')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50">
-          <Tag size={14} />Categorías
-        </button>
-        <button onClick={() => setShowCats(s => !s)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50">
-          {showCats ? 'Ocultar cats' : 'Gestionar cats'}
-        </button>
-        {selected.size > 0 && (
-          <button onClick={handleEliminarSeleccionados} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-medium hover:bg-red-100">
-            <Trash2 size={14} />Eliminar ({selected.size})
-          </button>
-        )}
-        <div className="ml-auto text-sm text-gray-400">{productosFiltrados.length} productos</div>
-      </div>
-
-      {/* Gestión de categorías expandible */}
-      {showCats && (
-        <div className="mb-4 bg-white rounded-2xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-sm text-gray-900">Gestión de categorías</h3>
-            <button onClick={() => setCatModal('new')} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg font-semibold">
-              <Plus size={12} />Nueva
-            </button>
-          </div>
-          <div className="space-y-1">
-            {categorias.map((cat, idx) => (
-              <div key={cat.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl hover:bg-gray-100">
-                <div className="flex flex-col gap-0.5">
-                  <button onClick={() => handleMoveCat(idx, -1)} disabled={idx === 0} className="p-0.5 rounded hover:bg-white disabled:opacity-30"><ChevronUp size={12} /></button>
-                  <button onClick={() => handleMoveCat(idx, 1)} disabled={idx === categorias.length-1} className="p-0.5 rounded hover:bg-white disabled:opacity-30"><ChevronDown size={12} /></button>
-                </div>
-                <span className="flex-1 text-sm font-medium text-gray-800">{cat.nombre}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${GRUPO_COLOR[cat.grupo] || 'bg-gray-100 text-gray-500'}`}>
-                  {GRUPO_LABEL[cat.grupo] || 'Ambos'}
-                </span>
-                <button onClick={() => setCatModal(cat)} className="p-1 rounded-lg hover:bg-white text-blue-500"><Pencil size={13} /></button>
-                <button onClick={() => handleDeleteCat(cat.id)} className="p-1 rounded-lg hover:bg-white text-red-400"><Trash2 size={13} /></button>
-              </div>
-            ))}
-          </div>
-        </div>
+      {editando && (
+        <EditProductoModal
+          producto={editando}
+          categorias={categorias}
+          onClose={() => setEditando(null)}
+          onSave={handleSave}
+        />
       )}
 
-      {/* Buscador */}
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          placeholder="Buscar productos..." className="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-blue-400" />
+      {/* Filtros */}
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar..." className="w-full pl-9 pr-4 py-2 border rounded-xl text-sm" />
+        </div>
+
+        <select value={categoriaActiva} onChange={e => setCategoriaActiva(e.target.value)}
+          className="border rounded-xl px-3 py-2 text-sm">
+          <option value="__todas__">Todas las categorías</option>
+          {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)}
+          className="border rounded-xl px-3 py-2 text-sm">
+          <option value="__todos__">Todos los grupos</option>
+          <option value="ambas">🌐 Ambas</option>
+          <option value="estacion">🏪 Estación</option>
+          <option value="cafeteria">☕ Cafetería</option>
+        </select>
       </div>
 
-      {/* Filtros por categoría */}
-      <div className="flex gap-2 mb-5 overflow-x-auto pb-2">
-        <button key="__todas__" onClick={() => setCategoriaActiva('__todas__')}
-          className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${categoriaActiva === '__todas__' ? 'bg-blue-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}>
-          Todas
-        </button>
-        {categorias.map(cat => (
-          <button key={cat.id} onClick={() => setCategoriaActiva(cat.nombre)}
-            className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${categoriaActiva === cat.nombre ? 'bg-blue-600 text-white shadow-md' : 'bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}>
-            {cat.nombre}
-          </button>
-        ))}
+      <div className="mb-3 text-sm text-gray-500">
+        Mostrando {productosFiltrados.length} de {productos.length} productos
       </div>
 
       {/* Grid de productos */}
       {productosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Package size={48} className="mx-auto mb-3 opacity-30" />
-          <p>No hay productos en esta vista</p>
+          <p>No hay productos en esta categoría</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {productosFiltrados.map(prod => (
-            <div key={prod.id} onClick={() => setSelected(s => { const n = new Set(s); n.has(prod.id) ? n.delete(prod.id) : n.add(prod.id); return n; })}
-              className={`bg-white rounded-xl border-2 flex flex-col overflow-hidden hover:shadow-md transition-all cursor-pointer ${selected.has(prod.id) ? 'border-blue-500' : 'border-gray-200'} ${prod.disponible === false ? 'opacity-60' : ''}`}>
-              <div className="h-28 bg-gray-50 flex items-center justify-center relative">
-                {prod.favorito && <span className="absolute top-1 right-1 text-yellow-400"><Star size={14} fill="currentColor" /></span>}
-                {prod.disponible === false && (
-                  <span className="absolute bottom-1 left-1 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-lg font-semibold">Agotado</span>
-                )}
-                {prod.imagen_url ? (
-                  <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-full object-contain p-2"
-                    onError={e => { e.target.style.display='none'; }} />
-                ) : (
-                  <Package size={32} className="text-gray-200" />
-                )}
-              </div>
-              <div className="p-2.5 flex flex-col gap-1 flex-1">
-                <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2">{prod.nombre}</h3>
-                {prod.codigo && <p className="text-xs text-gray-400">SKU: {prod.codigo}</p>}
-                <div className="flex items-center gap-1 flex-wrap mt-auto">
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${GRUPO_COLOR[prod.visibilidad_grupo] || 'bg-gray-100 text-gray-500'}`}>
-                    {GRUPO_LABEL[prod.visibilidad_grupo] || 'Ambos'}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {productosFiltrados.map(prod => {
+            const grupoInfo = GRUPOS.find(g => g.value === (prod.grupo_visualizacion || 'ambas')) || GRUPOS[0];
+            const disponible = prod.disponible !== false;
+            return (
+              <div key={prod.id} className={`bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden hover:shadow-md transition-shadow ${!disponible ? "opacity-60" : ""}`}>
+                <div className="relative bg-gray-50 flex items-center justify-center" style={{ height: "120px" }}>
+                  {prod.imagen_url ? (
+                    <img src={prod.imagen_url} alt={prod.nombre}
+                      className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <Package size={36} className="text-gray-200" />
+                  )}
+                  {/* Badge grupo */}
+                  <span className={`absolute top-1 left-1 text-xs px-1.5 py-0.5 rounded-full font-medium ${grupoInfo.color}`}>
+                    {grupoInfo.value === 'ambas' ? '🌐' : grupoInfo.value === 'estacion' ? '🏪' : '☕'}
                   </span>
-                  <span className="text-xs text-blue-600 font-semibold">x{prod.multiplo || 1}</span>
                 </div>
-                <div className="flex gap-1 mt-1.5" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setEditando(prod)} className="flex-1 flex items-center justify-center gap-0.5 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:bg-gray-50">
-                    <Pencil size={11} />Editar
-                  </button>
-                  <button onClick={() => handleFavorito(prod)} className={`p-1.5 rounded-lg ${prod.favorito ? 'text-yellow-500 bg-yellow-50' : 'text-gray-300 hover:bg-gray-50'}`}>
-                    <Star size={14} fill={prod.favorito ? 'currentColor' : 'none'} />
-                  </button>
-                  <button onClick={() => handleToggle(prod)} className={`p-1.5 rounded-lg ${prod.disponible !== false ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-50'}`}>
-                    {prod.disponible !== false ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                  </button>
-                  <button onClick={() => handleEliminar(prod)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50">
-                    <Trash2 size={14} />
-                  </button>
+                <div className="p-2 flex flex-col flex-1 gap-1">
+                  <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2">{prod.nombre}</h3>
+                  {prod.codigo && <p className="text-xs text-gray-400">SKU: {prod.codigo}</p>}
+                  
+                  {/* Selector rápido de grupo */}
+                  <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs mt-1">
+                    {GRUPOS.map(g => (
+                      <button key={g.value} onClick={() => handleGrupoChange(prod, g.value)}
+                        className={`flex-1 py-0.5 transition-colors font-medium ${
+                          (prod.grupo_visualizacion || 'ambas') === g.value
+                            ? (g.value === 'ambas' ? 'bg-purple-600 text-white' : g.value === 'estacion' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white')
+                            : 'bg-white text-gray-400 hover:bg-gray-50'
+                        }`}
+                        title={g.desc}
+                      >
+                        {g.value === 'ambas' ? '🌐' : g.value === 'estacion' ? '🏪' : '☕'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-auto pt-1 flex gap-1">
+                    <button onClick={() => setEditando(prod)}
+                      className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-semibold border border-gray-200 hover:bg-gray-50">
+                      <Pencil size={11} /> Editar
+                    </button>
+                    <button onClick={() => handleDelete(prod)}
+                      className="p-1 rounded-lg text-red-400 hover:bg-red-50">
+                      <Trash2 size={13} />
+                    </button>
+                    <button onClick={() => handleToggle(prod)}
+                      className={`p-1 rounded-lg ${disponible ? "text-green-600 hover:bg-green-50" : "text-gray-400 hover:bg-gray-50"}`}
+                      title={disponible ? "Desactivar" : "Activar"}>
+                      {disponible ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
