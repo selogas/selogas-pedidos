@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { ShoppingCart, Search, Package, Loader2, CheckCircle } from "lucide-react";
-import ProductCard from "@/components/catalogo/ProductCard";
-import CategoryNav from "@/components/catalogo/CategoryNav";
-import CartSidebar from "@/components/catalogo/CartSidebar";
+import ProductCard from "@/components/ProductCard";
+import CartSidebar from "@/components/CartSidebar";
 
 export default function Catalogo() {
   const [user, setUser] = useState(null);
@@ -25,21 +24,17 @@ export default function Catalogo() {
       
       if (!u) { setLoading(false); return; }
       
-      // Obtener perfil
       const { data: p } = await supabase.from('perfiles').select('*, tiendas(*)').eq('id', u.id).single();
       setPerfil(p);
       
-      // Determinar grupo de la tienda
       const grupoTienda = p?.tiendas?.grupo || 'estacion';
       const esAdmin = p?.rol === 'admin';
       
       if (p?.tiendas) setTienda(p.tiendas);
 
-      // Cargar productos filtrados por grupo
       let query = supabase.from('productos').select('*').eq('disponible', true).order('orden_excel');
       
       if (!esAdmin) {
-        // Filtrar por grupo_visualizacion: 'ambas' o el grupo de la tienda
         query = query.in('grupo_visualizacion', ['ambas', grupoTienda]);
       }
       
@@ -109,7 +104,6 @@ export default function Catalogo() {
       const numeroPedido = `PED-${Date.now().toString().slice(-8)}`;
       const fecha = new Date().toISOString();
 
-      // Crear pedido
       const { data: pedido, error: pedidoError } = await supabase.from('pedidos').insert([{
         numero_pedido: numeroPedido,
         tienda_id: tienda?.id || null,
@@ -126,7 +120,6 @@ export default function Catalogo() {
 
       if (pedidoError) throw pedidoError;
 
-      // Crear líneas del pedido
       const lineasData = lineas.map(({ prod, qty }) => ({
         pedido_id: pedido.id,
         producto_id: prod.id,
@@ -140,18 +133,6 @@ export default function Catalogo() {
 
       const { error: lineasError } = await supabase.from('pedido_items').insert(lineasData);
       if (lineasError) throw lineasError;
-
-      // Intentar enviar email (si está configurado)
-      try {
-        const { data: configEmail } = await supabase.from('configuracion').select('valor').eq('clave', 'email_almacen').single();
-        if (configEmail?.valor) {
-          // El email se envía mediante un webhook o Edge Function de Supabase
-          // Por ahora registramos como enviado
-          await supabase.from('pedidos').update({ email_enviado: true }).eq('id', pedido.id);
-        }
-      } catch(e) {
-        console.log('Email no configurado:', e.message);
-      }
 
       setCarrito({});
       setCartOpen(false);
@@ -181,7 +162,7 @@ export default function Catalogo() {
       <div className="text-center py-20">
         <Package size={60} className="mx-auto mb-4 text-gray-300" />
         <h2 className="text-xl font-bold text-gray-600 mb-2">Sin productos</h2>
-        <p className="text-gray-400 mb-4">El catálogo está vacío. Un administrador debe importar el catálogo desde "Importar Productos".</p>
+        <p className="text-gray-400 mb-4">El catálogo está vacío. Un administrador debe importar el catálogo.</p>
       </div>
     );
   }
@@ -213,14 +194,12 @@ export default function Catalogo() {
         </div>
       )}
 
-      {/* Info de grupo de la tienda */}
       {tienda && (
         <div className={`mb-4 px-4 py-2 rounded-xl text-sm font-medium ${tienda.grupo === 'cafeteria' ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-          {tienda.grupo === 'cafeteria' ? '☕' : '🏪'} Catálogo para <strong>{tienda.nombre}</strong> — Tipo: {tienda.grupo === 'cafeteria' ? 'Cafetería' : 'Estación'} ({productos.length} productos disponibles)
+          {tienda.grupo === 'cafeteria' ? '☕' : '🏪'} <strong>{tienda.nombre}</strong> · {tienda.grupo === 'cafeteria' ? 'Cafetería' : 'Estación'} · {productos.length} productos
         </div>
       )}
 
-      {/* Search bar */}
       <div className="relative mb-6 flex gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -259,16 +238,33 @@ export default function Catalogo() {
         </button>
       </div>
 
-      {/* Category nav */}
-      <div className="mb-6">
-        <CategoryNav
-          categorias={categorias}
-          categoriaActiva={categoriaActiva}
-          onChange={setCategoriaActiva}
-        />
+      {/* Category tabs */}
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        <button
+          onClick={() => setCategoriaActiva("__todas__")}
+          className={`flex-shrink-0 px-4 py-2 rounded-2xl border-2 font-semibold text-sm transition-all ${
+            categoriaActiva === "__todas__"
+              ? "border-blue-600 bg-blue-600 text-white"
+              : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"
+          }`}
+        >
+          🛒 Todas
+        </button>
+        {categorias.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setCategoriaActiva(cat)}
+            className={`flex-shrink-0 px-4 py-2 rounded-2xl border-2 font-semibold text-sm transition-all ${
+              categoriaActiva === cat
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
       </div>
 
-      {/* Products */}
       {productosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Package size={48} className="mx-auto mb-3 opacity-30" />
