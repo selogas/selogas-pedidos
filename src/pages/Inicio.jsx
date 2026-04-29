@@ -1,59 +1,98 @@
-import { useState, useEffect } from "react";
-import { comunicadosApi } from "../api";
-import { useAuth } from "../lib/auth";
-import { Plus, Pencil, Trash2, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { comunicadosApi, uploadFile } from '../api';
+import { useAuth } from '../lib/auth';
+import { Plus, Pencil, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, X, Save, Loader2, ImageIcon, Megaphone } from 'lucide-react';
 
-const TIPO_COLORS = {
-  noticia: "bg-blue-100 text-blue-800",
-  comunicado: "bg-gray-100 text-gray-800",
-  oferta: "bg-green-100 text-green-800",
-  aviso: "bg-yellow-100 text-yellow-800",
-};
+function ComunicadoModal({ com, onClose, onSave }) {
+  const [form, setForm] = useState(com || { titulo: '', texto: '', imagen_url: '', visible: true, orden: 99 });
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-const TIPO_LABELS = { noticia: "Noticia", comunicado: "Comunicado", oferta: "Oferta", aviso: "Aviso" };
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { file_url } = await uploadFile(file);
+      setForm(f => ({ ...f, imagen_url: file_url }));
+    } catch(err) {
+      alert('Error al subir imagen: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
-function ComunicadoForm({ item, onSave, onCancel }) {
-  const [form, setForm] = useState(item || { titulo: "", contenido: "", imagen_url: "", tipo: "comunicado", activo: true, orden: 0 });
+  const handleSave = async () => {
+    if (!form.titulo.trim()) return alert('El título es obligatorio');
+    setSaving(true);
+    try {
+      let result;
+      if (form.id) {
+        result = await comunicadosApi.update(form.id, form);
+      } else {
+        result = await comunicadosApi.create(form);
+      }
+      onSave(result);
+    } catch(e) {
+      alert('Error: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Título *</label>
-          <input value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))}
-            className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Título..." />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="font-bold text-lg">{form.id ? 'Editar comunicado' : 'Nuevo comunicado'}</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
         </div>
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Tipo</label>
-          <select value={form.tipo} onChange={e => setForm(f => ({...f, tipo: e.target.value}))}
-            className="w-full border rounded-lg px-3 py-2 text-sm">
-            <option value="comunicado">Comunicado</option>
-            <option value="noticia">Noticia</option>
-            <option value="oferta">Oferta</option>
-            <option value="aviso">Aviso</option>
-          </select>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Título *</label>
+            <input className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))} placeholder="Título del comunicado" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Texto</label>
+            <textarea className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:border-blue-400"
+              rows={4} value={form.texto} onChange={e => setForm(f => ({...f, texto: e.target.value}))} placeholder="Contenido del comunicado..." />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Imagen</label>
+            <div className="flex gap-2">
+              <input className="flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                value={form.imagen_url || ''} onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))} placeholder="URL de imagen..." />
+              <label className="px-3 py-2.5 rounded-xl border border-dashed border-gray-300 cursor-pointer hover:bg-gray-50 text-sm text-gray-500 flex items-center gap-1">
+                {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
+                <span>Subir</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              </label>
+            </div>
+            {form.imagen_url && (
+              <img src={form.imagen_url} alt="preview" className="mt-2 h-24 object-cover rounded-xl border" />
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.visible !== false}
+                onChange={e => setForm(f => ({...f, visible: e.target.checked}))} className="w-4 h-4 accent-blue-600" />
+              <span className="text-sm font-medium text-gray-700">Visible para tiendas</span>
+            </label>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Orden</label>
+            <input type="number" className="w-32 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              value={form.orden || 0} onChange={e => setForm(f => ({...f, orden: Number(e.target.value)}))} />
+          </div>
         </div>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">Contenido</label>
-        <textarea value={form.contenido} onChange={e => setForm(f => ({...f, contenido: e.target.value}))}
-          className="w-full border rounded-lg px-3 py-2 text-sm resize-none" rows={4} />
-      </div>
-      <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">URL de imagen</label>
-        <input value={form.imagen_url} onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))}
-          className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://..." />
-      </div>
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({...f, activo: e.target.checked}))} />
-        <span className="text-sm text-gray-700">Visible para las tiendas</span>
-      </label>
-      <div className="flex gap-2 justify-end pt-2 border-t">
-        <button onClick={onCancel} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Cancelar</button>
-        <button onClick={() => onSave(form)} disabled={!form.titulo}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
-          {item ? "Guardar cambios" : "Publicar"}
-        </button>
+        <div className="flex gap-3 p-6 border-t">
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
+          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 disabled:opacity-60 flex items-center justify-center gap-2">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -63,77 +102,118 @@ export default function Inicio() {
   const { isAdmin } = useAuth();
   const [comunicados, setComunicados] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [modal, setModal] = useState(null); // null | 'new' | comunicado obj
 
-  useEffect(() => { loadComunicados(); }, []);
+  useEffect(() => {
+    comunicadosApi.list().then(data => {
+      const visible = isAdmin ? data : data.filter(c => c.visible);
+      setComunicados(visible);
+      setLoading(false);
+    });
+  }, [isAdmin]);
 
-  const loadComunicados = async () => {
-    setLoading(true);
-    const data = await comunicadosApi.list('orden', 100);
-    setComunicados(data);
-    setLoading(false);
+  const handleSave = (saved) => {
+    setComunicados(prev => {
+      const exists = prev.find(c => c.id === saved.id);
+      if (exists) return prev.map(c => c.id === saved.id ? saved : c).sort((a,b) => (a.orden||0)-(b.orden||0));
+      return [...prev, saved].sort((a,b) => (a.orden||0)-(b.orden||0));
+    });
+    setModal(null);
   };
 
-  const visibles = isAdmin ? comunicados : comunicados.filter(c => c.activo);
+  const handleDelete = async (id) => {
+    if (!confirm('¿Eliminar comunicado?')) return;
+    await comunicadosApi.delete(id);
+    setComunicados(prev => prev.filter(c => c.id !== id));
+  };
 
-  const handleSave = async (form) => {
-    if (editing) {
-      await comunicadosApi.update(editing.id, form);
-    } else {
-      const maxOrden = comunicados.length > 0 ? Math.max(...comunicados.map(c => c.orden || 0)) : 0;
-      await comunicadosApi.create({ ...form, orden: maxOrden + 1 });
-    }
-    setShowForm(false); setEditing(null);
-    loadComunicados();
+  const handleToggleVisible = async (com) => {
+    const updated = await comunicadosApi.update(com.id, { visible: !com.visible });
+    setComunicados(prev => prev.map(c => c.id === updated.id ? updated : c));
+  };
+
+  const handleMove = async (idx, dir) => {
+    const arr = [...comunicados];
+    const target = idx + dir;
+    if (target < 0 || target >= arr.length) return;
+    [arr[idx], arr[target]] = [arr[target], arr[idx]];
+    arr.forEach((c, i) => { c.orden = i; });
+    setComunicados(arr);
+    for (const c of arr) await comunicadosApi.update(c.id, { orden: c.orden });
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Inicio</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Noticias y comunicados</p>
+          <p className="text-gray-400 text-sm mt-0.5">Comunicados y noticias</p>
         </div>
-        {isAdmin && !showForm && !editing && (
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold text-sm">
-            <Plus size={16} /> Nuevo comunicado
+        {isAdmin && (
+          <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 shadow-sm">
+            <Plus size={18} />
+            Nuevo comunicado
           </button>
         )}
       </div>
-      {(showForm || editing) && (
-        <div className="mb-6">
-          <ComunicadoForm item={editing} onSave={handleSave} onCancel={() => { setShowForm(false); setEditing(null); }} />
-        </div>
+
+      {modal && (
+        <ComunicadoModal
+          com={modal === 'new' ? null : modal}
+          onClose={() => setModal(null)}
+          onSave={handleSave}
+        />
       )}
+
       {loading ? (
-        <div className="text-center py-16 text-gray-400">Cargando...</div>
-      ) : visibles.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          {isAdmin ? "Aún no hay comunicados. ¡Crea el primero!" : "No hay comunicados disponibles."}
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={32} className="animate-spin text-blue-600" />
+        </div>
+      ) : comunicados.length === 0 ? (
+        <div className="text-center py-20">
+          <Megaphone size={48} className="mx-auto mb-4 text-gray-200" />
+          <p className="text-gray-400 font-medium">No hay comunicados</p>
+          {isAdmin && <p className="text-sm text-gray-400 mt-1">Crea el primer comunicado con el botón de arriba</p>}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {visibles.map((item, idx) => (
-            <div key={item.id} className={`bg-white border rounded-xl overflow-hidden shadow-sm ${!item.activo && isAdmin ? "opacity-60" : ""}`}>
-              {item.imagen_url && <img src={item.imagen_url} alt={item.titulo} className="w-full h-48 object-cover" />}
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIPO_COLORS[item.tipo] || "bg-gray-100 text-gray-700"}`}>
-                    {TIPO_LABELS[item.tipo] || item.tipo}
-                  </span>
+        <div className="space-y-4">
+          {comunicados.map((com, idx) => (
+            <div key={com.id} className={`bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm ${!com.visible ? 'opacity-60' : ''}`}>
+              {com.imagen_url && (
+                <div className="h-48 bg-gray-100">
+                  <img src={com.imagen_url} alt={com.titulo} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-bold text-gray-900 text-base leading-snug">{com.titulo}</h2>
                   {isAdmin && (
-                    <div className="flex gap-1">
-                      <button onClick={() => comunicadosApi.update(item.id, { activo: !item.activo }).then(loadComunicados)} className="p-1 hover:bg-gray-100 rounded">
-                        {item.activo ? <EyeOff size={15} /> : <Eye size={15} />}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => handleMove(idx, -1)} disabled={idx === 0}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-400">
+                        <ChevronUp size={16} />
                       </button>
-                      <button onClick={() => { setEditing(item); setShowForm(false); }} className="p-1 hover:bg-gray-100 rounded text-blue-600"><Pencil size={15} /></button>
-                      <button onClick={() => { if(confirm("¿Eliminar?")) comunicadosApi.delete(item.id).then(loadComunicados); }} className="p-1 hover:bg-gray-100 rounded text-red-500"><Trash2 size={15} /></button>
+                      <button onClick={() => handleMove(idx, 1)} disabled={idx === comunicados.length - 1}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-400">
+                        <ChevronDown size={16} />
+                      </button>
+                      <button onClick={() => handleToggleVisible(com)}
+                        className={`p-1.5 rounded-lg hover:bg-gray-100 ${com.visible ? 'text-green-600' : 'text-gray-400'}`}>
+                        {com.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                      </button>
+                      <button onClick={() => setModal(com)} className="p-1.5 rounded-lg hover:bg-gray-100 text-blue-500">
+                        <Pencil size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(com.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400">
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   )}
                 </div>
-                <h3 className="font-semibold text-gray-900 text-base mb-1">{item.titulo}</h3>
-                {item.contenido && <p className="text-sm text-gray-600 whitespace-pre-wrap">{item.contenido}</p>}
+                {com.texto && <p className="text-gray-600 text-sm mt-2 leading-relaxed whitespace-pre-wrap">{com.texto}</p>}
+                {!com.visible && isAdmin && (
+                  <span className="mt-2 inline-block text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Oculto</span>
+                )}
               </div>
             </div>
           ))}
