@@ -17,27 +17,21 @@ export function AuthProvider({ children }) {
 
     let data = null;
 
-    // First try by auth uid
-    const res1 = await supabase
+    // ALWAYS query by email - most reliable, avoids id mismatch issues
+    const res = await supabase
       .from('perfiles')
       .select('*')
-      .eq('id', authUser.id)
+      .eq('email', authUser.email)
       .maybeSingle();
 
-    if (res1.data) {
-      data = res1.data;
-    } else {
-      // Fallback: try by email
-      const res2 = await supabase
-        .from('perfiles')
-        .select('*')
-        .eq('email', authUser.email)
-        .maybeSingle();
-      if (res2.data) {
-        data = res2.data;
-        // Fix the id mismatch
-        await supabase.from('perfiles').update({ id: authUser.id }).eq('email', authUser.email);
+    if (res.data) {
+      data = res.data;
+      // Sync the id in perfiles to match auth.users id (fire-and-forget)
+      if (data.id !== authUser.id) {
+        supabase.from('perfiles').update({ id: authUser.id }).eq('email', authUser.email).then(() => {});
       }
+    } else if (res.error) {
+      console.error('[Auth] Error loading perfil:', res.error.message);
     }
 
     if (data) {
@@ -72,23 +66,11 @@ export function AuthProvider({ children }) {
       setUser(enriched);
       setPerfil(data);
     } else {
+      // No profile found - user exists in auth but not in perfiles
+      // Set minimal user without rol (admin must create their profile manually)
       console.warn('[Auth] No perfil found for', authUser.email);
-      // Create a basic profile if none exists
-      const newPerfil = {
-        id: authUser.id,
-        email: authUser.email,
-        nombre: authUser.email.split('@')[0],
-        rol: 'tienda',
-        activo: true,
-      };
-      const { data: created } = await supabase.from('perfiles').insert(newPerfil).select().single();
-      if (created) {
-        setUser({ ...authUser, ...newPerfil });
-        setPerfil(created);
-      } else {
-        setUser({ ...authUser, rol: 'tienda' });
-        setPerfil(null);
-      }
+      setUser({ ...authUser, rol: null });
+      setPerfil(null);
     }
   }
 
