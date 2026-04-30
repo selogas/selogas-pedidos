@@ -5,7 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
 const CATEGORIA_EMOJIS = {
-  "Bebidas": "\u{1F37A}",
+  "Bebidas":,
   "Alimentacion": "\u{1F35E}",
   "Cafeteria": "\u2615",
   "Limpieza": "\u{1F9F9}",
