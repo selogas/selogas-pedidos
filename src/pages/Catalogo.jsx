@@ -5,32 +5,32 @@ import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
 const CATEGORIA_EMOJIS = {
-  "Bebidas": "🍺",
-  "Alimentacion": "🍞",
-  "Cafeteria": "☕",
-  "Limpieza": "🧹",
-  "Higiene": "🧼",
-  "Papeleria": "📋",
-  "Snacks": "🍿",
-  "Dulces": "🍫",
-  "Lacteos": "🥛",
-  "Congelados": "❄️",
-  "Panaderia": "🥖",
-  "Frutas": "🍎",
-  "Verduras": "🥬",
-  "Carnes": "🥩",
-  "Pescados": "🐟",
-  "Tabaco": "🚶",
-  "Lonja": "🛋️",
-  "Varios": "📦",
+  "Bebidas": "ðº",
+  "Alimentacion": "ð",
+  "Cafeteria": "â",
+  "Limpieza": "ð§¹",
+  "Higiene": "ð§¼",
+  "Papeleria": "ð",
+  "Snacks": "ð¿",
+  "Dulces": "ð«",
+  "Lacteos": "ð¥",
+  "Congelados": "âï¸",
+  "Panaderia": "ð¥",
+  "Frutas": "ð",
+  "Verduras": "ð¥¬",
+  "Carnes": "ð¥©",
+  "Pescados": "ð",
+  "Tabaco": "ð¶",
+  "Lonja": "ðï¸",
+  "Varios": "ð¦",
 };
 
 function getCatEmoji(nombre) {
-  if (!nombre) return "📦";
+  if (!nombre) return "ð¦";
   for (const [key, emoji] of Object.entries(CATEGORIA_EMOJIS)) {
     if (nombre.toLowerCase().includes(key.toLowerCase())) return emoji;
   }
-  return "📦";
+  return "ð¦";
 }
 
 export default function Catalogo() {
@@ -58,7 +58,11 @@ export default function Catalogo() {
       if (p?.tiendas) setTienda(p.tiendas);
       let query = supabase.from("productos").select("*, categorias(id, nombre, grupo)").eq("disponible", true).order("orden_excel");
       if (!esAdmin) {
-        query = query.in("grupo_visualizacion", ["ambas", grupoTienda]);
+        if (grupoTienda === "ambas") {
+          query = query.in("grupo_visualizacion", ["ambas", "estacion", "cafeteria"]);
+        } else {
+          query = query.in("grupo_visualizacion", ["ambas", grupoTienda]);
+        }
       }
       const { data: prods } = await query;
       setProductos(prods || []);
@@ -153,6 +157,21 @@ export default function Catalogo() {
       }));
       const { error: lineasError } = await supabase.from("pedido_items").insert(lineasData);
       if (lineasError) throw lineasError;
+      // Enviar email de notificacion
+      try {
+        const { data: config } = await supabase.from("configuracion").select("*");
+        const getConf = (clave) => (config || []).find(c => c.clave === clave)?.valor || "";
+        const emailAlmacen = getConf("email_almacen");
+        if (emailAlmacen) {
+          const fechaStr = new Date().toLocaleDateString("es-ES");
+          const asunto = (getConf("asunto_email") || "Pedido - {Tienda} - {Fecha}").replace("{Tienda}", tiendaNombre).replace("{Fecha}", fechaStr);
+          const lineasHtml = lineasData.map(l => l.cantidad + "x " + l.producto_nombre + (l.producto_codigo ? " [" + l.producto_codigo + "]" : "")).join("\n");
+          const texto = getConf("texto_email");
+          const cuerpo = "Pedido: " + numeroPedido + "\nTienda: " + tiendaNombre + "\nFecha: " + fechaStr + "\n\n" + lineasHtml + (observaciones ? "\n\nObservaciones: " + observaciones : "") + (texto ? "\n\n" + texto : "");
+          await supabase.functions.invoke("send-email", { body: { to: emailAlmacen, subject: asunto, body: cuerpo } });
+          await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedido.id);
+        }
+      } catch(emailErr) { console.warn("Email no enviado:", emailErr.message); }
       setCarrito({});
       setCartOpen(false);
       setExito(numeroPedido);
@@ -170,7 +189,7 @@ export default function Catalogo() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <Loader2 size={40} className="animate-spin mx-auto mb-3" style={{ color: "var(--color-primary)" }} />
-          <p className="text-gray-500">Cargando catálogo...</p>
+          <p className="text-gray-500">Cargando catÃ¡logo...</p>
         </div>
       </div>
     );
@@ -181,7 +200,7 @@ export default function Catalogo() {
       <div className="text-center py-20">
         <Package size={60} className="mx-auto mb-4 text-gray-300" />
         <h2 className="text-xl font-bold text-gray-600 mb-2">Sin productos</h2>
-        <p className="text-gray-400 mb-4">El catálogo está vacío. Un administrador debe importar el catálogo.</p>
+        <p className="text-gray-400 mb-4">El catÃ¡logo estÃ¡ vacÃ­o. Un administrador debe importar el catÃ¡logo.</p>
       </div>
     );
   }
@@ -192,8 +211,8 @@ export default function Catalogo() {
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <CheckCircle size={22} />
           <div>
-            <div className="font-bold">¡Pedido enviado!</div>
-            <div className="text-sm opacity-90">Nº {exito}</div>
+            <div className="font-bold">Â¡Pedido enviado!</div>
+            <div className="text-sm opacity-90">NÂº {exito}</div>
           </div>
         </div>
       )}
@@ -215,7 +234,7 @@ export default function Catalogo() {
 
       {tienda && (
         <div className={"mb-4 px-4 py-2 rounded-xl text-sm font-medium " + (tienda.grupo === "cafeteria" ? "bg-orange-50 text-orange-700 border border-orange-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
-          {tienda.grupo === "cafeteria" ? "☕" : "🏪"} <strong>{tienda.nombre}</strong> · {tienda.grupo === "cafeteria" ? "Cafetería" : "Estación"} · {productos.length} productos
+          {tienda.grupo === "cafeteria" ? "â" : "ðª"} <strong>{tienda.nombre}</strong> Â· {tienda.grupo === "cafeteria" ? "CafeterÃ­a" : "EstaciÃ³n"} Â· {productos.length} productos
         </div>
       )}
 
@@ -259,7 +278,7 @@ export default function Catalogo() {
                 : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
             )}
           >
-            📦 Todas
+            ð¦ Todas
           </button>
           {categorias.map(cat => (
             <button
@@ -280,7 +299,7 @@ export default function Catalogo() {
       {productosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Package size={48} className="mx-auto mb-3 opacity-30" />
-          <p>No hay productos en esta categoría</p>
+          <p>No hay productos en esta categorÃ­a</p>
         </div>
       ) : categoriaActiva !== "__todas__" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
