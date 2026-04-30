@@ -29,7 +29,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
         <div className="space-y-4">
           {[
             { field: "nombre", label: "Nombre de la tienda", required: true },
-            { field: "codigo", label: "Código" },
+            { field: "codigo", label: "CÃ³digo" },
             { field: "email", label: "Email" },
             { field: "responsable", label: "Responsable" },
           ].map(({ field, label, required }) => (
@@ -51,12 +51,12 @@ function TiendaModal({ tienda, onSave, onClose }) {
               onChange={e => setForm(f => ({ ...f, grupo: e.target.value }))}
               className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
             >
-              <option value="estacion">🏪 Estación (catálogo completo)</option>
+                            <option value="estacion">🏪 Estación (catálogo estación)</option>
               <option value="cafeteria">☕ Cafetería (catálogo cafetería)</option>
+              <option value="ambas">📦 Ambas (ve todos los productos)</option>
             </select>
             <p className="text-xs text-gray-400 mt-1">
-              Estación: ve todos los productos marcados "estación" o "ambas". Cafetería: ve los marcados "cafetería" o "ambas".
-            </p>
+              Estación: ve productos de estación y "ambas". Cafetería: ve productos de cafetería y "ambas". Ambas: ve todos los productos.</p>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
@@ -118,14 +118,14 @@ export default function Tiendas() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar esta tienda?")) return;
+    if (!confirm("Â¿Eliminar esta tienda?")) return;
     await supabase.from('tiendas').delete().eq('id', id);
     load();
   };
 
   const grupoInfo = (grupo) => {
-    if (grupo === 'cafeteria') return { label: 'Cafetería', color: 'bg-orange-100 text-orange-700' };
-    return { label: 'Estación', color: 'bg-blue-100 text-blue-700' };
+    if (grupo === 'cafeteria') return { label: 'CafeterÃ­a', color: 'bg-orange-100 text-orange-700' };
+    return { label: 'EstaciÃ³n', color: 'bg-blue-100 text-blue-700' };
   };
 
   return (
@@ -140,10 +140,10 @@ export default function Tiendas() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Gestión de Tiendas</h1>
+          <h1 className="text-2xl font-bold">GestiÃ³n de Tiendas</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {tiendas.length} tiendas registradas · 
-            {tiendas.filter(t => t.grupo === 'cafeteria').length} cafeterías · 
+            {tiendas.length} tiendas registradas Â· 
+            {tiendas.filter(t => t.grupo === 'cafeteria').length} cafeterÃ­as Â· 
             {tiendas.filter(t => t.grupo !== 'cafeteria').length} estaciones
           </p>
         </div>
@@ -159,17 +159,17 @@ export default function Tiendas() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">🏪</span>
+            <span className="text-2xl">ðª</span>
             <span className="font-bold text-blue-800">Estaciones</span>
           </div>
-          <p className="text-sm text-blue-700">Ven todos los productos marcados como "estación" o "ambas" (catálogo completo)</p>
+          <p className="text-sm text-blue-700">Ven todos los productos marcados como "estaciÃ³n" o "ambas" (catÃ¡logo completo)</p>
         </div>
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">☕</span>
-            <span className="font-bold text-orange-800">Cafeterías</span>
+            <span className="text-2xl">â</span>
+            <span className="font-bold text-orange-800">CafeterÃ­as</span>
           </div>
-          <p className="text-sm text-orange-700">Ven los productos marcados como "cafetería" o "ambas" (catálogo reducido)</p>
+          <p className="text-sm text-orange-700">Ven los productos marcados como "cafeterÃ­a" o "ambas" (catÃ¡logo reducido)</p>
         </div>
       </div>
 
@@ -180,13 +180,13 @@ export default function Tiendas() {
           <div className="p-12 text-center text-gray-400">
             <Store size={48} className="mx-auto mb-3 opacity-30" />
             <p>No hay tiendas registradas</p>
-            <button className="btn-primary mt-4" onClick={() => setModal("tienda")}>Añadir primera tienda</button>
+            <button className="btn-primary mt-4" onClick={() => setModal("tienda")}>AÃ±adir primera tienda</button>
           </div>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {["Código", "Nombre", "Email", "Responsable", "Tipo", "Estado", "Acciones"].map(h => (
+                {["CÃ³digo", "Nombre", "Email", "Responsable", "Tipo", "Estado", "Acciones"].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-sm font-semibold text-gray-600">{h}</th>
                 ))}
               </tr>
