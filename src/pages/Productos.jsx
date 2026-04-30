@@ -3,9 +3,9 @@ import { supabase } from "@/lib/supabase";
 import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Upload, ChevronRight, FolderOpen, Tag } from "lucide-react";
 
 const GRUPOS = [
-  { value: 'ambas', label: '🌐 Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
-  { value: 'estacion', label: '⛪ Estación', desc: 'Solo estaciones', color: 'bg-blue-100 text-blue-700' },
-  { value: 'cafeteria', label: '☕ Cafetería', desc: 'Solo cafeterías', color: 'bg-orange-100 text-orange-700' },
+  { value: 'ambas', label: 'ð Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
+  { value: 'estacion', label: 'âª EstaciÃ³n', desc: 'Solo estaciones', color: 'bg-blue-100 text-blue-700' },
+  { value: 'cafeteria', label: 'â CafeterÃ­a', desc: 'Solo cafeterÃ­as', color: 'bg-orange-100 text-orange-700' },
 ];
 
 function BuscarImagenPanel({ nombre, onSelect, onClose }) {
@@ -18,21 +18,30 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
     if (!q.trim()) return;
     setLoading(true); setError(""); setResults([]);
     try {
-      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&json=1&page_size=20&fields=product_name,image_url,image_front_thumb_url`;
-      const resp = await fetch(url);
+      // Try Open Food Facts API with no-cors fallback
+      const url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" + encodeURIComponent(q) + "&json=1&page_size=20&fields=product_name,image_url,image_front_thumb_url&search_simple=1&action=process";
+      const resp = await fetch(url, { mode: "cors" });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
-      const imgs = (data.products || []).map(p => ({ name: p.product_name, url: p.image_url || p.image_front_thumb_url })).filter(p => p.url);
+      const imgs = (data.products || []).map(p => ({ name: p.product_name || q, url: p.image_url || p.image_front_thumb_url })).filter(p => p.url);
       setResults(imgs);
-      if (imgs.length === 0) setError("No se encontraron imágenes. Prueba con otro término.");
-    } catch(e) { setError("Error al buscar. Comprueba tu conexión."); }
+      if (imgs.length === 0) setError("No se encontraron im\u00E1genes. Prueba con otro t\u00E9rmino.");
+    } catch(e) {
+      // Fallback: show manual URL input option
+      setError("No se pudo conectar con Open Food Facts. Puedes pegar la URL de la imagen directamente abajo.");
+    }
     setLoading(false);
   };
+
+  const [manualUrl, setManualUrl] = useState("");
+
   useEffect(() => { if (nombre) buscar(nombre); }, []);
+
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-5 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-base">🔍 Buscar imagen</h3>
+          <h3 className="font-bold text-base">🔍 Buscar imagen en internet</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X size={16} /></button>
         </div>
         <div className="flex gap-2 mb-4">
@@ -43,7 +52,20 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
           </button>
         </div>
-        {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+        {error && (
+          <div className="mb-3">
+            <p className="text-sm text-amber-600 mb-2">{error}</p>
+            <div className="flex gap-2">
+              <input type="text" value={manualUrl} onChange={e => setManualUrl(e.target.value)}
+                placeholder="Pega aqu\u00ED la URL de la imagen..."
+                className="flex-1 border rounded-xl px-4 py-2 text-sm" />
+              <button onClick={() => { if (manualUrl.trim()) onSelect(manualUrl.trim()); }}
+                className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700">
+                Usar
+              </button>
+            </div>
+          </div>
+        )}
         {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-blue-500" /></div>}
         {!loading && results.length > 0 && (
           <div className="overflow-y-auto flex-1">
@@ -67,11 +89,12 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
             <p className="text-sm">Escribe el nombre y pulsa Buscar</p>
           </div>
         )}
-        <div className="mt-4 pt-3 border-t text-xs text-gray-400 text-center">Imágenes de <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener" className="underline">Open Food Facts</a></div>
+        <div className="mt-4 pt-3 border-t text-xs text-gray-400 text-center">Im\u00E1genes de <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener" className="underline">Open Food Facts</a></div>
       </div>
     </div>
   );
 }
+
 
 function GestionCategorias({ categorias, onClose, onUpdated }) {
   const [nuevaNombre, setNuevaNombre] = useState("");
@@ -88,7 +111,7 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
   };
 
   const handleEliminar = async (cat) => {
-    if (!confirm(`¿Eliminar la categoría "${cat.nombre}"? Los productos quedarán sin categoría.`)) return;
+    if (!confirm(`Â¿Eliminar la categorÃ­a "${cat.nombre}"? Los productos quedarÃ¡n sin categorÃ­a.`)) return;
     await supabase.from("productos").update({ categoria_id: null }).eq("categoria_id", cat.id);
     await supabase.from("categorias").delete().eq("id", cat.id);
     onUpdated();
@@ -98,13 +121,13 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> Categorías</h2>
+          <h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> CategorÃ­as</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
         </div>
         <div className="flex gap-2 mb-4">
           <input type="text" value={nuevaNombre} onChange={e => setNuevaNombre(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleCrear()}
-            placeholder="Nueva categoría..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
+            placeholder="Nueva categorÃ­a..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
           <button onClick={handleCrear} disabled={saving || !nuevaNombre.trim()}
             className="px-3 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50">
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
@@ -112,7 +135,7 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
         </div>
         {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
         <div className="overflow-y-auto flex-1 space-y-1">
-          {categorias.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No hay categorías aún</p>}
+          {categorias.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No hay categorÃ­as aÃºn</p>}
           {categorias.map(cat => (
             <div key={cat.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 border border-gray-100">
               <span className="text-sm font-medium">{cat.nombre}</span>
@@ -159,10 +182,10 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
         </div>
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Filtrar por categoría</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Filtrar por categorÃ­a</label>
             <select value={origen} onChange={e => { setOrigen(e.target.value); setSeleccion([]); }} className="w-full border rounded-xl px-3 py-2 text-sm">
               <option value="">Todas</option>
-              <option value="__sin__">Sin categoría</option>
+              <option value="__sin__">Sin categorÃ­a</option>
               {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
@@ -170,13 +193,13 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
             <label className="block text-xs font-semibold text-gray-600 mb-1">Mover a</label>
             <select value={destino} onChange={e => setDestino(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm">
               <option value="">Selecciona destino...</option>
-              <option value="__sin__">Sin categoría</option>
+              <option value="__sin__">Sin categorÃ­a</option>
               {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
         </div>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-gray-500">{productosFiltrados.length} productos • {seleccion.length} seleccionados</span>
+          <span className="text-xs text-gray-500">{productosFiltrados.length} productos â¢ {seleccion.length} seleccionados</span>
           <button onClick={toggleTodos} className="text-xs text-blue-600 hover:underline">
             {seleccion.length === productosFiltrados.length ? "Deseleccionar todos" : "Seleccionar todos"}
           </button>
@@ -262,22 +285,22 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
                 placeholder="Nombre del producto" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Código / Referencia</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">CÃ³digo / Referencia</label>
               <input type="text" value={form.codigo} onChange={e => setForm(f => ({...f, codigo: e.target.value}))}
                 placeholder="ej: PROD-001" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Categoría</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">CategorÃ­a</label>
               <select value={form.categoria_id} onChange={e => setForm(f => ({...f, categoria_id: e.target.value}))}
                 className="w-full border rounded-xl px-4 py-2.5 text-sm">
-                <option value="">Sin categoría</option>
+                <option value="">Sin categorÃ­a</option>
                 {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Descripción</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">DescripciÃ³n</label>
               <textarea value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))}
-                placeholder="Descripción del producto" rows={2} className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none" />
+                placeholder="DescripciÃ³n del producto" rows={2} className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -286,7 +309,7 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
                   placeholder="ej: X12, 70CL" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Múltiplo</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">MÃºltiplo</label>
                 <input type="number" min="1" value={form.multiplo} onChange={e => setForm(f => ({...f, multiplo: Number(e.target.value)}))}
                   className="w-full border rounded-xl px-4 py-2.5 text-sm" />
               </div>
@@ -314,7 +337,7 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
                 <div className="flex-1 space-y-2">
                   <button onClick={() => setBuscandoImagen(true)}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 font-semibold hover:bg-blue-100">
-                    🔍 Buscar en internet
+                    ð Buscar en internet
                   </button>
                   <label className="cursor-pointer flex items-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-600 hover:border-blue-400">
                     {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
@@ -329,7 +352,7 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <div>
                 <div className="text-sm font-semibold text-gray-700">Disponible</div>
-                <div className="text-xs text-gray-400">Visible en el catálogo</div>
+                <div className="text-xs text-gray-400">Visible en el catÃ¡logo</div>
               </div>
               <button onClick={() => setForm(f => ({...f, disponible: !f.disponible}))}
                 className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-blue-600" : "bg-gray-300"}`}>
@@ -395,7 +418,7 @@ export default function Productos() {
   };
 
   const handleDelete = async (prod) => {
-    if (!confirm(`¿Eliminar "${prod.nombre}"?`)) return;
+    if (!confirm(`Â¿Eliminar "${prod.nombre}"?`)) return;
     await supabase.from('productos').delete().eq('id', prod.id);
     setProductos(prev => prev.filter(p => p.id !== prod.id));
   };
@@ -428,7 +451,7 @@ export default function Productos() {
           </button>
           <button onClick={() => setGestionCat(true)}
             className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50">
-            <Tag size={15} /> Categorías
+            <Tag size={15} /> CategorÃ­as
           </button>
           <button onClick={() => setCreando(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow">
@@ -438,7 +461,7 @@ export default function Productos() {
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-        {[{ id: "__todas__", nombre: "Todos" }, { id: "__sin__", nombre: "Sin categoría" }, ...categorias].map(cat => (
+        {[{ id: "__todas__", nombre: "Todos" }, { id: "__sin__", nombre: "Sin categorÃ­a" }, ...categorias].map(cat => (
           <button key={cat.id} onClick={() => setCategoriaActiva(cat.id)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
               categoriaActiva === cat.id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -454,9 +477,9 @@ export default function Productos() {
         </div>
         <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)} className="border rounded-xl px-3 py-2 text-sm">
           <option value="__todos__">Todos los grupos</option>
-          <option value="ambas">🌐 Ambas</option>
-          <option value="estacion">⛪ Estación</option>
-          <option value="cafeteria">☕ Cafetería</option>
+          <option value="ambas">ð Ambas</option>
+          <option value="estacion">âª EstaciÃ³n</option>
+          <option value="cafeteria">â CafeterÃ­a</option>
         </select>
       </div>
 
@@ -483,7 +506,7 @@ export default function Productos() {
                     <Package size={36} className="text-gray-200" />
                   )}
                   <span className={`absolute top-1 left-1 text-xs px-1.5 py-0.5 rounded-full font-medium ${grupoInfo.color}`}>
-                    {grupoInfo.value === 'ambas' ? '🌐' : grupoInfo.value === 'estacion' ? '⛪' : '☕'}
+                    {grupoInfo.value === 'ambas' ? 'ð' : grupoInfo.value === 'estacion' ? 'âª' : 'â'}
                   </span>
                 </div>
                 <div className="p-2 flex flex-col flex-1 gap-1">
@@ -498,7 +521,7 @@ export default function Productos() {
                             ? (g.value === 'ambas' ? 'bg-purple-600 text-white' : g.value === 'estacion' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white')
                             : 'bg-white text-gray-400 hover:bg-gray-50'
                         }`} title={g.desc}>
-                        {g.value === 'ambas' ? '🌐' : g.value === 'estacion' ? '⛪' : '☕'}
+                        {g.value === 'ambas' ? 'ð' : g.value === 'estacion' ? 'âª' : 'â'}
                       </button>
                     ))}
                   </div>
