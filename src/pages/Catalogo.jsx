@@ -4,6 +4,35 @@ import { ShoppingCart, Search, Package, Loader2, CheckCircle } from "lucide-reac
 import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
+const CATEGORIA_EMOJIS = {
+  "Bebidas": "🍺",
+  "Alimentacion": "🍞",
+  "Cafeteria": "☕",
+  "Limpieza": "🧹",
+  "Higiene": "🧼",
+  "Papeleria": "📋",
+  "Snacks": "🍿",
+  "Dulces": "🍫",
+  "Lacteos": "🥛",
+  "Congelados": "❄️",
+  "Panaderia": "🥖",
+  "Frutas": "🍎",
+  "Verduras": "🥬",
+  "Carnes": "🥩",
+  "Pescados": "🐟",
+  "Tabaco": "🚶",
+  "Lonja": "🛋️",
+  "Varios": "📦",
+};
+
+function getCatEmoji(nombre) {
+  if (!nombre) return "📦";
+  for (const [key, emoji] of Object.entries(CATEGORIA_EMOJIS)) {
+    if (nombre.toLowerCase().includes(key.toLowerCase())) return emoji;
+  }
+  return "📦";
+}
+
 export default function Catalogo() {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
@@ -21,23 +50,16 @@ export default function Catalogo() {
     const init = async () => {
       const { data: { user: u } } = await supabase.auth.getUser();
       setUser(u);
-      
       if (!u) { setLoading(false); return; }
-      
-      const { data: p } = await supabase.from('perfiles').select('*, tiendas(*)').eq('id', u.id).single();
+      const { data: p } = await supabase.from("perfiles").select("*, tiendas(*)").eq("id", u.id).single();
       setPerfil(p);
-      
-      const grupoTienda = p?.tiendas?.grupo || 'estacion';
-      const esAdmin = p?.rol === 'admin';
-      
+      const grupoTienda = p?.tiendas?.grupo || "estacion";
+      const esAdmin = p?.rol === "admin";
       if (p?.tiendas) setTienda(p.tiendas);
-
-      let query = supabase.from('productos').select('*').eq('disponible', true).order('orden_excel');
-      
+      let query = supabase.from("productos").select("*, categorias(id, nombre, grupo)").eq("disponible", true).order("orden_excel");
       if (!esAdmin) {
-        query = query.in('grupo_visualizacion', ['ambas', grupoTienda]);
+        query = query.in("grupo_visualizacion", ["ambas", grupoTienda]);
       }
-      
       const { data: prods } = await query;
       setProductos(prods || []);
       setLoading(false);
@@ -49,9 +71,11 @@ export default function Catalogo() {
     const seen = [];
     const s = new Set();
     for (const prod of productos) {
-      if (prod.categoria && !s.has(prod.categoria)) {
-        s.add(prod.categoria);
-        seen.push(prod.categoria);
+      const catId = prod.categoria_id;
+      const catNombre = prod.categorias?.nombre;
+      if (catId && catNombre && !s.has(catId)) {
+        s.add(catId);
+        seen.push({ id: catId, nombre: catNombre });
       }
     }
     return seen;
@@ -60,14 +84,14 @@ export default function Catalogo() {
   const productosFiltrados = useMemo(() => {
     let list = productos;
     if (categoriaActiva !== "__todas__") {
-      list = list.filter(p => p.categoria === categoriaActiva);
+      list = list.filter(p => p.categoria_id === categoriaActiva);
     }
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
       list = list.filter(p =>
         p.nombre?.toLowerCase().includes(q) ||
         p.codigo?.toLowerCase().includes(q) ||
-        p.categoria?.toLowerCase().includes(q)
+        p.categorias?.nombre?.toLowerCase().includes(q)
       );
     }
     return list;
@@ -101,10 +125,9 @@ export default function Catalogo() {
     setEnviando(true);
     try {
       const tiendaNombre = tienda?.nombre || perfil?.nombre_completo || user?.email || "Sin tienda";
-      const numeroPedido = `PED-${Date.now().toString().slice(-8)}`;
+      const numeroPedido = "PED-" + Date.now().toString().slice(-8);
       const fecha = new Date().toISOString();
-
-      const { data: pedido, error: pedidoError } = await supabase.from('pedidos').insert([{
+      const { data: pedido, error: pedidoError } = await supabase.from("pedidos").insert([{
         numero_pedido: numeroPedido,
         tienda_id: tienda?.id || null,
         tienda_nombre: tiendaNombre,
@@ -112,35 +135,31 @@ export default function Catalogo() {
         usuario_email: user.email,
         usuario_nombre: perfil?.nombre_completo || user.email,
         fecha_pedido: fecha,
-        estado: 'enviado',
+        estado: "enviado",
         observaciones,
         total_lineas: lineas.length,
         email_enviado: false,
       }]).select().single();
-
       if (pedidoError) throw pedidoError;
-
       const lineasData = lineas.map(({ prod, qty }) => ({
         pedido_id: pedido.id,
         producto_id: prod.id,
-        producto_codigo: prod.codigo || '',
+        producto_codigo: prod.codigo || "",
         producto_nombre: prod.nombre,
-        producto_categoria: prod.categoria || '',
-        producto_formato: prod.formato || '',
+        producto_categoria: prod.categorias?.nombre || "",
+        producto_formato: prod.formato || "",
         cantidad: qty,
         orden_excel: prod.orden_excel || 0,
       }));
-
-      const { error: lineasError } = await supabase.from('pedido_items').insert(lineasData);
+      const { error: lineasError } = await supabase.from("pedido_items").insert(lineasData);
       if (lineasError) throw lineasError;
-
       setCarrito({});
       setCartOpen(false);
       setExito(numeroPedido);
       setTimeout(() => setExito(null), 6000);
     } catch (e) {
       console.error(e);
-      alert('Error al enviar el pedido: ' + e.message);
+      alert("Error al enviar el pedido: " + e.message);
     } finally {
       setEnviando(false);
     }
@@ -189,14 +208,14 @@ export default function Catalogo() {
             onQtyChange={handleQtyChange}
             onRemove={handleRemove}
             onEnviar={handleEnviar}
-            tiendaNombre={tienda?.nombre || ''}
+            tiendaNombre={tienda?.nombre || ""}
           />
         </div>
       )}
 
       {tienda && (
-        <div className={`mb-4 px-4 py-2 rounded-xl text-sm font-medium ${tienda.grupo === 'cafeteria' ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-          {tienda.grupo === 'cafeteria' ? '☕' : '🏪'} <strong>{tienda.nombre}</strong> · {tienda.grupo === 'cafeteria' ? 'Cafetería' : 'Estación'} · {productos.length} productos
+        <div className={"mb-4 px-4 py-2 rounded-xl text-sm font-medium " + (tienda.grupo === "cafeteria" ? "bg-orange-50 text-orange-700 border border-orange-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
+          {tienda.grupo === "cafeteria" ? "☕" : "🏪"} <strong>{tienda.nombre}</strong> · {tienda.grupo === "cafeteria" ? "Cafetería" : "Estación"} · {productos.length} productos
         </div>
       )}
 
@@ -220,50 +239,43 @@ export default function Catalogo() {
           <span className="text-white">Pedido</span>
           {cartCount > 0 && (
             <span style={{
-              background: "#2563eb",
-              color: "white",
-              borderRadius: "50%",
-              width: "22px",
-              height: "22px",
-              fontSize: "11px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: "700",
-              position: "absolute",
-              top: "-8px",
-              right: "-8px",
+              background: "#2563eb", color: "white", borderRadius: "50%",
+              width: "22px", height: "22px", fontSize: "11px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontWeight: "700", position: "absolute", top: "-8px", right: "-8px",
             }}>{cartCount}</span>
           )}
         </button>
       </div>
 
-      {/* Category tabs */}
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-        <button
-          onClick={() => setCategoriaActiva("__todas__")}
-          className={`flex-shrink-0 px-4 py-2 rounded-2xl border-2 font-semibold text-sm transition-all ${
-            categoriaActiva === "__todas__"
-              ? "border-blue-600 bg-blue-600 text-white"
-              : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"
-          }`}
-        >
-          🛒 Todas
-        </button>
-        {categorias.map(cat => (
+      {/* Category tabs - bigger with emojis */}
+      {categorias.length > 0 && (
+        <div className="mb-6 flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
           <button
-            key={cat}
-            onClick={() => setCategoriaActiva(cat)}
-            className={`flex-shrink-0 px-4 py-2 rounded-2xl border-2 font-semibold text-sm transition-all ${
-              categoriaActiva === cat
-                ? "border-blue-600 bg-blue-600 text-white"
-                : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"
-            }`}
+            onClick={() => setCategoriaActiva("__todas__")}
+            className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (
+              categoriaActiva === "__todas__"
+                ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
+                : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+            )}
           >
-            {cat}
+            📦 Todas
           </button>
-        ))}
-      </div>
+          {categorias.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setCategoriaActiva(cat.id)}
+              className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (
+                categoriaActiva === cat.id
+                  ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+              )}
+            >
+              {getCatEmoji(cat.nombre)} {cat.nombre}
+            </button>
+          ))}
+        </div>
+      )}
 
       {productosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -277,54 +289,50 @@ export default function Catalogo() {
               key={prod.id}
               producto={prod}
               cantidad={carrito[prod.id] || 0}
-              onAdd={handleAdd}
+              onAdd={() => handleAdd(prod)}
               onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
             />
           ))}
         </div>
       ) : (
-        <div className="space-y-10">
-          {(() => {
-            const groups = [];
-            const seen = new Map();
-            for (const prod of productosFiltrados) {
-              const cat = prod.categoria || "Sin categoría";
-              if (!seen.has(cat)) {
-                seen.set(cat, []);
-                groups.push({ cat, prods: seen.get(cat) });
-              }
-              seen.get(cat).push(prod);
-            }
-            return groups.map(({ cat, prods }) => (
-              <div key={cat}>
+        <div>
+          {categorias.map(cat => {
+            const prodsCategoria = productosFiltrados.filter(p => p.categoria_id === cat.id);
+            if (prodsCategoria.length === 0) return null;
+            return (
+              <div key={cat.id} className="mb-10">
                 <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-lg font-bold text-gray-800">{cat}</h2>
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-sm text-gray-400">{prods.length} productos</span>
+                  <span className="text-3xl">{getCatEmoji(cat.nombre)}</span>
+                  <h2 className="text-xl font-bold text-gray-800">{cat.nombre}</h2>
+                  <span className="text-sm text-gray-400 font-medium">({prodsCategoria.length})</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {prods.map(prod => (
+                  {prodsCategoria.map(prod => (
                     <ProductCard
                       key={prod.id}
                       producto={prod}
                       cantidad={carrito[prod.id] || 0}
-                      onAdd={handleAdd}
+                      onAdd={() => handleAdd(prod)}
                       onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
                     />
                   ))}
                 </div>
               </div>
-            ));
-          })()}
-        </div>
-      )}
-
-      {enviando && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 text-center shadow-2xl">
-            <Loader2 size={40} className="animate-spin mx-auto mb-3" style={{ color: "var(--color-primary)" }} />
-            <p className="font-semibold">Enviando pedido...</p>
-          </div>
+            );
+          })}
+          {categorias.length === 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {productosFiltrados.map(prod => (
+                <ProductCard
+                  key={prod.id}
+                  producto={prod}
+                  cantidad={carrito[prod.id] || 0}
+                  onAdd={() => handleAdd(prod)}
+                  onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
