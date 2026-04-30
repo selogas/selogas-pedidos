@@ -10,6 +10,82 @@ const GRUPOS = [
 
 const FORM_EMPTY = { nombre: '', codigo: '', categoria: '', formato: '', multiplo: 1, imagen_url: '', disponible: true, grupo_visualizacion: 'ambas' };
 
+function BuscarImagenPanel({ nombre, onSelect, onClose }) {
+  const [query, setQuery] = useState(nombre || "");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const buscar = async (q) => {
+    if (!q.trim()) return;
+    setLoading(true);
+    setError("");
+    setResults([]);
+    try {
+      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&json=1&page_size=20&fields=product_name,image_url,image_front_thumb_url,image_thumb_url`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      const imgs = (data.products || [])
+        .map(p => ({ name: p.product_name, url: p.image_url || p.image_front_thumb_url || p.image_thumb_url }))
+        .filter(p => p.url);
+      setResults(imgs);
+      if (imgs.length === 0) setError("No se encontraron imágenes. Prueba con otro término.");
+    } catch (e) {
+      setError("Error al buscar. Comprueba tu conexión.");
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { if (nombre) buscar(nombre); }, []);
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-5 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-base">🔍 Buscar imagen del producto</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X size={16} /></button>
+        </div>
+        <div className="flex gap-2 mb-4">
+          <input type="text" value={query} onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && buscar(query)}
+            placeholder="Nombre del producto (ej: Coca Cola, Mahou...)" className="flex-1 border rounded-xl px-4 py-2 text-sm" />
+          <button onClick={() => buscar(query)} disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
+          </button>
+        </div>
+        {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+        {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-blue-500" /></div>}
+        {!loading && results.length > 0 && (
+          <div className="overflow-y-auto flex-1">
+            <p className="text-xs text-gray-400 mb-3">Haz clic en una imagen para seleccionarla • Fuente: Open Food Facts</p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              {results.map((img, i) => (
+                <button key={i} onClick={() => onSelect(img.url)}
+                  className="group relative rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all bg-gray-50 aspect-square flex items-center justify-center">
+                  <img src={img.url} alt={img.name} className="w-full h-full object-contain p-1"
+                    onError={e => { e.target.parentElement.style.display = "none"; }} />
+                  <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors" />
+                  <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-xs px-1.5 py-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                    {img.name || "Producto"}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {!loading && results.length === 0 && !error && (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 py-10">
+            <Package size={40} className="mb-2 opacity-30" />
+            <p className="text-sm">Escribe el nombre del producto y pulsa Buscar</p>
+          </div>
+        )}
+        <div className="mt-4 pt-3 border-t text-xs text-gray-400 text-center">Imágenes de <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener" className="underline">Open Food Facts</a> (licencia ODbL)</div>
+      </div>
+    </div>
+  );
+}
+
 function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
   const [form, setForm] = useState(producto ? {
     nombre: producto.nombre || '', codigo: producto.codigo || '', categoria: producto.categoria || '',
@@ -19,6 +95,7 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [nuevaCat, setNuevaCat] = useState(false);
+  const [buscandoImagen, setBuscandoImagen] = useState(false);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -45,104 +122,117 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-lg">{modo === 'crear' ? 'Nuevo producto' : 'Editar producto'}</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre *</label>
-            <input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
-              placeholder="Nombre del producto" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+    <>
+      {buscandoImagen && (
+        <BuscarImagenPanel
+          nombre={form.nombre}
+          onSelect={(url) => { setForm(f => ({...f, imagen_url: url})); setBuscandoImagen(false); }}
+          onClose={() => setBuscandoImagen(false)}
+        />
+      )}
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-lg">{modo === 'crear' ? 'Nuevo producto' : 'Editar producto'}</h2>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Código SKU</label>
-            <input type="text" value={form.codigo} onChange={e => setForm(f => ({...f, codigo: e.target.value}))}
-              placeholder="ej: PROD-001" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Categoría</label>
-            {categorias.length > 0 && !nuevaCat ? (
-              <div className="flex gap-2">
-                <select value={form.categoria} onChange={e => setForm(f => ({...f, categoria: e.target.value}))}
-                  className="flex-1 border rounded-xl px-4 py-2.5 text-sm">
-                  <option value="">Sin categoría</option>
-                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <button onClick={() => setNuevaCat(true)} className="px-3 py-2 border rounded-xl text-sm text-blue-600 hover:bg-blue-50">+ Nueva</button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input type="text" value={form.categoria === '__nueva__' ? '' : form.categoria}
-                  onChange={e => setForm(f => ({...f, categoria: e.target.value}))}
-                  placeholder="Escribe la categoría" className="flex-1 border rounded-xl px-4 py-2.5 text-sm" />
-                {categorias.length > 0 && <button onClick={() => setNuevaCat(false)} className="px-3 py-2 border rounded-xl text-sm text-gray-500 hover:bg-gray-50">Lista</button>}
-              </div>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Formato</label>
-            <input type="text" value={form.formato} onChange={e => setForm(f => ({...f, formato: e.target.value}))}
-              placeholder="ej: X12, 70CL" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Múltiplo de pedido</label>
-            <input type="number" min="1" value={form.multiplo} onChange={e => setForm(f => ({...f, multiplo: Number(e.target.value)}))}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilidad por tipo de tienda</label>
-            <div className="grid grid-cols-3 gap-2">
-              {GRUPOS.map(g => (
-                <button key={g.value} onClick={() => setForm(f => ({...f, grupo_visualizacion: g.value}))}
-                  className={`flex flex-col items-center p-3 rounded-xl border-2 text-center transition-all ${
-                    form.grupo_visualizacion === g.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}>
-                  <span className="text-sm font-bold">{g.label}</span>
-                  <span className="text-xs text-gray-500 mt-0.5">{g.desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
-            <div className="flex gap-3 items-center">
-              <div className="w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {form.imagen_url ? <img src={form.imagen_url} alt="" className="w-full h-full object-contain p-1" /> : <Package size={32} className="text-gray-300" />}
-              </div>
-              <div className="flex-1 space-y-2">
-                <label className="cursor-pointer flex items-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-600 hover:border-blue-400">
-                  {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                  {uploading ? "Subiendo..." : "Subir imagen"}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
-                </label>
-                <input type="text" value={form.imagen_url} onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))}
-                  placeholder="O pega una URL..." className="w-full text-xs border rounded-lg px-3 py-1.5 text-gray-600" />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+          <div className="space-y-4">
             <div>
-              <div className="text-sm font-semibold text-gray-700">Disponible</div>
-              <div className="text-xs text-gray-400">Visible en el catálogo</div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre *</label>
+              <input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+                placeholder="Nombre del producto" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
             </div>
-            <button onClick={() => setForm(f => ({...f, disponible: !f.disponible}))}
-              className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-blue-600" : "bg-gray-300"}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.disponible ? "translate-x-6" : "translate-x-0.5"}`} />
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Código SKU</label>
+              <input type="text" value={form.codigo} onChange={e => setForm(f => ({...f, codigo: e.target.value}))}
+                placeholder="ej: PROD-001" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Categoría</label>
+              {categorias.length > 0 && !nuevaCat ? (
+                <div className="flex gap-2">
+                  <select value={form.categoria} onChange={e => setForm(f => ({...f, categoria: e.target.value}))}
+                    className="flex-1 border rounded-xl px-4 py-2.5 text-sm">
+                    <option value="">Sin categoría</option>
+                    {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button onClick={() => setNuevaCat(true)} className="px-3 py-2 border rounded-xl text-sm text-blue-600 hover:bg-blue-50">+ Nueva</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input type="text" value={form.categoria === '__nueva__' ? '' : form.categoria}
+                    onChange={e => setForm(f => ({...f, categoria: e.target.value}))}
+                    placeholder="Escribe la categoría" className="flex-1 border rounded-xl px-4 py-2.5 text-sm" />
+                  {categorias.length > 0 && <button onClick={() => setNuevaCat(false)} className="px-3 py-2 border rounded-xl text-sm text-gray-500 hover:bg-gray-50">Lista</button>}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Formato</label>
+              <input type="text" value={form.formato} onChange={e => setForm(f => ({...f, formato: e.target.value}))}
+                placeholder="ej: X12, 70CL" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Múltiplo de pedido</label>
+              <input type="number" min="1" value={form.multiplo} onChange={e => setForm(f => ({...f, multiplo: Number(e.target.value)}))}
+                className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilidad por tipo de tienda</label>
+              <div className="grid grid-cols-3 gap-2">
+                {GRUPOS.map(g => (
+                  <button key={g.value} onClick={() => setForm(f => ({...f, grupo_visualizacion: g.value}))}
+                    className={`flex flex-col items-center p-3 rounded-xl border-2 text-center transition-all ${
+                      form.grupo_visualizacion === g.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                    <span className="text-sm font-bold">{g.label}</span>
+                    <span className="text-xs text-gray-500 mt-0.5">{g.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
+              <div className="flex gap-3 items-start">
+                <div className="w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {form.imagen_url ? <img src={form.imagen_url} alt="" className="w-full h-full object-contain p-1" /> : <Package size={32} className="text-gray-300" />}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <button onClick={() => setBuscandoImagen(true)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 font-semibold hover:bg-blue-100 transition-colors">
+                    🔍 Buscar imagen en internet
+                  </button>
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-600 hover:border-blue-400">
+                    {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {uploading ? "Subiendo..." : "Subir imagen"}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+                  </label>
+                  <input type="text" value={form.imagen_url} onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))}
+                    placeholder="O pega una URL..." className="w-full text-xs border rounded-lg px-3 py-1.5 text-gray-600" />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+              <div>
+                <div className="text-sm font-semibold text-gray-700">Disponible</div>
+                <div className="text-xs text-gray-400">Visible en el catálogo</div>
+              </div>
+              <button onClick={() => setForm(f => ({...f, disponible: !f.disponible}))}
+                className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-blue-600" : "bg-gray-300"}`}>
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.disponible ? "translate-x-6" : "translate-x-0.5"}`} />
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
+            <button onClick={handleSave} disabled={saving}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-70">
+              {saving ? "Guardando..." : modo === 'crear' ? "Crear producto" : "Guardar cambios"}
             </button>
           </div>
         </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-70">
-            {saving ? "Guardando..." : modo === 'crear' ? "Crear producto" : "Guardar cambios"}
-          </button>
-        </div>
       </div>
-    </div>
+    </>
   );
 }
 
