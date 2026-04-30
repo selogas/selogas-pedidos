@@ -74,17 +74,17 @@ const PRODUCTOS_SELOGAS = [
   { codigo: "2250091", nombre: "BAILEYS x6", categoria: "Licores", multiplo: 6, grupo_visualizacion: "ambas" },
   { codigo: "2250087", nombre: "PONCHE CABALLERO x6", categoria: "Licores", multiplo: 6, grupo_visualizacion: "ambas" },
   // ===== ALIMENTACION =====
-  { codigo: "2540140", nombre: "AZUCAR BLANQUILLA PQ 1KG", categoria: "Alimentación", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "253500301", nombre: "NESCAFE NATURAL BT 100 GR", categoria: "Alimentación", multiplo: 1, grupo_visualizacion: "cafeteria" },
-  { codigo: "262500101", nombre: "LA LECHERA TUBO 170 GR", categoria: "Alimentación", multiplo: 1, grupo_visualizacion: "cafeteria" },
-  { codigo: "251503001", nombre: "CHAMPIÑON LAMINAS EXTRA 355GR", categoria: "Alimentación", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "251501301", nombre: "GARBANZO COCIDO 570GR", categoria: "Alimentación", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "252000401", nombre: "ACEITUNA ANCHOA BT 85 GR", categoria: "Alimentación", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "2515041", nombre: "PASTA CON JAMON CARRETILLA 240 GR x8", categoria: "Alimentación", multiplo: 8, grupo_visualizacion: "ambas" },
-  { codigo: "2515042", nombre: "PASTA CANGREJO CARRETILLA x8", categoria: "Alimentación", multiplo: 8, grupo_visualizacion: "ambas" },
-  { codigo: "2515056", nombre: "PAELLA MARINERA CARRETILLA x10", categoria: "Alimentación", multiplo: 10, grupo_visualizacion: "ambas" },
-  { codigo: "251002501", nombre: "ATUN ACEITE CALVO LT 80 GR PACK 3 UN", categoria: "Alimentación", multiplo: 3, grupo_visualizacion: "ambas" },
-  { codigo: "2455300", nombre: "FLAN HUEVO PASCUAL PACK-4", categoria: "Alimentación", multiplo: 4, grupo_visualizacion: "ambas" },
+  { codigo: "2540140", nombre: "AZUCAR BLANQUILLA PQ 1KG", categoria: "AlimentaciÃ³n", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "253500301", nombre: "NESCAFE NATURAL BT 100 GR", categoria: "AlimentaciÃ³n", multiplo: 1, grupo_visualizacion: "cafeteria" },
+  { codigo: "262500101", nombre: "LA LECHERA TUBO 170 GR", categoria: "AlimentaciÃ³n", multiplo: 1, grupo_visualizacion: "cafeteria" },
+  { codigo: "251503001", nombre: "CHAMPIÃON LAMINAS EXTRA 355GR", categoria: "AlimentaciÃ³n", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "251501301", nombre: "GARBANZO COCIDO 570GR", categoria: "AlimentaciÃ³n", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "252000401", nombre: "ACEITUNA ANCHOA BT 85 GR", categoria: "AlimentaciÃ³n", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "2515041", nombre: "PASTA CON JAMON CARRETILLA 240 GR x8", categoria: "AlimentaciÃ³n", multiplo: 8, grupo_visualizacion: "ambas" },
+  { codigo: "2515042", nombre: "PASTA CANGREJO CARRETILLA x8", categoria: "AlimentaciÃ³n", multiplo: 8, grupo_visualizacion: "ambas" },
+  { codigo: "2515056", nombre: "PAELLA MARINERA CARRETILLA x10", categoria: "AlimentaciÃ³n", multiplo: 10, grupo_visualizacion: "ambas" },
+  { codigo: "251002501", nombre: "ATUN ACEITE CALVO LT 80 GR PACK 3 UN", categoria: "AlimentaciÃ³n", multiplo: 3, grupo_visualizacion: "ambas" },
+  { codigo: "2455300", nombre: "FLAN HUEVO PASCUAL PACK-4", categoria: "AlimentaciÃ³n", multiplo: 4, grupo_visualizacion: "ambas" },
   // ===== GOLOSINAS =====
   { codigo: "2330010", nombre: "FINI CEREZAS ENVUELTAS 80GX12", categoria: "Golosinas", multiplo: 12, grupo_visualizacion: "estacion" },
   { codigo: "2330011", nombre: "FINI BICOLOR AZUL 80GR X12", categoria: "Golosinas", multiplo: 12, grupo_visualizacion: "estacion" },
@@ -133,18 +133,18 @@ const PRODUCTOS_SELOGAS = [
   { codigo: "2337092", nombre: "NUTRISPORT PROTEIN BOOM COOKIES&CREAM (24UD)", categoria: "Nutrisport", multiplo: 24, grupo_visualizacion: "estacion" },
   { codigo: "2337100", nombre: "NUTRISPORT BATIDO PROTEIN ZERO CHOCOLATE 330ML (12UD)", categoria: "Nutrisport", multiplo: 12, grupo_visualizacion: "estacion" },
   // ===== DROGUERIA =====
-  { codigo: "323404702", nombre: "CRISTASOL AJAX CRISTALINO", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "3234065", nombre: "DESENGRASANTE KH 7", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "3234017", nombre: "VASO BLANCO DESECHABLE 20U", categoria: "Droguería", multiplo: 20, grupo_visualizacion: "ambas" },
-  { codigo: "3216014", nombre: "TISU FACIAL SUPERSOL", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "3234007", nombre: "SERVILLETAS", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "3234003", nombre: "ROLLO COCINA", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "ambas" },
-  { codigo: "3236115", nombre: "CONTROL PRESERVATIVOS 3 UNDS X48", categoria: "Droguería", multiplo: 48, grupo_visualizacion: "estacion" },
-  { codigo: "321600301", nombre: "COLGATE DENTAL FAMILIAR", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "estacion" },
-  { codigo: "321600201", nombre: "GILLETTE DESECHABLE BLUE-II", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "estacion" },
-  { codigo: "321600501", nombre: "SANEX JABON 615CC", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "estacion" },
-  { codigo: "3238001", nombre: "ENCENDEDOR CLIPPER DIBUJOS", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "estacion" },
-  { codigo: "3010011", nombre: "BIDON 5 LITROS", categoria: "Droguería", multiplo: 1, grupo_visualizacion: "estacion" },
+  { codigo: "323404702", nombre: "CRISTASOL AJAX CRISTALINO", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "3234065", nombre: "DESENGRASANTE KH 7", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "3234017", nombre: "VASO BLANCO DESECHABLE 20U", categoria: "DroguerÃ­a", multiplo: 20, grupo_visualizacion: "ambas" },
+  { codigo: "3216014", nombre: "TISU FACIAL SUPERSOL", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "3234007", nombre: "SERVILLETAS", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "3234003", nombre: "ROLLO COCINA", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "ambas" },
+  { codigo: "3236115", nombre: "CONTROL PRESERVATIVOS 3 UNDS X48", categoria: "DroguerÃ­a", multiplo: 48, grupo_visualizacion: "estacion" },
+  { codigo: "321600301", nombre: "COLGATE DENTAL FAMILIAR", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "estacion" },
+  { codigo: "321600201", nombre: "GILLETTE DESECHABLE BLUE-II", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "estacion" },
+  { codigo: "321600501", nombre: "SANEX JABON 615CC", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "estacion" },
+  { codigo: "3238001", nombre: "ENCENDEDOR CLIPPER DIBUJOS", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "estacion" },
+  { codigo: "3010011", nombre: "BIDON 5 LITROS", categoria: "DroguerÃ­a", multiplo: 1, grupo_visualizacion: "estacion" },
   // ===== CONSUMIBLES =====
   { codigo: "3320038", nombre: "TOALLA ZZ NATURAL Caja 24*200 uds", categoria: "Consumibles", multiplo: 1, grupo_visualizacion: "ambas" },
   { codigo: "3320210", nombre: "PAPEL HIGIENICO JUMBO 18 UNS", categoria: "Consumibles", multiplo: 18, grupo_visualizacion: "ambas" },
@@ -169,26 +169,47 @@ export default function ImportarProductos() {
   const [borrandoTodo, setBorrandoTodo] = useState(false);
 
   const handleImportar = async () => {
-    if (!confirm(`¿Importar ${PRODUCTOS_SELOGAS.length} productos? Asegúrate de borrar los existentes primero si quieres reemplazarlos`)) return;
+    if (!confirm("\u00BFImportar " + PRODUCTOS_SELOGAS.length + " productos? As\u00E9g\u00FArate de borrar los existentes primero si quieres reemplazarlos")) return;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
+      setProgress("Preparando categor\u00EDas...");
+      // Get unique category names
+      const catNombres = [...new Set(PRODUCTOS_SELOGAS.map(p => p.categoria).filter(Boolean))];
+      // Upsert categories
+      const catMap = {};
+      for (const nombre of catNombres) {
+        // Try to find existing category
+        let { data: existing } = await supabase.from("categorias").select("id").eq("nombre", nombre).single();
+        if (existing) {
+          catMap[nombre] = existing.id;
+        } else {
+          // Create new category
+          const { data: created, error: catErr } = await supabase.from("categorias").insert([{ nombre, activa: true }]).select("id").single();
+          if (catErr) throw catErr;
+          catMap[nombre] = created.id;
+        }
+      }
+      setProgress("Importando productos...");
       let created = 0;
       const total = PRODUCTOS_SELOGAS.length;
-      const productos = PRODUCTOS_SELOGAS.map((p, i) => ({
-        ...p,
-        orden_excel: i,
-        disponible: true,
-        hoja_excel: p.categoria,
-      }));
-
+      const productos = PRODUCTOS_SELOGAS.map((p, i) => {
+        const { categoria, ...rest } = p;
+        return {
+          ...rest,
+          categoria_id: catMap[categoria] || null,
+          orden_excel: i,
+          disponible: true,
+          hoja_excel: categoria,
+        };
+      });
       for (let i = 0; i < productos.length; i += 50) {
         const batch = productos.slice(i, i + 50);
-        const { error: insertError } = await supabase.from('productos').insert(batch);
+        const { error: insertError } = await supabase.from("productos").insert(batch);
         if (insertError) throw insertError;
         created += batch.length;
-        setProgress(`Guardando... ${created}/${total}`);
+        setProgress("Guardando... " + created + "/" + total);
       }
       setResult({ total: created });
     } catch (e) {
@@ -200,7 +221,7 @@ export default function ImportarProductos() {
   };
 
   const handleBorrarTodo = async () => {
-    if (!confirm("¿Estás seguro? Esto borrará TODOS los productos del catálogo.")) return;
+    if (!confirm("Â¿EstÃ¡s seguro? Esto borrarÃ¡ TODOS los productos del catÃ¡logo.")) return;
     setBorrandoTodo(true);
     try {
       const { error: deleteError } = await supabase.from('productos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -218,22 +239,22 @@ export default function ImportarProductos() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-2xl shadow-sm border p-8" style={{ borderColor: "var(--color-border)" }}>
-        <h1 className="text-2xl font-bold mb-2">Importar Catálogo SELOGAS</h1>
+        <h1 className="text-2xl font-bold mb-2">Importar CatÃ¡logo SELOGAS</h1>
         <p className="text-gray-500 mb-6 text-sm">
-          Carga el catálogo con {PRODUCTOS_SELOGAS.length} productos de todas las categorías, con grupos de visualización (estación/cafetería/ambas).
+          Carga el catÃ¡logo con {PRODUCTOS_SELOGAS.length} productos de todas las categorÃ­as, con grupos de visualizaciÃ³n (estaciÃ³n/cafeterÃ­a/ambas).
         </p>
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-          <div className="font-semibold text-blue-800 mb-2">ℹ️ Grupos de visualización:</div>
+          <div className="font-semibold text-blue-800 mb-2">â¹ï¸ Grupos de visualizaciÃ³n:</div>
           <div className="text-sm text-blue-700 space-y-1">
-            <div>• <strong>estacion</strong>: Solo lo ven las tiendas tipo "Estación"</div>
-            <div>• <strong>cafeteria</strong>: Solo lo ven las tiendas tipo "Cafetería"</div>
-            <div>• <strong>ambas</strong>: Lo ven todos (bebidas, agua, droguería básica, etc.)</div>
+            <div>â¢ <strong>estacion</strong>: Solo lo ven las tiendas tipo "EstaciÃ³n"</div>
+            <div>â¢ <strong>cafeteria</strong>: Solo lo ven las tiendas tipo "CafeterÃ­a"</div>
+            <div>â¢ <strong>ambas</strong>: Lo ven todos (bebidas, agua, droguerÃ­a bÃ¡sica, etc.)</div>
           </div>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-          <div className="font-semibold text-blue-800 mb-2">Categorías incluidas:</div>
+          <div className="font-semibold text-blue-800 mb-2">CategorÃ­as incluidas:</div>
           <div className="flex flex-wrap gap-2">
             {categorias.map(cat => (
               <span key={cat} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
@@ -281,9 +302,9 @@ export default function ImportarProductos() {
           <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
             <CheckCircle size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
             <div>
-              <div className="font-semibold text-green-700">¡Importación completada!</div>
+              <div className="font-semibold text-green-700">Â¡ImportaciÃ³n completada!</div>
               <div className="text-sm text-green-600 mt-0.5">
-                {result.total} productos importados con grupos de visualización.
+                {result.total} productos importados con grupos de visualizaciÃ³n.
               </div>
             </div>
           </div>
