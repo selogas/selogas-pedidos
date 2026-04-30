@@ -250,10 +250,10 @@ export const sendEmail = async ({ to, subject, body }) => {
 export const uploadFile = async (file) => {
   const fileName = Date.now() + '-' + file.name;
   const { data, error } = await supabase.storage
-    .from('uploads')
+    .from('imagenes')
     .upload(fileName, file, { contentType: file.type });
   if (error) throw error;
-  const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(fileName);
+  const { data: { publicUrl } } = supabase.storage.from('imagenes').getPublicUrl(fileName);
   return { file_url: publicUrl };
 };
 
