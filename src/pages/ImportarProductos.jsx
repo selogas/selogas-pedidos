@@ -2639,11 +2639,11 @@ export default function ImportarProductos() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-2xl shadow-sm border p-8" style={{ borderColor: "var(--color-border)" }}>
-        <h1 className="text-2xl font-bold mb-2">Importar Cat\u00E1logo Repsol</h1>
+        <h1 className="text-2xl font-bold mb-2">Importar Cat&aacute;logo Repsol</h1>
         <p className="text-gray-500 mb-1 text-sm">
-          Cat\u00E1logo completo de <strong>tutienda.repsol.es</strong> con {PRODUCTOS_SELOGAS.length} productos en {categorias.length} categor\u00EDas.
+          Cat&aacute;logo completo de <strong>tutienda.repsol.es</strong> con {PRODUCTOS_SELOGAS.length} productos en {categorias.length} categor\u00EDas.
         </p>
-        <p className="text-gray-400 mb-6 text-xs">Im\u00E1genes incluidas \u2022 Categor\u00EDas auto-creadas \u2022 Multiplos configurados</p>
+        <p className="text-gray-400 mb-6 text-xs">Im&aacute;genes incluidas &bull; Categor&iacute;as auto-creadas &bull; Multiplos configurados</p>
 
         <div className="grid grid-cols-3 gap-3 mb-6 text-center">
           {categorias.slice(0, 9).map(cat => {
@@ -2672,7 +2672,7 @@ export default function ImportarProductos() {
         {result && (
           <div className="mb-4 p-3 bg-green-50 rounded-xl text-green-700 text-sm font-medium flex items-center gap-2">
             <CheckCircle size={16} />
-            \u00A1Importados {result.total} productos correctamente!
+            &iexcl;Importados {result.total} productos correctamente!
           </div>
         )}
 
