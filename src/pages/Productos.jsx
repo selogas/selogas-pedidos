@@ -143,7 +143,7 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
       const data = await resp.json();
       const imgs = (data.products || []).map(p => ({ name: p.product_name || q, url: p.image_url || p.image_front_thumb_url })).filter(p => p.url);
       setResults(imgs);
-      if (!imgs.length) setError("No se encontraron im\u00E1genes.");
+      if (!imgs.length) setError("No se encontraron im&aacute;genes.");
     } catch(err) { setError("No se pudo conectar. Pega la URL directamente abajo."); }
     setLoading(false);
   };
@@ -163,7 +163,7 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
           </button>
         </div>
-        {error && <div className="mb-3"><p className="text-sm text-amber-600 mb-2">{error}</p><div className="flex gap-2"><input type="text" value={manualUrl} onChange={e => setManualUrl(e.target.value)} placeholder="Pega aqu\u00ED la URL..." className="flex-1 border rounded-xl px-4 py-2 text-sm" /><button onClick={() => { if (manualUrl.trim()) onSelect(manualUrl.trim()); }} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold">Usar</button></div></div>}
+        {error && <div className="mb-3"><p className="text-sm text-amber-600 mb-2">{error}</p><div className="flex gap-2"><input type="text" value={manualUrl} onChange={e => setManualUrl(e.target.value)} placeholder="Pega aqu&iacute; la URL..." className="flex-1 border rounded-xl px-4 py-2 text-sm" /><button onClick={() => { if (manualUrl.trim()) onSelect(manualUrl.trim()); }} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold">Usar</button></div></div>}
         {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-blue-500" /></div>}
         {!loading && results.length > 0 && (
           <div className="overflow-y-auto flex-1">
@@ -201,7 +201,7 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> Categor&iacute;as</h2><button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button></div>
         <div className="flex gap-2 mb-4">
-          <input type="text" value={nuevaNombre} onChange={e => setNuevaNombre(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCrear()} placeholder="Nueva categor\u00EDa..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
+          <input type="text" value={nuevaNombre} onChange={e => setNuevaNombre(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCrear()} placeholder="Nueva categor&iacute;a..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
           <button onClick={handleCrear} disabled={saving || !nuevaNombre.trim()} className="px-3 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50">{saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}</button>
         </div>
         <div className="overflow-y-auto flex-1 space-y-1">
