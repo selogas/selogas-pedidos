@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Plus, Pencil, Trash2, Store, Users, X, Check, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Store, X, Check, Loader2 } from "lucide-react";
 
 function TiendaModal({ tienda, onSave, onClose }) {
-  const [form, setForm] = useState(tienda || { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion" });
+  const [form, setForm] = useState(tienda || {
+    nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion"
+  });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -29,7 +31,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
         <div className="space-y-4">
           {[
             { field: "nombre", label: "Nombre de la tienda", required: true },
-            { field: "codigo", label: "CÃ³digo" },
+            { field: "codigo", label: "C\u00F3digo" },
             { field: "email", label: "Email" },
             { field: "responsable", label: "Responsable" },
           ].map(({ field, label, required }) => (
@@ -43,7 +45,6 @@ function TiendaModal({ tienda, onSave, onClose }) {
               />
             </div>
           ))}
-
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Tipo de tienda *</label>
             <select
@@ -51,14 +52,14 @@ function TiendaModal({ tienda, onSave, onClose }) {
               onChange={e => setForm(f => ({ ...f, grupo: e.target.value }))}
               className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
             >
-                            <option value="estacion">🏪 Estación (catálogo estación)</option>
-              <option value="cafeteria">☕ Cafetería (catálogo cafetería)</option>
-              <option value="ambas">📦 Ambas (ve todos los productos)</option>
+              <option value="estacion">\u{1F3EA} Estaci\u00F3n (cat\u00E1logo estaci\u00F3n)</option>
+              <option value="cafeteria">\u2615 Cafeter\u00EDa (cat\u00E1logo cafeter\u00EDa)</option>
+              <option value="ambas">\u{1F4E6} Ambas (ve todos los productos)</option>
             </select>
             <p className="text-xs text-gray-400 mt-1">
-              Estación: ve productos de estación y "ambas". Cafetería: ve productos de cafetería y "ambas". Ambas: ve todos los productos.</p>
+              Estaci\u00F3n: ve productos de estaci\u00F3n y "ambas". Cafeter\u00EDa: ve productos de cafeter\u00EDa y "ambas". Ambas: ve todos los productos.
+            </p>
           </div>
-
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -92,7 +93,6 @@ export default function Tiendas() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [editing, setEditing] = useState(null);
-  const [user, setUser] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -104,7 +104,6 @@ export default function Tiendas() {
   useEffect(() => {
     const checkAccess = async () => {
       const { data: { user: u } } = await supabase.auth.getUser();
-      setUser(u);
       if (u) {
         const { data: perfil } = await supabase.from('perfiles').select('rol').eq('id', u.id).single();
         if (!perfil || perfil.rol !== 'admin') {
@@ -118,14 +117,15 @@ export default function Tiendas() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!confirm("Â¿Eliminar esta tienda?")) return;
+    if (!confirm("\u00BFEliminar esta tienda?")) return;
     await supabase.from('tiendas').delete().eq('id', id);
     load();
   };
 
   const grupoInfo = (grupo) => {
-    if (grupo === 'cafeteria') return { label: 'CafeterÃ­a', color: 'bg-orange-100 text-orange-700' };
-    return { label: 'EstaciÃ³n', color: 'bg-blue-100 text-blue-700' };
+    if (grupo === 'cafeteria') return { label: 'Cafeter\u00EDa', color: 'bg-orange-100 text-orange-700' };
+    if (grupo === 'ambas') return { label: 'Ambas', color: 'bg-purple-100 text-purple-700' };
+    return { label: 'Estaci\u00F3n', color: 'bg-blue-100 text-blue-700' };
   };
 
   return (
@@ -137,14 +137,11 @@ export default function Tiendas() {
           onClose={() => { setModal(null); setEditing(null); }}
         />
       )}
-
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">GestiÃ³n de Tiendas</h1>
+          <h1 className="text-2xl font-bold">Gesti\u00F3n de Tiendas</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {tiendas.length} tiendas registradas Â· 
-            {tiendas.filter(t => t.grupo === 'cafeteria').length} cafeterÃ­as Â· 
-            {tiendas.filter(t => t.grupo !== 'cafeteria').length} estaciones
+            {tiendas.length} tiendas registradas \u00B7 {tiendas.filter(t => t.grupo === 'cafeteria').length} cafeter\u00EDas \u00B7 {tiendas.filter(t => t.grupo !== 'cafeteria').length} estaciones
           </p>
         </div>
         <button
@@ -159,17 +156,17 @@ export default function Tiendas() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">ðª</span>
+            <span className="text-2xl">\u{1F3EA}</span>
             <span className="font-bold text-blue-800">Estaciones</span>
           </div>
-          <p className="text-sm text-blue-700">Ven todos los productos marcados como "estaciÃ³n" o "ambas" (catÃ¡logo completo)</p>
+          <p className="text-sm text-blue-700">Ven todos los productos marcados como "estaci\u00F3n" o "ambas" (cat\u00E1logo completo)</p>
         </div>
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">â</span>
-            <span className="font-bold text-orange-800">CafeterÃ­as</span>
+            <span className="text-2xl">\u2615</span>
+            <span className="font-bold text-orange-800">Cafeter\u00EDas</span>
           </div>
-          <p className="text-sm text-orange-700">Ven los productos marcados como "cafeterÃ­a" o "ambas" (catÃ¡logo reducido)</p>
+          <p className="text-sm text-orange-700">Ven los productos marcados como "cafeter\u00EDa" o "ambas" (cat\u00E1logo reducido)</p>
         </div>
       </div>
 
@@ -180,22 +177,22 @@ export default function Tiendas() {
           <div className="p-12 text-center text-gray-400">
             <Store size={48} className="mx-auto mb-3 opacity-30" />
             <p>No hay tiendas registradas</p>
-            <button className="btn-primary mt-4" onClick={() => setModal("tienda")}>AÃ±adir primera tienda</button>
+            <button className="btn-primary mt-4" onClick={() => setModal("tienda")}>A\u00F1adir primera tienda</button>
           </div>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {["CÃ³digo", "Nombre", "Email", "Responsable", "Tipo", "Estado", "Acciones"].map(h => (
+                {["C\u00F3digo", "Nombre", "Email", "Responsable", "Tipo", "Estado", "Acciones"].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-sm font-semibold text-gray-600">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {tiendas.map((t, i) => {
+              {tiendas.map((t) => {
                 const gi = grupoInfo(t.grupo);
                 return (
-                  <tr key={t.id} className={`border-b hover:bg-gray-50 transition-colors`}>
+                  <tr key={t.id} className="border-b hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-mono text-sm text-gray-500">{t.codigo || "-"}</td>
                     <td className="px-4 py-3 font-semibold">{t.nombre}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{t.email || "-"}</td>
@@ -212,10 +209,16 @@ export default function Tiendas() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        <button onClick={() => { setEditing(t); setModal("tienda"); }} className="p-2 hover:bg-blue-50 rounded-lg text-blue-500 transition-colors">
+                        <button
+                          onClick={() => { setEditing(t); setModal("tienda"); }}
+                          className="p-2 hover:bg-blue-50 rounded-lg text-blue-500 transition-colors"
+                        >
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => handleDelete(t.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400 transition-colors">
+                        <button
+                          onClick={() => handleDelete(t.id)}
+                          className="p-2 hover:bg-red-50 rounded-lg text-red-400 transition-colors"
+                        >
                           <Trash2 size={15} />
                         </button>
                       </div>
