@@ -182,7 +182,7 @@ export default function Catalogo() {
       {exito && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <CheckCircle size={22} />
-          <div><div className="font-bold">\u00A1Pedido enviado!</div><div className="text-sm opacity-90">N\u00BA {exito}</div></div>
+          <div><div className="font-bold">&iexcl;Pedido enviado!</div><div className="text-sm opacity-90">N&ordm; {exito}</div></div>
         </div>
       )}
       {cartOpen && (
