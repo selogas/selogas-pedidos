@@ -5,41 +5,41 @@ import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
 const CATEGORIA_EMOJIS = {
-  "Bebidas": "\u{1F37A}",
-  "Alimentacion": "\u{1F35E}",
-  "Cafeteria": "\u2615",
-  "Limpieza": "\u{1F9F9}",
-  "Higiene": "\u{1F9FC}",
-  "Papeleria": "\u{1F4CB}",
-  "Snacks": "\u{1F37F}",
-  "Dulces": "\u{1F36B}",
-  "Lacteos": "\u{1F95B}",
-  "Congelados": "\u2744",
-  "Panaderia": "\u{1F956}",
-  "Frutas": "\u{1F34E}",
-  "Verduras": "\u{1F96C}",
-  "Carnes": "\u{1F969}",
-  "Pescados": "\u{1F41F}",
-  "Tabaco": "\u{1F6AC}",
-  "Lonja": "\u{1F3EA}",
-  "Butano": "\u{1F525}",
-  "Gas": "\u{1F4A8}",
-  "Aditivos": "\u{1F9EA}",
-  "Lubricantes": "\u{1F6E2}",
-  "Bazar": "\u{1F6CD}",
-  "Aguas": "\u{1F4A7}",
-  "Aceites": "\u{1F6E2}",
-  "Frutas y Verduras": "\u{1F34F}",
-  "Apoyo": "\u{1F4BC}",
-  "Varios": "\u{1F4E6}",
+  "Bebidas": "🍺",
+  "Alimentacion": "🍞",
+  "Cafeteria": "☕",
+  "Limpieza": "🧹",
+  "Higiene": "🧼",
+  "Papeleria": "📋",
+  "Snacks": "🍿",
+  "Dulces": "🍫",
+  "Lacteos": "🥛",
+  "Congelados": "❄",
+  "Panaderia": "🥖",
+  "Frutas": "🍎",
+  "Verduras": "🥬",
+  "Carnes": "🥩",
+  "Pescados": "🐟",
+  "Tabaco": "🚬",
+  "Lonja": "🏪",
+  "Butano": "🔥",
+  "Gas": "💨",
+  "Aditivos": "🧪",
+  "Lubricantes": "🛢",
+  "Bazar": "🛍",
+  "Aguas": "💧",
+  "Aceites": "🛢",
+  "Frutas y Verduras": "🍏",
+  "Apoyo": "💼",
+  "Varios": "📦",
 };
 
 function getCatEmoji(nombre) {
-  if (!nombre) return "\u{1F4E6}";
+  if (!nombre) return "📦";
   for (const [key, emoji] of Object.entries(CATEGORIA_EMOJIS)) {
     if (nombre.toLowerCase().includes(key.toLowerCase())) return emoji;
   }
-  return "\u{1F4E6}";
+  return "📦";
 }
 
 export default function Catalogo() {
@@ -96,16 +96,10 @@ export default function Catalogo() {
 
   const productosFiltrados = useMemo(() => {
     let list = productos;
-    if (categoriaActiva !== "__todas__") {
-      list = list.filter(p => p.categoria_id === categoriaActiva);
-    }
+    if (categoriaActiva !== "__todas__") list = list.filter(p => p.categoria_id === categoriaActiva);
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
-      list = list.filter(p =>
-        p.nombre?.toLowerCase().includes(q) ||
-        p.codigo?.toLowerCase().includes(q) ||
-        p.categorias?.nombre?.toLowerCase().includes(q)
-      );
+      list = list.filter(p => p.nombre?.toLowerCase().includes(q) || p.codigo?.toLowerCase().includes(q) || p.categorias?.nombre?.toLowerCase().includes(q));
     }
     return list;
   }, [productos, categoriaActiva, busqueda]);
@@ -118,19 +112,12 @@ export default function Catalogo() {
   };
 
   const handleQtyChange = (prodId, qty) => {
-    if (qty <= 0) {
-      const next = { ...carrito };
-      delete next[prodId];
-      setCarrito(next);
-    } else {
-      setCarrito(c => ({ ...c, [prodId]: qty }));
-    }
+    if (qty <= 0) { const next = { ...carrito }; delete next[prodId]; setCarrito(next); }
+    else setCarrito(c => ({ ...c, [prodId]: qty }));
   };
 
   const handleRemove = (prodId) => {
-    const next = { ...carrito };
-    delete next[prodId];
-    setCarrito(next);
+    const next = { ...carrito }; delete next[prodId]; setCarrito(next);
   };
 
   const handleEnviar = async (observaciones, lineas) => {
@@ -141,28 +128,15 @@ export default function Catalogo() {
       const numeroPedido = "PED-" + Date.now().toString().slice(-8);
       const fecha = new Date().toISOString();
       const { data: pedido, error: pedidoError } = await supabase.from("pedidos").insert([{
-        numero_pedido: numeroPedido,
-        tienda_id: tienda?.id || null,
-        tienda_nombre: tiendaNombre,
-        usuario_id: user.id,
-        usuario_email: user.email,
-        usuario_nombre: perfil?.nombre_completo || user.email,
-        fecha_pedido: fecha,
-        estado: "enviado",
-        observaciones,
-        total_lineas: lineas.length,
-        email_enviado: false,
+        numero_pedido: numeroPedido, tienda_id: tienda?.id || null, tienda_nombre: tiendaNombre,
+        usuario_id: user.id, usuario_email: user.email, usuario_nombre: perfil?.nombre_completo || user.email,
+        fecha_pedido: fecha, estado: "enviado", observaciones, total_lineas: lineas.length, email_enviado: false,
       }]).select().single();
       if (pedidoError) throw pedidoError;
       const lineasData = lineas.map(({ prod, qty }) => ({
-        pedido_id: pedido.id,
-        producto_id: prod.id,
-        producto_codigo: prod.codigo || "",
-        producto_nombre: prod.nombre,
-        producto_categoria: prod.categorias?.nombre || "",
-        producto_formato: prod.formato || "",
-        cantidad: qty,
-        orden_excel: prod.orden_excel || 0,
+        pedido_id: pedido.id, producto_id: prod.id, producto_codigo: prod.codigo || "",
+        producto_nombre: prod.nombre, producto_categoria: prod.categorias?.nombre || "",
+        producto_formato: prod.formato || "", cantidad: qty, orden_excel: prod.orden_excel || 0,
       }));
       const { error: lineasError } = await supabase.from("pedido_items").insert(lineasData);
       if (lineasError) throw lineasError;
@@ -179,138 +153,77 @@ export default function Catalogo() {
           await supabase.functions.invoke("send-email", { body: { to: emailAlmacen, subject: asunto, body: cuerpo } });
           await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedido.id);
         }
-      } catch(emailErr) {
-        console.warn("Email no enviado:", emailErr.message);
-      }
-      setCarrito({});
-      setCartOpen(false);
-      setExito(numeroPedido);
+      } catch(emailErr) { console.warn("Email no enviado:", emailErr.message); }
+      setCarrito({}); setCartOpen(false); setExito(numeroPedido);
       setTimeout(() => setExito(null), 6000);
-    } catch (e) {
-      console.error(e);
-      alert("Error al enviar el pedido: " + e.message);
-    } finally {
-      setEnviando(false);
-    }
+    } catch (e) { console.error(e); alert("Error al enviar el pedido: " + e.message); }
+    finally { setEnviando(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 size={40} className="animate-spin mx-auto mb-3" style={{ color: "var(--color-primary)" }} />
-          <p className="text-gray-500">Cargando cat\u00E1logo...</p>
-        </div>
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="text-center">
+        <Loader2 size={40} className="animate-spin mx-auto mb-3" style={{ color: "var(--color-primary)" }} />
+        <p className="text-gray-500">Cargando catálogo...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (productos.length === 0) {
-    return (
-      <div className="text-center py-20">
-        <Package size={60} className="mx-auto mb-4 text-gray-300" />
-        <h2 className="text-xl font-bold text-gray-600 mb-2">Sin productos</h2>
-        <p className="text-gray-400 mb-4">El cat\u00E1logo est\u00E1 vac\u00EDo. Un administrador debe importar el cat\u00E1logo.</p>
-      </div>
-    );
-  }
+  if (productos.length === 0) return (
+    <div className="text-center py-20">
+      <Package size={60} className="mx-auto mb-4 text-gray-300" />
+      <h2 className="text-xl font-bold text-gray-600 mb-2">Sin productos</h2>
+      <p className="text-gray-400 mb-4">El catálogo está vacío. Un administrador debe importar el catálogo.</p>
+    </div>
+  );
 
   return (
     <div className="relative">
       {exito && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <CheckCircle size={22} />
-          <div>
-            <div className="font-bold">\u00A1Pedido enviado!</div>
-            <div className="text-sm opacity-90">N\u00BA {exito}</div>
-          </div>
+          <div><div className="font-bold">¡Pedido enviado!</div><div className="text-sm opacity-90">Nº {exito}</div></div>
         </div>
       )}
       {cartOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/40" onClick={() => setCartOpen(false)} />
-          <CartSidebar
-            carrito={carrito}
-            productos={productos}
-            onClose={() => setCartOpen(false)}
-            onQtyChange={handleQtyChange}
-            onRemove={handleRemove}
-            onEnviar={handleEnviar}
-            tiendaNombre={tienda?.nombre || ""}
-          />
+          <CartSidebar carrito={carrito} productos={productos} onClose={() => setCartOpen(false)} onQtyChange={handleQtyChange} onRemove={handleRemove} onEnviar={handleEnviar} tiendaNombre={tienda?.nombre || ""} />
         </div>
       )}
       {tienda && (
         <div className={"mb-4 px-4 py-2 rounded-xl text-sm font-medium " + (tienda.grupo === "cafeteria" ? "bg-orange-50 text-orange-700 border border-orange-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
-          {tienda.grupo === "cafeteria" ? "\u2615" : "\u26AA"} <strong>{tienda.nombre}</strong> \u00B7 {tienda.grupo === "cafeteria" ? "Cafeter\u00EDa" : "Estaci\u00F3n"} \u00B7 {productos.length} productos
+          {tienda.grupo === "cafeteria" ? "☕" : "⚪"} <strong>{tienda.nombre}</strong> · {tienda.grupo === "cafeteria" ? "Cafetería" : "Estación"} · {productos.length} productos
         </div>
       )}
       <div className="relative mb-6 flex gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar productos..."
-            className="search-bar pl-12"
-          />
+          <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar productos..." className="search-bar pl-12" />
         </div>
-        <button
-          className="relative flex items-center gap-2 px-5 py-3 rounded-full font-bold shadow-lg transition-all hover:scale-105 flex-shrink-0"
-          style={{ background: "#1e293b", color: "white", minWidth: "120px" }}
-          onClick={() => setCartOpen(true)}
-        >
+        <button className="relative flex items-center gap-2 px-5 py-3 rounded-full font-bold shadow-lg transition-all hover:scale-105 flex-shrink-0" style={{ background: "#1e293b", color: "white", minWidth: "120px" }} onClick={() => setCartOpen(true)}>
           <ShoppingCart size={20} color="white" />
           <span className="text-white">Pedido</span>
-          {cartCount > 0 && (
-            <span style={{ background: "#2563eb", color: "white", borderRadius: "50%", width: "22px", height: "22px", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", position: "absolute", top: "-8px", right: "-8px" }}>{cartCount}</span>
-          )}
+          {cartCount > 0 && <span style={{ background: "#2563eb", color: "white", borderRadius: "50%", width: "22px", height: "22px", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", position: "absolute", top: "-8px", right: "-8px" }}>{cartCount}</span>}
         </button>
       </div>
       {categorias.length > 0 && (
         <div className="mb-6 flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
-          <button
-            onClick={() => setCategoriaActiva("__todas__")}
-            className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (
-              categoriaActiva === "__todas__"
-                ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
-                : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
-            )}
-          >
-            \u{1F4E6} Todas
+          <button onClick={() => setCategoriaActiva("__todas__")} className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (categoriaActiva === "__todas__" ? "border-blue-600 bg-blue-600 text-white shadow-blue-200" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50")}>
+            📦 Todas
           </button>
           {categorias.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setCategoriaActiva(cat.id)}
-              className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (
-                categoriaActiva === cat.id
-                  ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
-                  : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
-              )}
-            >
+            <button key={cat.id} onClick={() => setCategoriaActiva(cat.id)} className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (categoriaActiva === cat.id ? "border-blue-600 bg-blue-600 text-white shadow-blue-200" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50")}>
               {getCatEmoji(cat.nombre)} {cat.nombre}
             </button>
           ))}
         </div>
       )}
       {productosFiltrados.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Package size={48} className="mx-auto mb-3 opacity-30" />
-          <p>No hay productos en esta categor\u00EDa</p>
-        </div>
+        <div className="text-center py-16 text-gray-400"><Package size={48} className="mx-auto mb-3 opacity-30" /><p>No hay productos en esta categoría</p></div>
       ) : categoriaActiva !== "__todas__" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {productosFiltrados.map(prod => (
-            <ProductCard
-              key={prod.id}
-              producto={prod}
-              cantidad={carrito[prod.id] || 0}
-              onAdd={() => handleAdd(prod)}
-              onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
-            />
-          ))}
+          {productosFiltrados.map(prod => <ProductCard key={prod.id} producto={prod} cantidad={carrito[prod.id] || 0} onAdd={() => handleAdd(prod)} onQtyChange={(qty) => handleQtyChange(prod.id, qty)} />)}
         </div>
       ) : (
         <div>
@@ -325,32 +238,11 @@ export default function Catalogo() {
                   <span className="text-sm text-gray-400 font-medium">({prodsCategoria.length})</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {prodsCategoria.map(prod => (
-                    <ProductCard
-                      key={prod.id}
-                      producto={prod}
-                      cantidad={carrito[prod.id] || 0}
-                      onAdd={() => handleAdd(prod)}
-                      onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
-                    />
-                  ))}
+                  {prodsCategoria.map(prod => <ProductCard key={prod.id} producto={prod} cantidad={carrito[prod.id] || 0} onAdd={() => handleAdd(prod)} onQtyChange={(qty) => handleQtyChange(prod.id, qty)} />)}
                 </div>
               </div>
             );
           })}
-          {categorias.length === 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {productosFiltrados.map(prod => (
-                <ProductCard
-                  key={prod.id}
-                  producto={prod}
-                  cantidad={carrito[prod.id] || 0}
-                  onAdd={() => handleAdd(prod)}
-                  onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
