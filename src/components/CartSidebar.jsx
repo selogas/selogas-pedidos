@@ -69,7 +69,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button onClick={() => onQtyChange(prod.id, Math.max(0, qty - multiplo))}
-                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-base">\u2212</button>
+                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-base">&minus;</button>
                     <span className="w-8 text-center font-bold text-sm text-gray-900">{qty}</span>
                     <button onClick={() => onQtyChange(prod.id, qty + multiplo)}
                       className="w-7 h-7 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center justify-center text-base">+</button>
