@@ -33,7 +33,7 @@ export default function ProductCard({ producto, cantidad, onAdd, onQtyChange }) 
           {cantidad > 0 ? (
             <div className="flex items-center gap-1.5">
               <button onClick={() => onQtyChange(Math.max(0, cantidad - multiplo))}
-                className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700">−</button>
+                className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700">\u2212</button>
               <span className="flex-1 text-center font-bold text-sm">{cantidad}</span>
               <button onClick={() => onQtyChange(cantidad + multiplo)}
                 className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700">+</button>
@@ -41,7 +41,7 @@ export default function ProductCard({ producto, cantidad, onAdd, onQtyChange }) 
           ) : (
             <button onClick={() => !agotado && onAdd(producto)} disabled={agotado}
               className="w-full py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
-              {agotado ? 'Agotado' : 'Añadir'}
+              {agotado ? 'Agotado' : 'A\u00F1adir'}
             </button>
           )}
         </div>
