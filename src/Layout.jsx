@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase';
-import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Warehouse } from 'lucide-react';
+import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Warehouse, Images } from 'lucide-react';
 
 export default function Layout({ children }) {
   const [user, setUser] = useState(null);
@@ -21,7 +21,6 @@ export default function Layout({ children }) {
       }
     };
     getUser();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) getUser();
       if (event === 'SIGNED_OUT') { setUser(null); setPerfil(null); setTienda(null); }
@@ -33,17 +32,18 @@ export default function Layout({ children }) {
 
   const navItemsTienda = [
     { path: '/Inicio', label: 'Inicio', icon: Home },
-    { path: '/Catalogo', label: 'Catálogo', icon: ShoppingCart },
+    { path: '/Catalogo', label: 'Cat\u00E1logo', icon: ShoppingCart },
     { path: '/MisPedidos', label: 'Mis Pedidos', icon: ClipboardList },
   ];
 
   const navItemsAdmin = [
     { path: '/Inicio', label: 'Inicio', icon: Home },
-    { path: '/Catalogo', label: 'Catálogo', icon: ShoppingCart },
+    { path: '/Catalogo', label: 'Cat\u00E1logo', icon: ShoppingCart },
     { path: '/MisPedidos', label: 'Pedidos', icon: ClipboardList },
     { path: '/Tiendas', label: 'Tiendas', icon: Store },
     { path: '/Productos', label: 'Productos', icon: Package },
     { path: '/ImportarProductos', label: 'Importar', icon: Upload },
+    { path: '/SubirImagenes', label: 'Im\u00E1genes', icon: Images },
     { path: '/Configuracion', label: 'Config', icon: Settings },
   ];
 
@@ -55,7 +55,7 @@ export default function Layout({ children }) {
     window.location.href = '/login';
   };
 
-  const grupoLabel = tienda?.grupo === 'cafeteria' ? '☕ Cafetería' : '🏪 Estación';
+  const grupoLabel = tienda?.grupo === 'cafeteria' ? '\u2615 Cafeter\u00EDa' : '\u{1F3EA} Estaci\u00F3n';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,13 +103,13 @@ export default function Layout({ children }) {
                   {perfil?.nombre_completo?.split(" ")[0] || user.email?.split("@")[0]}
                 </div>
                 <div className="text-xs text-gray-400">
-                  {isAdmin ? "Administrador" : (tienda ? `${tienda.nombre} · ${grupoLabel}` : "Sin tienda")}
+                  {isAdmin ? "Administrador" : (tienda ? `${tienda.nombre} \u00B7 ${grupoLabel}` : "Sin tienda")}
                 </div>
               </div>
               <button
                 onClick={handleLogout}
                 className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors"
-                title="Cerrar sesión"
+                title="Cerrar sesi\u00F3n"
               >
                 <LogOut size={16} />
               </button>
@@ -129,7 +129,9 @@ export default function Layout({ children }) {
                   key={item.path}
                   to={item.path}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    currentPath === item.path ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
+                    currentPath === item.path
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -143,7 +145,7 @@ export default function Layout({ children }) {
                 <div>
                   <div className="text-sm font-semibold">{perfil?.nombre_completo || user.email}</div>
                   <div className="text-xs text-gray-400">
-                    {isAdmin ? "Admin" : (tienda ? `${tienda.nombre} · ${grupoLabel}` : "Sin tienda")}
+                    {isAdmin ? "Admin" : (tienda ? `${tienda.nombre} \u00B7 ${grupoLabel}` : "Sin tienda")}
                   </div>
                 </div>
                 <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500">
