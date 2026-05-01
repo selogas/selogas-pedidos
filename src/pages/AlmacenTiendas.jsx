@@ -33,7 +33,7 @@ function TiendaModal({ tienda, onClose, onSave }) {
         </div>
         <div className="p-6 space-y-4">
           {[
-            { field: 'codigo', label: 'Código', placeholder: 'COD001' },
+            { field: 'codigo', label: 'C\u00F3digo', placeholder: 'COD001' },
             { field: 'nombre', label: 'Nombre *', placeholder: 'Nombre de la tienda' },
             { field: 'email', label: 'Email', placeholder: 'tienda@empresa.com', type: 'email' },
             { field: 'responsable', label: 'Responsable', placeholder: 'Nombre del responsable' },
@@ -49,8 +49,8 @@ function TiendaModal({ tienda, onClose, onSave }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Grupo *</label>
             <select className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
               value={form.grupo || 'estacion'} onChange={e => setForm(f => ({...f, grupo: e.target.value}))}>
-              <option value="estacion">Estación de Servicio</option>
-              <option value="cafeteria">Cafetería</option>
+              <option value="estacion">Estaci&oacute;n de Servicio</option>
+              <option value="cafeteria">Cafeter&iacute;a</option>
               <option value="ambos">Ambos</option>
             </select>
           </div>
@@ -81,7 +81,7 @@ function InviteModal({ tiendas, onClose }) {
   const [result, setResult] = useState(null);
 
   const handleInvite = async () => {
-    if (!email.trim() || !/^[^@]+@[^@]+.[^@]+$/.test(email)) return setResult({ error: 'Email inválido' });
+    if (!email.trim() || !/^[^@]+@[^@]+.[^@]+$/.test(email)) return setResult({ error: 'Email inv\u00E1lido' });
     setLoading(true);
     setResult(null);
     try {
@@ -142,7 +142,7 @@ function InviteModal({ tiendas, onClose }) {
           {result?.success && (
             <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl text-green-700 text-sm">
               <CheckCircle size={16} />
-              <span>Invitación enviada a <strong>{email}</strong></span>
+              <span>Invitaci&oacute;n enviada a <strong>{email}</strong></span>
             </div>
           )}
           {result?.error && (
@@ -157,7 +157,7 @@ function InviteModal({ tiendas, onClose }) {
           <button onClick={handleInvite} disabled={loading || result?.success}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 disabled:opacity-60 flex items-center justify-center gap-2">
             {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-            {loading ? 'Enviando...' : result?.success ? 'Enviada' : 'Enviar invitación'}
+            {loading ? 'Enviando...' : result?.success ? 'Enviada' : 'Enviar invitaci\u00F3n'}
           </button>
         </div>
       </div>
@@ -165,7 +165,7 @@ function InviteModal({ tiendas, onClose }) {
   );
 }
 
-const GRUPO_LABEL = { estacion: 'Estación', cafeteria: 'Cafetería', ambos: 'Ambos' };
+const GRUPO_LABEL = { estacion: 'Estaci\u00F3n', cafeteria: 'Cafeter\u00EDa', ambos: 'Ambos' };
 const GRUPO_COLOR = { estacion: 'bg-orange-100 text-orange-700', cafeteria: 'bg-purple-100 text-purple-700', ambos: 'bg-blue-100 text-blue-700' };
 
 export default function AlmacenTiendas() {
@@ -193,13 +193,13 @@ export default function AlmacenTiendas() {
   };
 
   const handleDeleteTienda = async (id) => {
-    if (!confirm('¿Eliminar esta tienda?')) return;
+    if (!confirm('\u00BFEliminar esta tienda?')) return;
     await tiendasApi.delete(id);
     setTiendas(prev => prev.filter(t => t.id !== id));
   };
 
   const handleDeleteUsuario = async (id) => {
-    if (!confirm('¿Eliminar este usuario?')) return;
+    if (!confirm('\u00BFEliminar este usuario?')) return;
     await perfilesApi.delete(id);
     setUsuarios(prev => prev.filter(u => u.id !== id));
   };
@@ -215,8 +215,8 @@ export default function AlmacenTiendas() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Almacén / Tiendas y Usuarios</h1>
-          <p className="text-gray-400 text-sm mt-0.5">Gestión de tiendas y accesos</p>
+          <h1 className="text-2xl font-bold text-gray-900">Almac&eacute;n / Tiendas y Usuarios</h1>
+          <p className="text-gray-400 text-sm mt-0.5">Gesti&oacute;n de tiendas y accesos</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setInviteOpen(true)} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50">
@@ -242,7 +242,7 @@ export default function AlmacenTiendas() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Código', 'Nombre', 'Email', 'Responsable', 'Grupo', 'Estado', 'Acciones'].map(h => (
+                {['C\u00F3digo', 'Nombre', 'Email', 'Responsable', 'Grupo', 'Estado', 'Acciones'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">{h}</th>
                 ))}
               </tr>
