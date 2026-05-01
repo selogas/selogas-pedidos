@@ -5,7 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
 const CATEGORIA_EMOJIS = {
-  "Bebidas":,
+  "Bebidas": "\u{1F37A}",
   "Alimentacion": "\u{1F35E}",
   "Cafeteria": "\u2615",
   "Limpieza": "\u{1F9F9}",
@@ -154,7 +154,6 @@ export default function Catalogo() {
         email_enviado: false,
       }]).select().single();
       if (pedidoError) throw pedidoError;
-
       const lineasData = lineas.map(({ prod, qty }) => ({
         pedido_id: pedido.id,
         producto_id: prod.id,
@@ -167,7 +166,6 @@ export default function Catalogo() {
       }));
       const { error: lineasError } = await supabase.from("pedido_items").insert(lineasData);
       if (lineasError) throw lineasError;
-
       try {
         const { data: config } = await supabase.from("configuracion").select("*");
         const getConf = (clave) => (config || []).find(c => c.clave === clave)?.valor || "";
@@ -184,7 +182,6 @@ export default function Catalogo() {
       } catch(emailErr) {
         console.warn("Email no enviado:", emailErr.message);
       }
-
       setCarrito({});
       setCartOpen(false);
       setExito(numeroPedido);
@@ -243,13 +240,11 @@ export default function Catalogo() {
           />
         </div>
       )}
-
       {tienda && (
         <div className={"mb-4 px-4 py-2 rounded-xl text-sm font-medium " + (tienda.grupo === "cafeteria" ? "bg-orange-50 text-orange-700 border border-orange-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
           {tienda.grupo === "cafeteria" ? "\u2615" : "\u26AA"} <strong>{tienda.nombre}</strong> \u00B7 {tienda.grupo === "cafeteria" ? "Cafeter\u00EDa" : "Estaci\u00F3n"} \u00B7 {productos.length} productos
         </div>
       )}
-
       <div className="relative mb-6 flex gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -273,7 +268,6 @@ export default function Catalogo() {
           )}
         </button>
       </div>
-
       {categorias.length > 0 && (
         <div className="mb-6 flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
           <button
@@ -301,7 +295,6 @@ export default function Catalogo() {
           ))}
         </div>
       )}
-
       {productosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Package size={48} className="mx-auto mb-3 opacity-30" />
