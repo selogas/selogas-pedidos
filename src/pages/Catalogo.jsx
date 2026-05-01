@@ -5,41 +5,41 @@ import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
 const CATEGORIA_EMOJIS = {
-  "Bebidas": "🍺",
-  "Alimentacion": "🍞",
-  "Cafeteria": "☕",
-  "Limpieza": "🧹",
-  "Higiene": "🧼",
-  "Papeleria": "📋",
-  "Snacks": "🍿",
-  "Dulces": "🍫",
-  "Lacteos": "🥛",
-  "Congelados": "❄",
-  "Panaderia": "🥖",
-  "Frutas": "🍎",
-  "Verduras": "🥬",
-  "Carnes": "🥩",
-  "Pescados": "🐟",
-  "Tabaco": "🚬",
-  "Lonja": "🏪",
-  "Butano": "🔥",
-  "Gas": "💨",
-  "Aditivos": "🧪",
-  "Lubricantes": "🛢",
-  "Bazar": "🛍",
-  "Aguas": "💧",
-  "Aceites": "🛢",
-  "Frutas y Verduras": "🍏",
-  "Apoyo": "💼",
-  "Varios": "📦",
+  "Bebidas": "\uD83C\uDF7A",
+  "Alimentacion": "\uD83C\uDF5E",
+  "Cafeteria": "\u2615",
+  "Limpieza": "\uD83E\uDDF9",
+  "Higiene": "\uD83E\uDDFC",
+  "Papeleria": "\uD83D\uDCCB",
+  "Snacks": "\uD83C\uDF7F",
+  "Dulces": "\uD83C\uDF6B",
+  "Lacteos": "\uD83E\uDD5B",
+  "Congelados": "\u2744",
+  "Panaderia": "\uD83E\uDD56",
+  "Frutas": "\uD83C\uDF4E",
+  "Verduras": "\uD83E\uDD6C",
+  "Carnes": "\uD83E\uDD69",
+  "Pescados": "\uD83D\uDC1F",
+  "Tabaco": "\uD83D\uDEAC",
+  "Lonja": "\uD83C\uDFEA",
+  "Butano": "\uD83D\uDD25",
+  "Gas": "\uD83D\uDCA8",
+  "Aditivos": "\uD83E\uDDEA",
+  "Lubricantes": "\uD83D\uDEE2",
+  "Bazar": "\uD83D\uDECD",
+  "Aguas": "\uD83D\uDCA7",
+  "Aceites": "\uD83D\uDEE2",
+  "Frutas y Verduras": "\uD83C\uDF4F",
+  "Apoyo": "\uD83D\uDCBC",
+  "Varios": "\uD83D\uDCE6",
 };
 
 function getCatEmoji(nombre) {
-  if (!nombre) return "📦";
+  if (!nombre) return "\uD83D\uDCE6";
   for (const [key, emoji] of Object.entries(CATEGORIA_EMOJIS)) {
     if (nombre.toLowerCase().includes(key.toLowerCase())) return emoji;
   }
-  return "📦";
+  return "\uD83D\uDCE6";
 }
 
 export default function Catalogo() {
@@ -164,7 +164,7 @@ export default function Catalogo() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
         <Loader2 size={40} className="animate-spin mx-auto mb-3" style={{ color: "var(--color-primary)" }} />
-        <p className="text-gray-500">Cargando catálogo...</p>
+        <p className="text-gray-500">Cargando cat&aacute;logo...</p>
       </div>
     </div>
   );
@@ -173,7 +173,7 @@ export default function Catalogo() {
     <div className="text-center py-20">
       <Package size={60} className="mx-auto mb-4 text-gray-300" />
       <h2 className="text-xl font-bold text-gray-600 mb-2">Sin productos</h2>
-      <p className="text-gray-400 mb-4">El catálogo está vacío. Un administrador debe importar el catálogo.</p>
+      <p className="text-gray-400 mb-4">El cat&aacute;logo est&aacute; vac&iacute;o. Un administrador debe importar el cat&aacute;logo.</p>
     </div>
   );
 
@@ -182,7 +182,7 @@ export default function Catalogo() {
       {exito && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <CheckCircle size={22} />
-          <div><div className="font-bold">¡Pedido enviado!</div><div className="text-sm opacity-90">Nº {exito}</div></div>
+          <div><div className="font-bold">\u00A1Pedido enviado!</div><div className="text-sm opacity-90">N\u00BA {exito}</div></div>
         </div>
       )}
       {cartOpen && (
@@ -193,7 +193,7 @@ export default function Catalogo() {
       )}
       {tienda && (
         <div className={"mb-4 px-4 py-2 rounded-xl text-sm font-medium " + (tienda.grupo === "cafeteria" ? "bg-orange-50 text-orange-700 border border-orange-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
-          {tienda.grupo === "cafeteria" ? "☕" : "⚪"} <strong>{tienda.nombre}</strong> · {tienda.grupo === "cafeteria" ? "Cafetería" : "Estación"} · {productos.length} productos
+          {tienda.grupo === "cafeteria" ? "\u2615" : "\u26AA"} <strong>{tienda.nombre}</strong> &middot; {tienda.grupo === "cafeteria" ? "Cafeter\u00EDa" : "Estaci\u00F3n"} &middot; {productos.length} productos
         </div>
       )}
       <div className="relative mb-6 flex gap-3">
@@ -210,7 +210,7 @@ export default function Catalogo() {
       {categorias.length > 0 && (
         <div className="mb-6 flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
           <button onClick={() => setCategoriaActiva("__todas__")} className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (categoriaActiva === "__todas__" ? "border-blue-600 bg-blue-600 text-white shadow-blue-200" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50")}>
-            📦 Todas
+            {String.fromCodePoint(0x1F4E6)} Todas
           </button>
           {categorias.map(cat => (
             <button key={cat.id} onClick={() => setCategoriaActiva(cat.id)} className={"flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm " + (categoriaActiva === cat.id ? "border-blue-600 bg-blue-600 text-white shadow-blue-200" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50")}>
@@ -220,7 +220,7 @@ export default function Catalogo() {
         </div>
       )}
       {productosFiltrados.length === 0 ? (
-        <div className="text-center py-16 text-gray-400"><Package size={48} className="mx-auto mb-3 opacity-30" /><p>No hay productos en esta categoría</p></div>
+        <div className="text-center py-16 text-gray-400"><Package size={48} className="mx-auto mb-3 opacity-30" /><p>No hay productos en esta categor&iacute;a</p></div>
       ) : categoriaActiva !== "__todas__" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {productosFiltrados.map(prod => <ProductCard key={prod.id} producto={prod} cantidad={carrito[prod.id] || 0} onAdd={() => handleAdd(prod)} onQtyChange={(qty) => handleQtyChange(prod.id, qty)} />)}
