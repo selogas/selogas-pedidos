@@ -19,7 +19,7 @@ export default function Login() {
       await signIn(email, password);
       navigate('/inicio');
     } catch (err) {
-      setError('Email o contraseña incorrectos: ' + (err?.message || err));
+      setError('Email o contrase\u00F1a incorrectos: ' + (err?.message || err));
       setLoading(false);
     }
   };
@@ -49,7 +49,7 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Contrase&ntilde;a</label>
             <input
               type="password"
               value={password}
