@@ -63,7 +63,7 @@ export default function MisPedidos() {
       {pedidos.length === 0 ? (
         <div className="text-center py-20">
           <ClipboardList size={48} className="mx-auto mb-4 text-gray-200" />
-          <p className="text-gray-400 font-medium">No hay pedidos todavía</p>
+          <p className="text-gray-400 font-medium">No hay pedidos todav&iacute;a</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -76,7 +76,7 @@ export default function MisPedidos() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ESTADO_COLOR[p.estado] || 'bg-gray-100 text-gray-500'}`}>
                       {p.estado}
                     </span>
-                    {p.email_enviado && <span className="text-xs text-green-600 font-medium">✓ Email enviado</span>}
+                    {p.email_enviado && <span className="text-xs text-green-600 font-medium">&#10003; Email enviado</span>}
                   </div>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
                     {isAdmin && <span className="text-sm font-medium text-blue-600">{p.tienda_nombre}</span>}
@@ -110,7 +110,7 @@ export default function MisPedidos() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400 text-center py-4">No hay líneas de pedido</p>
+                    <p className="text-sm text-gray-400 text-center py-4">No hay l&iacute;neas de pedido</p>
                   )}
                 </div>
               )}
