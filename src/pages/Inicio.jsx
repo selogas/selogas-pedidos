@@ -23,7 +23,7 @@ function ComunicadoModal({ com, onClose, onSave }) {
   };
 
   const handleSave = async () => {
-    if (!form.titulo.trim()) return alert('El título es obligatorio');
+    if (!form.titulo.trim()) return alert('El t\u00EDtulo es obligatorio');
     setSaving(true);
     try {
       let result;
@@ -49,9 +49,9 @@ function ComunicadoModal({ com, onClose, onSave }) {
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Título *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">T&iacute;tulo *</label>
             <input className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-              value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))} placeholder="Título del comunicado" />
+              value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))} placeholder="T\u00EDtulo del comunicado" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Texto</label>
@@ -122,7 +122,7 @@ export default function Inicio() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar comunicado?')) return;
+    if (!confirm('\u00BFEliminar comunicado?')) return;
     await comunicadosApi.delete(id);
     setComunicados(prev => prev.filter(c => c.id !== id));
   };
@@ -173,7 +173,7 @@ export default function Inicio() {
         <div className="text-center py-20">
           <Megaphone size={48} className="mx-auto mb-4 text-gray-200" />
           <p className="text-gray-400 font-medium">No hay comunicados</p>
-          {isAdmin && <p className="text-sm text-gray-400 mt-1">Crea el primer comunicado con el botón de arriba</p>}
+          {isAdmin && <p className="text-sm text-gray-400 mt-1">Crea el primer comunicado con el bot&oacute;n de arriba</p>}
         </div>
       ) : (
         <div className="space-y-4">
