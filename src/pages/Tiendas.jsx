@@ -112,11 +112,11 @@ export default function Tiendas() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1"><span className="text-2xl">{String.fromCodePoint(0x1F3EA)}</span><span className="font-bold text-blue-800">Estaciones</span></div>
-          <p className="text-sm text-blue-700">Ven todos los productos marcados como "estaci\u00F3n" o "ambas" (cat&aacute;logo completo)</p>
+          <p className="text-sm text-blue-700">Ven todos los productos marcados como "estaci&oacute;n" o "ambas" (cat&aacute;logo completo)</p>
         </div>
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1"><span className="text-2xl">&#9749;</span><span className="font-bold text-orange-800">Cafeter&iacute;as</span></div>
-          <p className="text-sm text-orange-700">Ven los productos marcados como "cafeter\u00EDa" o "ambas" (cat&aacute;logo reducido)</p>
+          <p className="text-sm text-orange-700">Ven los productos marcados como "cafeter&iacute;a" o "ambas" (cat&aacute;logo reducido)</p>
         </div>
       </div>
       <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
