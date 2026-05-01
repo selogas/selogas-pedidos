@@ -5,8 +5,8 @@ import { Save, CheckCircle, Loader2, Mail, MessageSquare, FileText } from 'lucid
 const CAMPOS = [
   {
     clave: 'email_almacen',
-    label: 'Email del Almacén',
-    descripcion: 'Dirección(es) donde se recibirán los pedidos (separadas por coma)',
+    label: 'Email del Almac\u00E9n',
+    descripcion: 'Direcci\u00F3n(es) donde se recibir\u00E1n los pedidos (separadas por coma)',
     icon: Mail,
     placeholder: 'almacen@empresa.com, almacen2@empresa.com',
     type: 'email'
@@ -62,7 +62,7 @@ export default function Configuracion() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Configuraci&oacute;n</h1>
         <p className="text-gray-500 text-sm mt-1">Ajustes generales del sistema de pedidos</p>
       </div>
 
