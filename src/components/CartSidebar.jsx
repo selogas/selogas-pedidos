@@ -44,8 +44,8 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
         {lineas.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-6">
             <ShoppingCart size={48} className="text-gray-200 mb-4" />
-            <p className="text-gray-400 font-medium">El carrito está vacío</p>
-            <p className="text-gray-400 text-sm mt-1">Añade productos desde el catálogo</p>
+            <p className="text-gray-400 font-medium">El carrito est&aacute; vac&iacute;o</p>
+            <p className="text-gray-400 text-sm mt-1">A&ntilde;ade productos desde el cat&aacute;logo</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -69,7 +69,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button onClick={() => onQtyChange(prod.id, Math.max(0, qty - multiplo))}
-                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-base">−</button>
+                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-base">\u2212</button>
                     <span className="w-8 text-center font-bold text-sm text-gray-900">{qty}</span>
                     <button onClick={() => onQtyChange(prod.id, qty + multiplo)}
                       className="w-7 h-7 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center justify-center text-base">+</button>
@@ -90,7 +90,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
               className="w-full flex items-center justify-between p-3 text-amber-800">
               <div className="flex items-center gap-2 text-sm font-bold">
                 <Lightbulb size={16} className="text-amber-500" />
-                ¿No se te olvida esto?
+                &iquest;No se te olvida esto?
                 <span className="text-xs bg-amber-200 text-amber-700 px-2 py-0.5 rounded-full">{sugerencias.length}</span>
               </div>
               <ChevronDown size={16} className={`transition-transform ${showSugerencias ? 'rotate-180' : ''}`} />
@@ -143,7 +143,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
             <div className="space-y-2">
               <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl text-amber-800 text-xs">
                 <AlertCircle size={16} className="flex-shrink-0" />
-                <span>¿Confirmas el pedido de <strong>{totalLineas} producto{totalLineas !== 1 ? 's' : ''}</strong>?</span>
+                <span>&iquest;Confirmas el pedido de <strong>{totalLineas} producto{totalLineas !== 1 ? 's' : ''}</strong>?</span>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setConfirmOpen(false)} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-100">Cancelar</button>
