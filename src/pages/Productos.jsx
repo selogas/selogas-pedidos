@@ -3,9 +3,9 @@ import { supabase } from "@/lib/supabase";
 import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Upload, ChevronRight, FolderOpen, Tag } from "lucide-react";
 
 const GRUPOS = [
-  { value: 'ambas', label: '📦 Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
-  { value: 'estacion', label: '🏪 Estación', desc: 'Solo estaciones', color: 'bg-blue-100 text-blue-700' },
-  { value: 'cafeteria', label: '☕ Cafetería', desc: 'Solo cafeterías', color: 'bg-orange-100 text-orange-700' },
+  { value: 'ambas', label: '\uD83D\uDCE6 Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
+  { value: 'estacion', label: '\uD83C\uDFEA Estaci\u00F3n', desc: 'Solo estaciones', color: 'bg-blue-100 text-blue-700' },
+  { value: 'cafeteria', label: '\u2615 Cafeter\u00EDa', desc: 'Solo cafeter\u00EDas', color: 'bg-orange-100 text-orange-700' },
 ];
 
 function SubirImagenesModal({ productos, onClose, onDone }) {
@@ -63,17 +63,17 @@ function SubirImagenesModal({ productos, onClose, onDone }) {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b">
-          <h2 className="font-bold text-lg">Subir imágenes por código</h2>
+          <h2 className="font-bold text-lg">Subir im&aacute;genes por c&oacute;digo</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
           {fase === "inicio" && (
             <div>
-              <p className="text-sm text-gray-500 mb-5">Selecciona una carpeta. El <strong>nombre de cada archivo</strong> debe ser el <strong>código del producto</strong> (ej: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">856607.jpg</code>). Se asociarán automáticamente.</p>
+              <p className="text-sm text-gray-500 mb-5">Selecciona una carpeta. El <strong>nombre de cada archivo</strong> debe ser el <strong>c&oacute;digo del producto</strong> (ej: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">856607.jpg</code>). Se asociar&aacute;n autom&aacute;ticamente.</p>
               <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-blue-400 cursor-pointer transition-colors" onClick={() => inputRef.current?.click()}>
                 <FolderOpen size={48} className="mx-auto mb-3 text-gray-300" />
-                <p className="font-semibold text-gray-600 mb-1">Seleccionar carpeta de imágenes</p>
-                <p className="text-sm text-gray-400 mb-4">Haz clic o arrastra aquí</p>
+                <p className="font-semibold text-gray-600 mb-1">Seleccionar carpeta de im&aacute;genes</p>
+                <p className="text-sm text-gray-400 mb-4">Haz clic o arrastra aqu&iacute;</p>
                 <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm"><FolderOpen size={16} /> Elegir carpeta</div>
               </div>
               <input ref={inputRef} type="file" multiple accept="image/*" webkitdirectory="" directory="" className="hidden" onChange={handleSeleccion} />
@@ -82,18 +82,18 @@ function SubirImagenesModal({ productos, onClose, onDone }) {
           {fase === "preview" && (
             <div>
               <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-white border rounded-xl p-3 text-center"><div className="text-2xl font-bold">{archivos.length}</div><div className="text-xs text-gray-500">Imágenes</div></div>
+                <div className="bg-white border rounded-xl p-3 text-center"><div className="text-2xl font-bold">{archivos.length}</div><div className="text-xs text-gray-500">Im&aacute;genes</div></div>
                 <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center"><div className="text-2xl font-bold text-green-700">{listos.length}</div><div className="text-xs text-green-600">Con coincidencia</div></div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center"><div className="text-2xl font-bold text-amber-700">{sinMatch.length}</div><div className="text-xs text-amber-600">Sin coincidencia</div></div>
               </div>
-              {sinMatch.length > 0 && <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700"><strong>{sinMatch.length} imágenes</strong> sin producto coincidente serán ignoradas.</div>}
+              {sinMatch.length > 0 && <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700"><strong>{sinMatch.length} im&aacute;genes</strong> sin producto coincidente ser&aacute;n ignoradas.</div>}
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-64 overflow-y-auto border rounded-xl p-3">
                 {archivos.map((item, i) => (
                   <div key={i} className={`rounded-xl border-2 overflow-hidden ${item.ok ? "border-green-300" : "border-amber-300"}`}>
                     <div className="aspect-square bg-gray-50 overflow-hidden"><img src={item.preview} alt="" className="w-full h-full object-contain p-1" /></div>
                     <div className="p-1.5">
                       <p className="text-xs font-bold truncate">{item.cod}</p>
-                      <p className={`text-xs truncate ${item.producto ? "text-green-700" : "text-amber-600"}`}>{item.producto ? "✓ " + item.producto.nombre : "⚠ Sin coincidencia"}</p>
+                      <p className={`text-xs truncate ${item.producto ? "text-green-700" : "text-amber-600"}`}>{item.producto ? "\u2713 " + item.producto.nombre : "\u26A0 Sin coincidencia"}</p>
                     </div>
                   </div>
                 ))}
@@ -103,7 +103,7 @@ function SubirImagenesModal({ productos, onClose, onDone }) {
           {fase === "subiendo" && (
             <div className="text-center py-10">
               <Loader2 size={40} className="animate-spin mx-auto mb-3 text-blue-600" />
-              <p className="font-bold text-gray-700 mb-4">Subiendo imágenes... {progreso}%</p>
+              <p className="font-bold text-gray-700 mb-4">Subiendo im&aacute;genes... {progreso}%</p>
               <div className="w-full bg-gray-100 rounded-full h-3"><div className="bg-blue-600 h-3 rounded-full transition-all" style={{ width: progreso + "%" }} /></div>
             </div>
           )}
@@ -119,7 +119,7 @@ function SubirImagenesModal({ productos, onClose, onDone }) {
         </div>
         <div className="p-4 border-t flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">{fase === "hecho" ? "Cerrar" : "Cancelar"}</button>
-          {fase === "preview" && <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={16} /> Subir {listos.length} imágenes</button>}
+          {fase === "preview" && <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={16} /> Subir {listos.length} im&aacute;genes</button>}
           {fase === "hecho" && exitosos.length > 0 && <button onClick={() => { onDone(); onClose(); }} className="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700">Actualizar lista</button>}
         </div>
       </div>
@@ -143,7 +143,7 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
       const data = await resp.json();
       const imgs = (data.products || []).map(p => ({ name: p.product_name || q, url: p.image_url || p.image_front_thumb_url })).filter(p => p.url);
       setResults(imgs);
-      if (!imgs.length) setError("No se encontraron imágenes.");
+      if (!imgs.length) setError("No se encontraron im\u00E1genes.");
     } catch(err) { setError("No se pudo conectar. Pega la URL directamente abajo."); }
     setLoading(false);
   };
@@ -163,7 +163,7 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
           </button>
         </div>
-        {error && <div className="mb-3"><p className="text-sm text-amber-600 mb-2">{error}</p><div className="flex gap-2"><input type="text" value={manualUrl} onChange={e => setManualUrl(e.target.value)} placeholder="Pega aquí la URL..." className="flex-1 border rounded-xl px-4 py-2 text-sm" /><button onClick={() => { if (manualUrl.trim()) onSelect(manualUrl.trim()); }} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold">Usar</button></div></div>}
+        {error && <div className="mb-3"><p className="text-sm text-amber-600 mb-2">{error}</p><div className="flex gap-2"><input type="text" value={manualUrl} onChange={e => setManualUrl(e.target.value)} placeholder="Pega aqu\u00ED la URL..." className="flex-1 border rounded-xl px-4 py-2 text-sm" /><button onClick={() => { if (manualUrl.trim()) onSelect(manualUrl.trim()); }} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold">Usar</button></div></div>}
         {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-blue-500" /></div>}
         {!loading && results.length > 0 && (
           <div className="overflow-y-auto flex-1">
@@ -192,20 +192,20 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
     setSaving(false); setNuevaNombre(""); onUpdated();
   };
   const handleEliminar = async (cat) => {
-    if (!confirm(`¿Eliminar la categoría "${cat.nombre}"?`)) return;
+    if (!confirm(`\u00BFEliminar la categor\u00EDa "${cat.nombre}"?`)) return;
     await supabase.from("productos").update({ categoria_id: null }).eq("categoria_id", cat.id);
     await supabase.from("categorias").delete().eq("id", cat.id); onUpdated();
   };
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> Categorías</h2><button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button></div>
+        <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> Categor&iacute;as</h2><button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button></div>
         <div className="flex gap-2 mb-4">
-          <input type="text" value={nuevaNombre} onChange={e => setNuevaNombre(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCrear()} placeholder="Nueva categoría..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
+          <input type="text" value={nuevaNombre} onChange={e => setNuevaNombre(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCrear()} placeholder="Nueva categor\u00EDa..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
           <button onClick={handleCrear} disabled={saving || !nuevaNombre.trim()} className="px-3 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50">{saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}</button>
         </div>
         <div className="overflow-y-auto flex-1 space-y-1">
-          {!categorias.length && <p className="text-sm text-gray-400 text-center py-4">No hay categorías aún</p>}
+          {!categorias.length && <p className="text-sm text-gray-400 text-center py-4">No hay categor&iacute;as a&uacute;n</p>}
           {categorias.map(cat => <div key={cat.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 border border-gray-100"><span className="text-sm font-medium">{cat.nombre}</span><button onClick={() => handleEliminar(cat)} className="p-1 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button></div>)}
         </div>
         <button onClick={onClose} className="mt-4 w-full py-2 border rounded-xl text-sm font-medium hover:bg-gray-50">Cerrar</button>
@@ -237,10 +237,10 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-lg flex items-center gap-2"><FolderOpen size={18} /> Mover productos</h2><button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button></div>
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div><label className="block text-xs font-semibold text-gray-600 mb-1">Filtrar por categoría</label><select value={origen} onChange={e => { setOrigen(e.target.value); setSeleccion([]); }} className="w-full border rounded-xl px-3 py-2 text-sm"><option value="">Todas</option><option value="__sin__">Sin categoría</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
-          <div><label className="block text-xs font-semibold text-gray-600 mb-1">Mover a</label><select value={destino} onChange={e => setDestino(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm"><option value="">Selecciona destino...</option><option value="__sin__">Sin categoría</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
+          <div><label className="block text-xs font-semibold text-gray-600 mb-1">Filtrar por categor&iacute;a</label><select value={origen} onChange={e => { setOrigen(e.target.value); setSeleccion([]); }} className="w-full border rounded-xl px-3 py-2 text-sm"><option value="">Todas</option><option value="__sin__">Sin categor&iacute;a</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
+          <div><label className="block text-xs font-semibold text-gray-600 mb-1">Mover a</label><select value={destino} onChange={e => setDestino(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm"><option value="">Selecciona destino...</option><option value="__sin__">Sin categor&iacute;a</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
         </div>
-        <div className="flex items-center justify-between mb-2"><span className="text-xs text-gray-500">{productosFiltrados.length} productos · {seleccion.length} seleccionados</span><button onClick={toggleTodos} className="text-xs text-blue-600 hover:underline">{seleccion.length === productosFiltrados.length ? "Deseleccionar todos" : "Seleccionar todos"}</button></div>
+        <div className="flex items-center justify-between mb-2"><span className="text-xs text-gray-500">{productosFiltrados.length} productos &middot; {seleccion.length} seleccionados</span><button onClick={toggleTodos} className="text-xs text-blue-600 hover:underline">{seleccion.length === productosFiltrados.length ? "Deseleccionar todos" : "Seleccionar todos"}</button></div>
         <div className="overflow-y-auto flex-1 space-y-1 border rounded-xl p-2">{productosFiltrados.map(prod => <label key={prod.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"><input type="checkbox" checked={seleccion.includes(prod.id)} onChange={() => toggleSeleccion(prod.id)} className="rounded" />{prod.imagen_url && <img src={prod.imagen_url} alt="" className="w-8 h-8 object-contain rounded" />}<span className="text-sm flex-1 truncate">{prod.nombre}</span></label>)}</div>
         <div className="flex gap-3 mt-4">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
@@ -293,12 +293,12 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
           <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-lg">{modo === 'crear' ? 'Nuevo producto' : 'Editar producto'}</h2><button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button></div>
           <div className="space-y-4">
             <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nombre *</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} placeholder="Nombre del producto" className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
-            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Código / Referencia</label><input type="text" value={form.codigo} onChange={e => setForm(f => ({...f, codigo: e.target.value}))} placeholder="ej: PROD-001" className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
-            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Categoría</label><select value={form.categoria_id} onChange={e => setForm(f => ({...f, categoria_id: e.target.value}))} className="w-full border rounded-xl px-4 py-2.5 text-sm"><option value="">Sin categoría</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
-            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Descripción</label><textarea value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} placeholder="Descripción del producto" rows={2} className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none" /></div>
+            <div><label className="block text-sm font-semibold text-gray-700 mb-1">C&oacute;digo / Referencia</label><input type="text" value={form.codigo} onChange={e => setForm(f => ({...f, codigo: e.target.value}))} placeholder="ej: PROD-001" className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
+            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Categor&iacute;a</label><select value={form.categoria_id} onChange={e => setForm(f => ({...f, categoria_id: e.target.value}))} className="w-full border rounded-xl px-4 py-2.5 text-sm"><option value="">Sin categor&iacute;a</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
+            <div><label className="block text-sm font-semibold text-gray-700 mb-1">Descripci&oacute;n</label><textarea value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} placeholder="Descripci\u00F3n del producto" rows={2} className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="block text-sm font-semibold text-gray-700 mb-1">Formato</label><input type="text" value={form.formato} onChange={e => setForm(f => ({...f, formato: e.target.value}))} placeholder="ej: X12" className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
-              <div><label className="block text-sm font-semibold text-gray-700 mb-1">Múltiplo</label><input type="number" min="1" value={form.multiplo} onChange={e => setForm(f => ({...f, multiplo: Number(e.target.value)}))} className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
+              <div><label className="block text-sm font-semibold text-gray-700 mb-1">M&uacute;ltiplo</label><input type="number" min="1" value={form.multiplo} onChange={e => setForm(f => ({...f, multiplo: Number(e.target.value)}))} className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div>
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilidad</label>
@@ -318,7 +318,7 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
               </div>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-              <div><div className="text-sm font-semibold text-gray-700">Disponible</div><div className="text-xs text-gray-400">Visible en el catálogo</div></div>
+              <div><div className="text-sm font-semibold text-gray-700">Disponible</div><div className="text-xs text-gray-400">Visible en el cat&aacute;logo</div></div>
               <button onClick={() => setForm(f => ({...f, disponible: !f.disponible}))} className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-blue-600" : "bg-gray-300"}`}><span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.disponible ? "translate-x-6" : "translate-x-0.5"}`} /></button>
             </div>
           </div>
@@ -370,7 +370,7 @@ export default function Productos() {
     else { setProductos(prev => prev.map(p => p.id === updated.id ? updated : p)); setEditando(null); }
   };
   const handleDelete = async (prod) => {
-    if (!confirm(`¿Eliminar "${prod.nombre}"?`)) return;
+    if (!confirm(`\u00BFEliminar "${prod.nombre}"?`)) return;
     await supabase.from('productos').delete().eq('id', prod.id);
     setProductos(prev => prev.filter(p => p.id !== prod.id));
   };
@@ -392,16 +392,16 @@ export default function Productos() {
         <h1 className="text-xl font-bold text-gray-800">Productos</h1>
         <div className="flex gap-2 flex-wrap">
           <button onClick={() => setSubirImagenes(true)} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 shadow">
-            <Upload size={15} /> Subir Imágenes
+            <Upload size={15} /> Subir Im&aacute;genes
           </button>
           <button onClick={() => setMoverCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><FolderOpen size={15} /> Mover</button>
-          <button onClick={() => setGestionCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><Tag size={15} /> Categorías</button>
+          <button onClick={() => setGestionCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><Tag size={15} /> Categor&iacute;as</button>
           <button onClick={() => setCreando(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow"><Plus size={16} /> Nuevo producto</button>
         </div>
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-        {[{ id: "__todas__", nombre: "Todos" }, { id: "__sin__", nombre: "Sin categoría" }, ...categorias].map(cat => (
+        {[{ id: "__todas__", nombre: "Todos" }, { id: "__sin__", nombre: "Sin categor\u00EDa" }, ...categorias].map(cat => (
           <button key={cat.id} onClick={() => setCategoriaActiva(cat.id)} className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${categoriaActiva === cat.id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{cat.nombre}</button>
         ))}
       </div>
@@ -410,9 +410,9 @@ export default function Productos() {
         <div className="relative flex-1 min-w-[200px]"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar..." className="w-full pl-9 pr-4 py-2 border rounded-xl text-sm" /></div>
         <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)} className="border rounded-xl px-3 py-2 text-sm">
           <option value="__todos__">Todos los grupos</option>
-          <option value="ambas">📦 Ambas</option>
-          <option value="estacion">🏪 Estación</option>
-          <option value="cafeteria">☕ Cafetería</option>
+          <option value="ambas">{String.fromCodePoint(0x1F4E6)} Ambas</option>
+          <option value="estacion">{String.fromCodePoint(0x1F3EA)} Estaci&oacute;n</option>
+          <option value="cafeteria">&#9749; Cafeter&iacute;a</option>
         </select>
       </div>
 
