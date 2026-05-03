@@ -106,7 +106,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
                     src={img.url}
                     alt={img.name}
                     className="w-full h-full object-contain p-1"
-                    onError={e => { e.target.parentElement.style.display = "none"; }}
+                    onError={e => { e.target.style.display = "none"; }}
                   />
                   <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/10 transition-colors rounded-xl" />
                 </button>
