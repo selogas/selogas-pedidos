@@ -36,17 +36,20 @@ export default function Catalogo() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [exito, setExito] = useState(null);
+  const [sugerencias, setSugerencias] = useState([]);
 
   useEffect(() => {
     const init = async () => {
       const { data: { user: u } } = await supabase.auth.getUser();
       setUser(u);
       if (!u) { setLoading(false); return; }
+
       const { data: p } = await supabase.from("perfiles").select("*, tiendas(*)").eq("id", u.id).single();
       setPerfil(p);
       const grupoTienda = p?.tiendas?.grupo || "estacion";
       const esAdmin = p?.rol === "admin";
       if (p?.tiendas) setTienda(p.tiendas);
+
       let query = supabase.from("productos").select("*, categorias(id, nombre, grupo)").eq("disponible", true).order("orden_excel");
       if (!esAdmin) {
         if (grupoTienda === "ambas") {
@@ -57,6 +60,44 @@ export default function Catalogo() {
       }
       const { data: prods } = await query;
       setProductos(prods || []);
+
+      // Cargar sugerencias: productos no pedidos en las últimas 2 semanas
+      if (p?.tiendas?.id) {
+        try {
+          const hace14dias = new Date();
+          hace14dias.setDate(hace14dias.getDate() - 14);
+          const fechaLimite = hace14dias.toISOString();
+
+          // Obtener pedidos de las últimas 2 semanas de esta tienda
+          const { data: pedidosRecientes } = await supabase
+            .from("pedidos")
+            .select("id")
+            .eq("tienda_id", p.tiendas.id)
+            .gte("fecha_pedido", fechaLimite);
+
+          const productosOrdenadosIds = new Set();
+          if (pedidosRecientes && pedidosRecientes.length > 0) {
+            const pedidoIds = pedidosRecientes.map(pd => pd.id);
+            const { data: items } = await supabase
+              .from("pedido_items")
+              .select("producto_id")
+              .in("pedido_id", pedidoIds);
+            if (items) items.forEach(it => productosOrdenadosIds.add(it.producto_id));
+          }
+
+          // Filtrar productos que no se han pedido y no son de AUTOCONSUMO
+          const sugs = (prods || []).filter(prod =>
+            !productosOrdenadosIds.has(prod.id) &&
+            (prod.hoja_excel || "").toUpperCase() !== "AUTOCONSUMO"
+          );
+
+          // Limitar a 20 sugerencias para no saturar
+          setSugerencias(sugs.slice(0, 20));
+        } catch (e) {
+          console.warn("No se pudieron cargar sugerencias:", e.message);
+        }
+      }
+
       setLoading(false);
     };
     init();
@@ -111,6 +152,15 @@ export default function Catalogo() {
     setCarrito(next);
   };
 
+  // Añadir sugerencia al carrito con cantidad mínima
+  const handleAddSugerencia = (prod) => {
+    const multiplo = prod.multiplo || 1;
+    const minimo = prod.minimo || multiplo;
+    setCarrito(c => ({ ...c, [prod.id]: (c[prod.id] || 0) + minimo }));
+    // Quitar de sugerencias al añadirla
+    setSugerencias(prev => prev.filter(s => s.id !== prod.id));
+  };
+
   const handleEnviar = async (observaciones, lineas) => {
     if (lineas.length === 0) return;
     setEnviando(true);
@@ -157,8 +207,6 @@ export default function Catalogo() {
           const asunto = (getConf("asunto_email") || "Pedido - {Tienda} - {Fecha}")
             .replace("{Tienda}", tiendaNombre)
             .replace("{Fecha}", fechaStr);
-
-          // Build todos_productos list for the email (full catalog with category info)
           const todosProductos = productos.map(p => ({
             id: p.id,
             codigo: p.codigo || "",
@@ -170,7 +218,6 @@ export default function Catalogo() {
             multiplo: p.multiplo || 1,
             minimo: p.minimo || 1,
           }));
-
           await supabase.functions.invoke("send-email", {
             body: {
               to: emailAlmacen,
@@ -205,7 +252,7 @@ export default function Catalogo() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
         <Loader2 size={40} className="animate-spin mx-auto mb-3" style={{ color: "var(--color-primary)" }} />
-        <p className="text-gray-500">Cargando cat&aacute;logo...</p>
+        <p className="text-gray-500">Cargando catálogo...</p>
       </div>
     </div>
   );
@@ -214,7 +261,7 @@ export default function Catalogo() {
     <div className="text-center py-20">
       <Package size={60} className="mx-auto mb-4 text-gray-300" />
       <h2 className="text-xl font-bold text-gray-600 mb-2">Sin productos</h2>
-      <p className="text-gray-400 mb-4">El cat&aacute;logo est&aacute; vac&iacute;o. Un administrador debe importar el cat&aacute;logo.</p>
+      <p className="text-gray-400 mb-4">El catálogo está vacío. Un administrador debe importar el catálogo.</p>
     </div>
   );
 
@@ -223,7 +270,7 @@ export default function Catalogo() {
       {exito && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <CheckCircle size={22} />
-          <div><div className="font-bold">&iexcl;Pedido enviado!</div><div className="text-sm opacity-90">N&ordm; {exito}</div></div>
+          <div><div className="font-bold">¡Pedido enviado!</div><div className="text-sm opacity-90">Nº {exito}</div></div>
         </div>
       )}
       {cartOpen && (
@@ -232,17 +279,19 @@ export default function Catalogo() {
           <CartSidebar
             carrito={carrito}
             productos={productos}
+            sugerencias={sugerencias}
             onClose={() => setCartOpen(false)}
             onQtyChange={handleQtyChange}
             onRemove={handleRemove}
             onEnviar={handleEnviar}
+            onAddSugerencia={handleAddSugerencia}
             tiendaNombre={tienda?.nombre || ""}
           />
         </div>
       )}
       {tienda && (
         <div className={"mb-4 px-4 py-2 rounded-xl text-sm font-medium " + (tienda.grupo === "cafeteria" ? "bg-orange-50 text-orange-700 border border-orange-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
-          {tienda.grupo === "cafeteria" ? "☕" : "⚪"} <strong>{tienda.nombre}</strong> &middot; {tienda.grupo === "cafeteria" ? "Cafetería" : "Estación"} &middot; {productos.length} productos
+          {tienda.grupo === "cafeteria" ? "☕" : "⚪"} <strong>{tienda.nombre}</strong> · {tienda.grupo === "cafeteria" ? "Cafetería" : "Estación"} · {productos.length} productos
         </div>
       )}
       <div className="relative mb-6 flex gap-3">
