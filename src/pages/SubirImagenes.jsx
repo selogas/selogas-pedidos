@@ -92,7 +92,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
           </div>
         )}
         {!loading && results.length > 0 && (
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-y-auto" style={{maxHeight:"420px",minHeight:"200px"}}>
             <p className="text-xs text-gray-400 mb-2">{results.length} resultados - haz clic para seleccionar</p>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {results.map((img, i) => (
