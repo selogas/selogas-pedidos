@@ -2,7 +2,15 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Upload, FolderOpen, CheckCircle, XCircle, Loader2, Image, Package, AlertTriangle, Search, Globe, X } from "lucide-react";
 
-// Panel to search product image on the internet (Open Food Facts + manual URL)
+// Busca imagenes via Edge Function proxy (evita CORS y errores de Open Food Facts)
+async function buscarImagenesOnline(query) {
+  const { data, error } = await supabase.functions.invoke("buscar-imagen", {
+    body: { query },
+  });
+  if (error) throw error;
+  return data.images || [];
+}
+
 function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
   const [query, setQuery] = useState(nombre || "");
   const [results, setResults] = useState([]);
@@ -16,24 +24,11 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
     setError("");
     setResults([]);
     try {
-      const resp = await fetch(
-        "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" +
-        encodeURIComponent(q) +
-        "&json=1&page_size=24&fields=product_name,image_url,image_front_thumb_url,image_front_small_url&search_simple=1&action=process",
-        { mode: "cors" }
-      );
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
-      const data = await resp.json();
-      const imgs = (data.products || [])
-        .map(p => ({
-          name: p.product_name || q,
-          url: p.image_url || p.image_front_small_url || p.image_front_thumb_url
-        }))
-        .filter(p => p.url);
+      const imgs = await buscarImagenesOnline(q);
       setResults(imgs);
-      if (!imgs.length) setError("No se encontraron imagenes en Open Food Facts.");
+      if (!imgs.length) setError("No se encontraron imagenes. Prueba con otro nombre o pega una URL.");
     } catch (err) {
-      setError("No se pudo conectar a Open Food Facts. Pega la URL directamente abajo.");
+      setError("Error al buscar: " + (err.message || String(err)));
     }
     setLoading(false);
   };
@@ -131,7 +126,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
 }
 
 export default function SubirImagenes() {
-  const [tab, setTab] = useState("archivo"); // "archivo" | "internet"
+  const [tab, setTab] = useState("archivo");
 
   // ===== TAB ARCHIVO =====
   const [archivos, setArchivos] = useState([]);
@@ -146,10 +141,10 @@ export default function SubirImagenes() {
   const [productos, setProductos] = useState([]);
   const [loadingProds, setLoadingProds] = useState(false);
   const [busquedaInternet, setBusquedaInternet] = useState("");
-  const [filtroBuscar, setFiltroBuscar] = useState("sin_imagen"); // "sin_imagen" | "todos"
-  const [buscandoPanel, setBuscandoPanel] = useState(null); // producto activo en panel busqueda
-  const [guardando, setGuardando] = useState(null); // id del producto guardando
-  const [guardados, setGuardados] = useState({}); // id -> url guardada
+  const [filtroBuscar, setFiltroBuscar] = useState("sin_imagen");
+  const [buscandoPanel, setBuscandoPanel] = useState(null);
+  const [guardando, setGuardando] = useState(null);
+  const [guardados, setGuardados] = useState({});
 
   const cargarProductos = async () => {
     const { data } = await supabase
@@ -159,7 +154,6 @@ export default function SubirImagenes() {
     return data || [];
   };
 
-  // ===== HANDLERS TAB ARCHIVO =====
   const handleSeleccionCarpeta = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -244,7 +238,6 @@ export default function SubirImagenes() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
-  // ===== HANDLERS TAB INTERNET =====
   const cargarProductosInternet = async () => {
     setLoadingProds(true);
     const data = await cargarProductos();
@@ -306,7 +299,6 @@ export default function SubirImagenes() {
         <p className="text-gray-500 text-sm">Sube imagenes desde tu ordenador o busca automaticamente en internet.</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         <button
           onClick={() => setTab("archivo")}
@@ -322,7 +314,6 @@ export default function SubirImagenes() {
         </button>
       </div>
 
-      {/* TAB: ARCHIVO */}
       {tab === "archivo" && (
         <div>
           {fase === "inicio" && (
@@ -460,7 +451,6 @@ export default function SubirImagenes() {
         </div>
       )}
 
-      {/* TAB: INTERNET */}
       {tab === "internet" && (
         <div>
           <div className="flex flex-col sm:flex-row gap-3 mb-5">
@@ -512,9 +502,7 @@ export default function SubirImagenes() {
                 <div className="text-center py-16 text-gray-400">
                   <Image size={48} className="mx-auto mb-3 opacity-30" />
                   <p className="font-semibold">
-                    {filtroBuscar === "sin_imagen"
-                      ? "Todos los productos tienen imagen"
-                      : "No hay productos con ese nombre"}
+                    {filtroBuscar === "sin_imagen" ? "Todos los productos tienen imagen" : "No hay productos con ese nombre"}
                   </p>
                 </div>
               ) : (
