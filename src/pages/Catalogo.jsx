@@ -213,6 +213,7 @@ export default function Catalogo() {
             nombre: p.nombre || "",
             categoria_nombre: p.categorias?.nombre || "",
             orden_excel: p.orden_excel || 0,
+            columna_excel: p.columna_excel || 0,
             hoja_excel: p.hoja_excel || "",
             referencia: p.referencia || "",
             multiplo: p.multiplo || 1,
