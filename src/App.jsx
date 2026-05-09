@@ -11,32 +11,48 @@ import SubirImagenes from './pages/SubirImagenes';
 import Configuracion from './pages/Configuracion';
 import Tiendas from './pages/Tiendas';
 
+// Protege rutas solo para admin — si eres tienda redirige al catálogo
+function AdminRoute({ children }) {
+  const { isAdmin, loading } = useAuth();
+  if (loading) return null;
+  return isAdmin ? children : <Navigate to="/Catalogo" replace />;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
+
   if (loading) return (
-    <div className="fixed inset-0 flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+    <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
     </div>
   );
+
   if (!user) return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
+
   return (
     <Layout>
       <Routes>
+        {/* Ruta raíz → catálogo */}
         <Route path="/" element={<Navigate to="/Catalogo" replace />} />
         <Route path="/login" element={<Navigate to="/Catalogo" replace />} />
-        <Route path="/Inicio" element={<Inicio />} />
-        <Route path="/Catalogo" element={<Catalogo />} />
+
+        {/* Rutas accesibles para TODOS los usuarios autenticados */}
+        <Route path="/Inicio"     element={<Inicio />} />
+        <Route path="/Catalogo"   element={<Catalogo />} />
         <Route path="/MisPedidos" element={<MisPedidos />} />
-        <Route path="/Productos" element={<Productos />} />
-        <Route path="/ImportarProductos" element={<ImportarProductos />} />
-        <Route path="/SubirImagenes" element={<SubirImagenes />} />
-        <Route path="/Configuracion" element={<Configuracion />} />
-        <Route path="/Tiendas" element={<Tiendas />} />
+
+        {/* Rutas solo para ADMIN */}
+        <Route path="/Productos"        element={<AdminRoute><Productos /></AdminRoute>} />
+        <Route path="/ImportarProductos"element={<AdminRoute><ImportarProductos /></AdminRoute>} />
+        <Route path="/SubirImagenes"    element={<AdminRoute><SubirImagenes /></AdminRoute>} />
+        <Route path="/Configuracion"    element={<AdminRoute><Configuracion /></AdminRoute>} />
+        <Route path="/Tiendas"          element={<AdminRoute><Tiendas /></AdminRoute>} />
+
         <Route path="*" element={<Navigate to="/Catalogo" replace />} />
       </Routes>
     </Layout>

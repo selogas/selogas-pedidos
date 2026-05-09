@@ -4,19 +4,32 @@ import { supabase } from './supabase';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser]     = useState(null);
+  const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const cargarPerfil = async (u) => {
+    if (!u) { setPerfil(null); return; }
+    const { data } = await supabase
+      .from('perfiles')
+      .select('*, tiendas(*)')
+      .eq('id', u.id)
+      .single();
+    setPerfil(data || null);
+  };
+
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const u = session?.user || null;
+      setUser(u);
+      await cargarPerfil(u);
       setLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user || null;
+      setUser(u);
+      await cargarPerfil(u);
     });
 
     return () => subscription.unsubscribe();
@@ -30,12 +43,11 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setPerfil(null);
   };
 
-  // Everyone is admin for now - restrictions removed temporarily
-  const isAdmin = true;
-  const isTienda = false;
-  const perfil = user ? { rol: 'admin', nombre: user.email?.split('@')[0] } : null;
+  const isAdmin  = perfil?.rol === 'admin';
+  const isTienda = perfil?.rol === 'tienda';
 
   return (
     <AuthContext.Provider value={{ user, perfil, loading, signIn, signOut, isAdmin, isTienda }}>
@@ -46,22 +58,4 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   return useContext(AuthContext);
-}
-
-export function RequireAuth({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-    </div>
-  );
-  if (!user) {
-    window.location.href = '/login';
-    return null;
-  }
-  return children;
-}
-
-export function RequireAdmin({ children }) {
-  return children;
 }
