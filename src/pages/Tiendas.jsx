@@ -85,7 +85,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
             >
               <option value="estacion">🏪 Estación (catálogo estación)</option>
               <option value="cafeteria">☕ Cafetería (catálogo cafetería)</option>
-              <option value="ambas">📦 Ambas (ve todos los productos)</option>
+              <option value="ambos">📦 Ambos (ve todos los productos)</option>
             </select>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -642,7 +642,7 @@ export default function Tiendas() {
 
   const grupoInfo = (grupo) => {
     if (grupo === "cafeteria") return { label: "Cafetería", color: "bg-orange-100 text-orange-700" };
-    if (grupo === "ambas")     return { label: "Ambas",     color: "bg-purple-100 text-purple-700" };
+    if (grupo === "ambos")     return { label: "Ambos",     color: "bg-purple-100 text-purple-700" };
     return                            { label: "Estación",  color: "bg-blue-100 text-blue-700" };
   };
 

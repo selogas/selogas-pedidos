@@ -72,10 +72,10 @@ export default function Catalogo() {
 
         // Filtrar por grupo si no es admin
         if (!isAdmin) {
-          if (grupoTienda === "ambas") {
-            query = query.in("grupo_visualizacion", ["ambas", "estacion", "cafeteria"]);
+          if (grupoTienda === "ambos") {
+            query = query.in("grupo_visualizacion", ["ambos", "estacion", "cafeteria"]);
           } else {
-            query = query.in("grupo_visualizacion", ["ambas", grupoTienda]);
+            query = query.in("grupo_visualizacion", ["ambos", grupoTienda]);
           }
         }
 
