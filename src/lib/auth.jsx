@@ -5,17 +5,17 @@ const AuthContext = createContext(null);
 const INACTIVITY_MS = 20 * 60 * 1000;
 
 export function AuthProvider({ children }) {
-  const [user, setUser]         = useState(null);
-  const [perfil, setPerfil]     = useState(null);
-  const [loading, setLoading]   = useState(true);
-  const perfilCargado = useRef(false);
+  const [user, setUser]       = useState(null);
+  const [perfil, setPerfil]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  // Guardar el último userId para el que cargamos perfil
+  const lastUserId = useRef(null);
 
   const cargarPerfil = async (u) => {
-    if (!u) {
-      setPerfil(null);
-      perfilCargado.current = true;
-      return;
-    }
+    if (!u) { setPerfil(null); return; }
+    // Evitar recargar si ya tenemos el perfil de este usuario
+    if (lastUserId.current === u.id && perfil?.id === u.id) return;
+    lastUserId.current = u.id;
     try {
       const { data } = await supabase
         .from('perfiles')
@@ -25,8 +25,6 @@ export function AuthProvider({ children }) {
       setPerfil(data || null);
     } catch {
       setPerfil(null);
-    } finally {
-      perfilCargado.current = true;
     }
   };
 
@@ -40,6 +38,7 @@ export function AuthProvider({ children }) {
       const k = Object.keys(localStorage).find(k => k.startsWith('sb-'));
       if (k) localStorage.removeItem(k);
     } finally {
+      lastUserId.current = null;
       setUser(null);
       setPerfil(null);
       window.location.href = '/login';
@@ -48,18 +47,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
-
-    // Timeout de seguridad: 8s
-    const timeout = setTimeout(() => {
-      if (mounted) setLoading(false);
-    }, 8000);
+    const timeout = setTimeout(() => { if (mounted) setLoading(false); }, 8000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         const u = session?.user || null;
+
+        // TOKEN_REFRESHED: solo refrescar el user, NO recargar perfil ni tocar loading
+        if (event === 'TOKEN_REFRESHED') {
+          setUser(u);
+          return;
+        }
+
         setUser(u);
-        // Cargar perfil ANTES de quitar el loading
         await cargarPerfil(u);
         clearTimeout(timeout);
         if (mounted) setLoading(false);
@@ -89,7 +90,6 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   };
 
-  // isAdmin solo es true cuando el perfil YA está cargado y es PRINCIPAL
   const isAdmin  = !loading && (perfil?.tiendas?.nombre === 'PRINCIPAL' || perfil?.rol === 'admin');
   const isTienda = !loading && !isAdmin;
 
