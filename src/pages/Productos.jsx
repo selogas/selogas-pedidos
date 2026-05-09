@@ -2,6 +2,34 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Upload, ChevronRight, FolderOpen, Tag } from "lucide-react";
 
+function CardImagen({ prod, gi, onEliminar }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      className="relative bg-gray-50 flex items-center justify-center"
+      style={{ height: "120px" }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {prod.imagen_url
+        ? <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-full object-contain p-2" />
+        : <Package size={36} className="text-gray-200" />}
+      <span className={`absolute top-1 left-1 text-xs px-1.5 py-0.5 rounded-full font-medium ${gi.color}`}>
+        {gi.label.split(' ')[0]}
+      </span>
+      {prod.imagen_url && hover && (
+        <button
+          onClick={e => { e.stopPropagation(); onEliminar(); }}
+          className="absolute top-1.5 right-1.5 bg-red-500 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md transition-colors"
+          title="Eliminar imagen"
+        >
+          <Trash2 size={11} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 const GRUPOS = [
   { value: 'ambas', label: '\uD83D\uDCE6 Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
   { value: 'estacion', label: '\uD83C\uDFEA Estaci\u00F3n', desc: 'Solo estaciones', color: 'bg-blue-100 text-blue-700' },
@@ -379,6 +407,12 @@ export default function Productos() {
     setProductos(prev => prev.map(p => p.id === prod.id ? { ...p, grupo_visualizacion: nuevoGrupo } : p));
   };
 
+  const handleEliminarImagen = async (prod) => {
+    if (!window.confirm(`¿Eliminar la imagen de "${prod.nombre}"?`)) return;
+    await supabase.from('productos').update({ imagen_url: null }).eq('id', prod.id);
+    setProductos(prev => prev.map(p => p.id === prod.id ? { ...p, imagen_url: null } : p));
+  };
+
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 size={40} className="animate-spin" style={{ color: "var(--color-primary)" }} /></div>;
 
   return (
@@ -428,10 +462,11 @@ export default function Productos() {
             const disponible = prod.disponible !== false;
             return (
               <div key={prod.id} className={`bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden hover:shadow-md transition-shadow ${!disponible ? "opacity-60" : ""}`}>
-                <div className="relative bg-gray-50 flex items-center justify-center" style={{ height: "120px" }}>
-                  {prod.imagen_url ? <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-full object-contain p-2" /> : <Package size={36} className="text-gray-200" />}
-                  <span className={`absolute top-1 left-1 text-xs px-1.5 py-0.5 rounded-full font-medium ${gi.color}`}>{gi.label.split(' ')[0]}</span>
-                </div>
+                <CardImagen
+                  prod={prod}
+                  gi={gi}
+                  onEliminar={() => handleEliminarImagen(prod)}
+                />
                 <div className="p-2 flex flex-col flex-1 gap-1">
                   <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2">{prod.nombre}</h3>
                   {catNombre && <span className="text-xs text-blue-600 font-medium truncate">{catNombre}</span>}
