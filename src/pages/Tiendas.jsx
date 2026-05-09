@@ -136,7 +136,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
         if (e) throw e;
       } else {
         // Crear usuario via función SQL con privilegios de servicio
-        const { error: rpcError } = await supabase.rpc("crear_usuario_tienda", {
+        const { data: rpcData, error: rpcError } = await supabase.rpc("crear_usuario_tienda", {
           p_email: form.email.trim(),
           p_password: password,
           p_nombre: form.nombre_completo || "",
@@ -144,6 +144,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           p_tienda_id: form.tienda_id || null,
         });
         if (rpcError) throw rpcError;
+        if (rpcData?.error) throw new Error(rpcData.error);
       }
       onSave();
     } catch (err) {

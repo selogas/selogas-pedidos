@@ -25,29 +25,30 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    // Carga inicial con getSession — no usa locks
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      const u = session?.user || null;
-      setUser(u);
-      await cargarPerfil(u);
+    // Timeout de seguridad: máximo 5s de espera
+    const timeout = setTimeout(() => {
       if (mounted) setLoading(false);
-    });
+    }, 5000);
 
-    // Escuchar cambios posteriores (login, logout, refresh)
+    // onAuthStateChange gestiona TODO: sesión inicial, login, logout, refresh
+    // Es el método recomendado por Supabase — no necesitamos getSession()
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
-        // Ignorar INITIAL_SESSION — ya lo manejamos con getSession
-        if (event === 'INITIAL_SESSION') return;
+
         const u = session?.user || null;
         setUser(u);
         await cargarPerfil(u);
+
+        // Liberar loading en cualquier evento
+        clearTimeout(timeout);
+        if (mounted) setLoading(false);
       }
     );
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
