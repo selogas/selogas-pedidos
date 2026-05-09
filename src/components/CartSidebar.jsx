@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { X, Trash2, ShoppingCart, Send, ChevronDown, AlertCircle, Plus, Lightbulb } from 'lucide-react';
+import { X, Trash2, ShoppingCart, Send, ChevronDown, AlertCircle, Plus, Lightbulb, Clock } from 'lucide-react';
 
-export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onAddSugerencia, tiendaNombre }) {
+export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onAddSugerencia, tiendaNombre, pedidoEstaSemanaPorProducto = {} }) {
   const [observaciones, setObservaciones] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showSugerencias, setShowSugerencias] = useState(true);
@@ -52,8 +52,21 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
             {lineas.map(({ prod, qty }) => {
               const multiplo = prod.multiplo || 1;
               const minimo = prod.minimo || multiplo;
+              const fechasPedido = pedidoEstaSemanaPorProducto[prod.id] || [];
+              const yaPedido = fechasPedido.length > 0;
+              const diasStr = yaPedido ? [...new Set(fechasPedido.map(f => {
+                const d = new Date(f);
+                return ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d.getDay()];
+              }))].join(', ') : '';
               return (
-                <div key={prod.id} className="flex items-center gap-3 p-3 hover:bg-gray-50">
+                <div key={prod.id} className={`p-3 hover:bg-gray-50 ${yaPedido ? 'bg-orange-50' : ''}`}>
+                  {yaPedido && (
+                    <div className="flex items-center gap-1.5 mb-2 text-orange-700 bg-orange-100 rounded-lg px-2 py-1">
+                      <Clock size={12} className="flex-shrink-0" />
+                      <span className="text-xs font-semibold">Ya pedido el {diasStr}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {prod.imagen_url ? (
                       <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-full object-contain p-1"
@@ -76,6 +89,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
                     <button onClick={() => onRemove(prod.id)} className="w-7 h-7 ml-1 rounded-lg hover:bg-red-50 text-red-400 flex items-center justify-center">
                       <Trash2 size={14} />
                     </button>
+                  </div>
                   </div>
                 </div>
               );

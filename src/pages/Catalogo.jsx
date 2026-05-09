@@ -46,6 +46,7 @@ export default function Catalogo() {
   const [enviando, setEnviando]           = useState(false);
   const [exito, setExito]                 = useState(null);
   const [sugerencias, setSugerencias]     = useState([]);
+  const [pedidoEstaSemanaPorProducto, setPedidoEstaSemanaPorProducto] = useState({}); // {producto_id: [fecha1, fecha2]}
 
   // ── Persistir carrito en localStorage ───────────────────────────
   useEffect(() => {
@@ -78,14 +79,18 @@ export default function Catalogo() {
           }
         }
 
-        // Cargar productos y sugerencias en PARALELO
-        const [{ data: prods }, sugsData] = await Promise.all([
+        // Cargar productos, sugerencias y pedidos recientes en PARALELO
+        const [{ data: prods }, sugsData, pedidosRecientes] = await Promise.all([
           query,
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
+          (tienda?.id && tienda?.doble_pedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
         ]);
 
         const listaProductos = prods || [];
         setProductos(listaProductos);
+        if (Object.keys(pedidosRecientes).length > 0) {
+          setPedidoEstaSemanaPorProducto(pedidosRecientes);
+        }
 
         // Calcular sugerencias con los productos ya cargados
         if (sugsData.length > 0 && listaProductos.length > 0) {
@@ -104,6 +109,41 @@ export default function Catalogo() {
 
     cargar();
   }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]); // re-ejecutar si cambia rol o tienda
+
+  // ── Pedidos recientes (doble pedido): últimos 7 días ────────────
+  async function cargarPedidosRecientes(tiendaId) {
+    try {
+      const hace7dias = new Date();
+      hace7dias.setDate(hace7dias.getDate() - 7);
+
+      const { data: pedidos } = await supabase
+        .from("pedidos")
+        .select("id, fecha_pedido")
+        .eq("tienda_id", tiendaId)
+        .gte("fecha_pedido", hace7dias.toISOString())
+        .order("fecha_pedido", { ascending: false })
+        .limit(10);
+
+      if (!pedidos?.length) return {};
+
+      const { data: items } = await supabase
+        .from("pedido_items")
+        .select("producto_id, pedidos(fecha_pedido)")
+        .in("pedido_id", pedidos.map(p => p.id));
+
+      // Agrupar por producto_id → array de fechas
+      const mapa = {};
+      for (const item of items || []) {
+        const fecha = item.pedidos?.fecha_pedido;
+        if (!fecha) continue;
+        if (!mapa[item.producto_id]) mapa[item.producto_id] = [];
+        mapa[item.producto_id].push(fecha);
+      }
+      return mapa;
+    } catch {
+      return {};
+    }
+  }
 
   // ── Sugerencias: IDs de productos pedidos últimas 2 semanas ─────
   async function cargarSugerencias(tiendaId) {
@@ -289,6 +329,7 @@ export default function Catalogo() {
             onAddSugerencia={handleAddSugerencia}
             tiendaNombre={tienda?.nombre || ""}
             enviando={enviando}
+            pedidoEstaSemanaPorProducto={pedidoEstaSemanaPorProducto}
           />
         </div>
       )}
@@ -393,6 +434,7 @@ export default function Catalogo() {
                       cantidad={carrito[prod.id] || 0}
                       onAdd={() => handleAdd(prod)}
                       onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
+                      fechasPedido={pedidoEstaSemanaPorProducto[prod.id] || []}
                     />
                   ))}
                 </div>

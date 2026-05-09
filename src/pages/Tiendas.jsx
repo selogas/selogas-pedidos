@@ -9,7 +9,7 @@ import {
 // ── Modal Tienda ─────────────────────────────────────────────────────
 function TiendaModal({ tienda, onSave, onClose }) {
   const [form, setForm] = useState(
-    tienda || { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion", mensaje_banner: "", google_calendar_id: "" }
+    tienda || { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion", mensaje_banner: "", google_calendar_id: "", doble_pedido: false }
   );
   const [saving, setSaving] = useState(false);
 
@@ -88,6 +88,19 @@ function TiendaModal({ tienda, onSave, onClose }) {
               <option value="ambas">📦 Ambas (ve todos los productos)</option>
             </select>
           </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.doble_pedido === true}
+              onChange={e => setForm(f => ({ ...f, doble_pedido: e.target.checked }))}
+              className="rounded"
+            />
+            <div>
+              <span className="text-sm font-medium">Doble pedido semanal</span>
+              <p className="text-xs text-gray-400">Avisa cuando un producto ya fue pedido en los últimos 7 días</p>
+            </div>
+          </label>
+
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
