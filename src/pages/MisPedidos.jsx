@@ -1,121 +1,149 @@
-import { useState, useEffect } from 'react';
-import { pedidosApi, pedidoItemsApi } from '../api';
-import { useAuth } from '../lib/auth';
-import { ClipboardList, Loader2, ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
+import { ClipboardList, ChevronDown, ChevronUp, Package, Loader2, Calendar, Hash } from "lucide-react";
 
-export default function MisPedidos() {
-  const { user, isAdmin } = useAuth();
-  const [pedidos, setPedidos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expandido, setExpandido] = useState(null);
-  const [lineas, setLineas] = useState({});
-  const [loadingLineas, setLoadingLineas] = useState({});
+const ESTADO_COLORS = {
+  enviado:       "bg-blue-100 text-blue-700",
+  recibido:      "bg-yellow-100 text-yellow-700",
+  en_preparacion:"bg-orange-100 text-orange-700",
+  enviado_tienda:"bg-green-100 text-green-700",
+  cancelado:     "bg-red-100 text-red-700",
+};
+const ESTADO_LABELS = {
+  enviado:        "Enviado",
+  recibido:       "Recibido",
+  en_preparacion: "En preparación",
+  enviado_tienda: "Enviado a tienda",
+  cancelado:      "Cancelado",
+};
 
-  useEffect(() => {
-    const load = async () => {
-      let data;
-      if (isAdmin) {
-        data = await pedidosApi.list(200);
-      } else {
-        data = user?.tienda_id
-          ? await pedidosApi.filter({ tienda_id: user.tienda_id }, 100)
-          : await pedidosApi.filter({ usuario_email: user?.email }, 100);
-      }
-      setPedidos(data);
-      setLoading(false);
-    };
-    load();
-  }, [user, isAdmin]);
+function PedidoCard({ pedido }) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState([]);
+  const [loadingItems, setLoadingItems] = useState(false);
 
-  const toggleExpand = async (pedidoId) => {
-    if (expandido === pedidoId) { setExpandido(null); return; }
-    setExpandido(pedidoId);
-    if (!lineas[pedidoId]) {
-      setLoadingLineas(l => ({...l, [pedidoId]: true}));
-      const items = await pedidoItemsApi.filter({ pedido_id: pedidoId }, 500);
-      setLineas(l => ({...l, [pedidoId]: items}));
-      setLoadingLineas(l => ({...l, [pedidoId]: false}));
-    }
+  const fecha = new Date(pedido.fecha_pedido).toLocaleDateString("es-ES", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric"
+  });
+
+  const cargarItems = async () => {
+    if (items.length > 0) { setOpen(!open); return; }
+    setLoadingItems(true);
+    const { data } = await supabase
+      .from("pedido_items")
+      .select("producto_nombre, producto_codigo, producto_categoria, cantidad")
+      .eq("pedido_id", pedido.id)
+      .order("producto_categoria");
+    setItems(data || []);
+    setLoadingItems(false);
+    setOpen(true);
   };
 
-  const ESTADO_COLOR = {
-    enviado: 'bg-blue-100 text-blue-700',
-    confirmado: 'bg-green-100 text-green-700',
-    pendiente: 'bg-yellow-100 text-yellow-700',
-    cancelado: 'bg-red-100 text-red-600',
-  };
-
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Loader2 size={32} className="animate-spin text-blue-600" />
-    </div>
-  );
+  const estado = pedido.estado || "enviado";
+  const colorClase = ESTADO_COLORS[estado] || "bg-gray-100 text-gray-600";
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Mis pedidos</h1>
-        <p className="text-gray-400 text-sm mt-0.5">
-          {isAdmin ? 'Todos los pedidos del sistema' : `Pedidos de ${user?.tienda_nombre || 'tu tienda'}`}
-        </p>
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+      <div className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors" onClick={cargarItems}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-gray-900">{pedido.numero_pedido}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colorClase}`}>
+              {ESTADO_LABELS[estado] || estado}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
+            <span className="flex items-center gap-1"><Calendar size={13} /> <span className="capitalize">{fecha}</span></span>
+            <span className="flex items-center gap-1"><Hash size={13} /> {pedido.total_lineas} artículos</span>
+          </div>
+          {pedido.observaciones && (
+            <p className="text-xs text-gray-400 mt-1 truncate">📝 {pedido.observaciones}</p>
+          )}
+        </div>
+        <div className="flex-shrink-0 text-gray-400">
+          {loadingItems ? <Loader2 size={18} className="animate-spin" /> : open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </div>
       </div>
 
-      {pedidos.length === 0 ? (
-        <div className="text-center py-20">
-          <ClipboardList size={48} className="mx-auto mb-4 text-gray-200" />
-          <p className="text-gray-400 font-medium">No hay pedidos todav&iacute;a</p>
+      {open && items.length > 0 && (
+        <div className="border-t border-gray-100 px-4 pb-4 pt-2">
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {items.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                <span className="text-xs text-gray-400 font-mono w-20 flex-shrink-0">{item.producto_codigo || "—"}</span>
+                <span className="text-sm text-gray-800 flex-1 min-w-0 truncate">{item.producto_nombre}</span>
+                <span className="text-xs text-gray-400 hidden sm:block w-24 flex-shrink-0">{item.producto_categoria}</span>
+                <span className="font-bold text-green-700 text-sm flex-shrink-0">{item.cantidad}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function MisPedidos() {
+  const { perfil, isAdmin } = useAuth();
+  const [pedidos, setPedidos]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [pagina, setPagina]     = useState(1);
+  const [hayMas, setHayMas]     = useState(false);
+  const POR_PAGINA = 20;
+
+  const cargar = async (pag = 1) => {
+    setLoading(true);
+    const from = (pag - 1) * POR_PAGINA;
+    let query = supabase
+      .from("pedidos")
+      .select("id, numero_pedido, fecha_pedido, estado, total_lineas, observaciones, tienda_nombre, tienda_id")
+      .order("fecha_pedido", { ascending: false })
+      .range(from, from + POR_PAGINA);
+
+    if (!isAdmin && perfil?.tienda_id) {
+      query = query.eq("tienda_id", perfil.tienda_id);
+    }
+
+    const { data } = await query;
+    if (pag === 1) setPedidos(data || []);
+    else setPedidos(prev => [...prev, ...(data || [])]);
+    setHayMas((data || []).length === POR_PAGINA + 1);
+    setPagina(pag);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (perfil !== null) cargar(1); }, [perfil?.id]);
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <ClipboardList size={24} className="text-blue-600" /> Mis Pedidos
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Historial completo · haz clic para ver el detalle</p>
+        </div>
+      </div>
+
+      {loading && pedidos.length === 0 ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={36} className="animate-spin text-blue-500" />
+        </div>
+      ) : pedidos.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Package size={48} className="mx-auto mb-3 opacity-30" />
+          <p className="font-semibold">No hay pedidos todavía</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {pedidos.map(p => (
-            <div key={p.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50" onClick={() => toggleExpand(p.id)}>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-gray-900 text-sm">{p.numero_pedido}</span>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ESTADO_COLOR[p.estado] || 'bg-gray-100 text-gray-500'}`}>
-                      {p.estado}
-                    </span>
-                    {p.email_enviado && <span className="text-xs text-green-600 font-medium">&#10003; Email enviado</span>}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    {isAdmin && <span className="text-sm font-medium text-blue-600">{p.tienda_nombre}</span>}
-                    <span className="text-xs text-gray-400">
-                      {new Date(p.fecha_pedido).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
-                    </span>
-                    <span className="text-xs text-gray-400">{p.total_lineas || 0} productos</span>
-                  </div>
-                  {p.observaciones && <p className="text-xs text-gray-500 mt-1 italic">"{p.observaciones}"</p>}
-                </div>
-                {expandido === p.id ? <ChevronUp size={18} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-gray-400 flex-shrink-0" />}
-              </div>
-
-              {expandido === p.id && (
-                <div className="border-t border-gray-100 bg-gray-50 p-4">
-                  {loadingLineas[p.id] ? (
-                    <div className="flex items-center justify-center py-4"><Loader2 size={20} className="animate-spin text-blue-500" /></div>
-                  ) : lineas[p.id]?.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {(lineas[p.id] || []).map(item => (
-                        <div key={item.id} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2 border border-gray-100">
-                          <Package size={14} className="text-gray-300 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <span className="text-xs font-medium text-gray-800">
-                              {item.producto_codigo ? `[${item.producto_codigo}] ` : ''}{item.producto_nombre}
-                            </span>
-                            {item.producto_formato && <span className="text-xs text-gray-400 ml-1">{item.producto_formato}</span>}
-                          </div>
-                          <span className="text-sm font-bold text-blue-600 flex-shrink-0">{item.cantidad}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-400 text-center py-4">No hay l&iacute;neas de pedido</p>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+          {pedidos.map(p => <PedidoCard key={p.id} pedido={p} />)}
+          {hayMas && (
+            <button onClick={() => cargar(pagina + 1)} disabled={loading}
+              className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-500 hover:border-blue-300 hover:text-blue-600 font-semibold transition-all disabled:opacity-50">
+              {loading ? "Cargando..." : "Ver más pedidos"}
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -48,6 +48,9 @@ export default function Catalogo() {
   const [sugerencias, setSugerencias]     = useState([]);
   const [pedidoEstaSemanaPorProducto, setPedidoEstaSemanaPorProducto] = useState({}); // {producto_id: [fecha1, fecha2]}
   const [mediasPorProducto, setMediasPorProducto] = useState({}); // {producto_id: { media, numPedidos }}
+  const [favoritos, setFavoritos]       = useState(new Set()); // Set de producto_id
+  const [plantillaActiva, setPlantilla] = useState(null); // { id, nombre, activa, items }
+  const [plantillaOn, setPlantillaOn]   = useState(false);
 
   // ── Persistir carrito en localStorage ───────────────────────────
   useEffect(() => {
@@ -81,11 +84,13 @@ export default function Catalogo() {
         }
 
         // Cargar productos, sugerencias, pedidos recientes e historial en PARALELO
-        const [{ data: prods }, sugsData, pedidosRecientes, mediasHistoricas] = await Promise.all([
+        const [{ data: prods }, sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla] = await Promise.all([
           query,
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
           (tienda?.id && tienda?.doble_pedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
+          tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
+          tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
         ]);
 
         const listaProductos = prods || [];
@@ -96,6 +101,8 @@ export default function Catalogo() {
         if (Object.keys(mediasHistoricas).length > 0) {
           setMediasPorProducto(mediasHistoricas);
         }
+        if (favSet.size > 0) setFavoritos(favSet);
+        if (plantilla) setPlantilla(plantilla);
 
         // Calcular sugerencias con los productos ya cargados
         if (sugsData.length > 0 && listaProductos.length > 0) {
@@ -114,6 +121,70 @@ export default function Catalogo() {
 
     cargar();
   }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]); // re-ejecutar si cambia rol o tienda
+
+  // ── Favoritos ─────────────────────────────────────────────────────
+  async function cargarFavoritos(tiendaId) {
+    try {
+      const { data } = await supabase.from("favoritos").select("producto_id").eq("tienda_id", tiendaId);
+      return new Set((data || []).map(f => f.producto_id));
+    } catch { return new Set(); }
+  }
+
+  const toggleFavorito = async (prodId) => {
+    if (!tienda?.id) return;
+    const esFav = favoritos.has(prodId);
+    const newFavs = new Set(favoritos);
+    if (esFav) {
+      newFavs.delete(prodId);
+      await supabase.from("favoritos").delete().eq("tienda_id", tienda.id).eq("producto_id", prodId);
+    } else {
+      newFavs.add(prodId);
+      await supabase.from("favoritos").insert([{ tienda_id: tienda.id, producto_id: prodId }]);
+    }
+    setFavoritos(newFavs);
+  };
+
+  // ── Plantilla de pedido ───────────────────────────────────────────
+  async function cargarPlantilla(tiendaId) {
+    try {
+      const { data } = await supabase.from("plantillas_pedido")
+        .select("*").eq("tienda_id", tiendaId).order("created_at").limit(1).single();
+      return data || null;
+    } catch { return null; }
+  }
+
+  const guardarPlantilla = async () => {
+    if (!tienda?.id) return;
+    const lineas = Object.entries(carrito)
+      .filter(([, qty]) => qty > 0)
+      .map(([prodId, cantidad]) => ({ producto_id: prodId, cantidad }));
+    if (!lineas.length) { alert("El carrito está vacío."); return; }
+    const nombre = `Plantilla ${new Date().toLocaleDateString("es-ES")}`;
+    if (plantillaActiva?.id) {
+      await supabase.from("plantillas_pedido").update({ items: lineas, nombre, updated_at: new Date().toISOString() }).eq("id", plantillaActiva.id);
+    } else {
+      const { data } = await supabase.from("plantillas_pedido").insert([{ tienda_id: tienda.id, nombre, items: lineas, activa: true }]).select().single();
+      setPlantilla(data);
+    }
+    alert("✅ Plantilla guardada");
+  };
+
+  const cargarDesdeBlantilla = () => {
+    if (!plantillaActiva?.items?.length) return;
+    const nuevoCarrito = {};
+    for (const item of plantillaActiva.items) {
+      const prod = productos.find(p => p.id === item.producto_id);
+      if (prod) nuevoCarrito[item.producto_id] = item.cantidad;
+    }
+    setCarrito(nuevoCarrito);
+  };
+
+  const togglePlantilla = async () => {
+    const newVal = !plantillaOn;
+    setPlantillaOn(newVal);
+    if (newVal && plantillaActiva) cargarDesdeBlantilla();
+    if (!newVal) setCarrito({});
+  };
 
   // ── Pedidos recientes (doble pedido): últimos 7 días ────────────
   async function cargarPedidosRecientes(tiendaId) {
@@ -392,6 +463,27 @@ export default function Catalogo() {
         </div>
       )}
 
+      {/* Barra plantilla */}
+      {plantillaActiva && (
+        <div className="mb-3 flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-2xl px-4 py-2.5">
+          <span className="text-sm text-purple-700 font-semibold flex-1">📋 {plantillaActiva.nombre}</span>
+          <button onClick={togglePlantilla}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${plantillaOn ? "bg-purple-600 text-white" : "border border-purple-300 text-purple-600 hover:bg-purple-100"}`}>
+            {plantillaOn ? "✓ Activa" : "Cargar"}
+          </button>
+          <button onClick={guardarPlantilla} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-purple-300 text-purple-600 hover:bg-purple-100">
+            Actualizar
+          </button>
+        </div>
+      )}
+      {!plantillaActiva && Object.values(carrito).some(v => v > 0) && (
+        <div className="mb-3 flex justify-end">
+          <button onClick={guardarPlantilla} className="text-xs text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1">
+            💾 Guardar como plantilla
+          </button>
+        </div>
+      )}
+
       {/* Buscador + botón carrito */}
       <div className="relative mb-6 flex gap-3">
         <div className="relative flex-1">
@@ -484,6 +576,8 @@ export default function Catalogo() {
                       onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
                       fechasPedido={pedidoEstaSemanaPorProducto[prod.id] || []}
                       mediaHistorica={mediasPorProducto[prod.id] || null}
+                      esFavorito={favoritos.has(prod.id)}
+                      onToggleFavorito={() => toggleFavorito(prod.id)}
                     />
                   ))}
                 </div>
