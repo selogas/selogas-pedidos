@@ -162,7 +162,6 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
     setSaving(true);
     try {
       if (esEdicion) {
-        // Editar solo el perfil (email y contraseña no cambian desde aquí)
         // Si es admin, asignar tienda PRINCIPAL
         let tiendaIdEdit = form.tienda_id || null;
         if (form.rol === "admin") {
@@ -177,6 +176,14 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           activo: form.activo,
         }).eq("id", usuarioEditar.id);
         if (e) throw e;
+        // Cambiar contraseña si se ha introducido una nueva
+        if (password.trim().length >= 6) {
+          const { error: pwError } = await supabase.rpc("cambiar_password_usuario", {
+            p_user_id: usuarioEditar.id,
+            p_password: password,
+          });
+          if (pwError) throw pwError;
+        }
       } else {
         // Crear usuario via función SQL con privilegios de servicio
         // Si es admin, buscar tienda PRINCIPAL y asignarla
@@ -252,8 +259,8 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
             />
           </div>
 
-          {/* Contraseña — solo en creación */}
-          {!esEdicion && (
+          {/* Contraseña — obligatoria en creación, opcional en edición */}
+          {(true) && (
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700">Contraseña *</label>
               <div className="relative">
@@ -261,7 +268,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
                   type={showPass ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={esEdicion ? "Nueva contraseña (dejar vacío para no cambiar)" : "Mínimo 6 caracteres"}
                   className="w-full border rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-blue-400"
                 />
                 <button
