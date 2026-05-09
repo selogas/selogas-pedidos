@@ -9,7 +9,7 @@ import {
 // ── Modal Tienda ─────────────────────────────────────────────────────
 function TiendaModal({ tienda, onSave, onClose }) {
   const [form, setForm] = useState(
-    tienda || { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion" }
+    tienda || { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion", mensaje_banner: "" }
   );
   const [saving, setSaving] = useState(false);
 
@@ -50,6 +50,20 @@ function TiendaModal({ tienda, onSave, onClose }) {
               />
             </div>
           ))}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              📢 Mensaje banner (opcional)
+            </label>
+            <textarea
+              value={form.mensaje_banner || ""}
+              onChange={e => setForm(f => ({ ...f, mensaje_banner: e.target.value }))}
+              placeholder="Ej: Tu día de pedido es el MARTES. ¡Realiza tu pedido antes de las 12h!"
+              rows={2}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 resize-none"
+            />
+            <p className="text-xs text-gray-400 mt-1">Se muestra como banner amarillo al usuario de esta tienda al entrar. Déjalo vacío para no mostrar nada.</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Tipo de tienda *</label>
             <select
