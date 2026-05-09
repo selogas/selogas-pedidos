@@ -95,16 +95,41 @@ export default function Caducidades() {
     </div>
   );
 
-  if (error) return (
-    <div className="max-w-lg mx-auto text-center py-20">
-      <AlertTriangle size={60} className="mx-auto mb-4 text-red-400" />
-      <h2 className="text-xl font-bold text-gray-700 mb-2">Error al cargar</h2>
-      <p className="text-gray-500 text-sm mb-4">{error}</p>
-      <button onClick={cargar} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 mx-auto">
-        <RefreshCw size={16} /> Reintentar
-      </button>
-    </div>
-  );
+  if (error) {
+    const esSecrets  = error.includes('SECRETS_MISSING');
+    const esPermiso  = error.includes('CALENDAR_NO_PERMISSION') || error.includes('CALENDAR_NOT_FOUND');
+    const msgLimpio  = error.replace(/^[A-Z_]+: /, '');
+    return (
+      <div className="max-w-lg mx-auto py-16">
+        <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 text-center">
+          <AlertTriangle size={48} className="mx-auto mb-3 text-red-400" />
+          <h2 className="text-lg font-bold text-red-800 mb-2">
+            {esSecrets ? "Credenciales de Google no configuradas" :
+             esPermiso ? "Sin acceso al calendario" : "Error al cargar caducidades"}
+          </h2>
+          <p className="text-red-700 text-sm mb-4">{msgLimpio}</p>
+          {esSecrets && (
+            <div className="bg-white border border-red-200 rounded-xl p-4 text-left text-xs text-gray-600 mb-4">
+              <p className="font-semibold mb-2">Pasos para configurar:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Ve a <strong>Supabase → Settings → Edge Functions</strong></li>
+                <li>Añade los secrets: <code className="bg-gray-100 px-1 rounded">GOOGLE_CLIENT_ID</code>, <code className="bg-gray-100 px-1 rounded">GOOGLE_CLIENT_SECRET</code>, <code className="bg-gray-100 px-1 rounded">GOOGLE_REFRESH_TOKEN</code></li>
+              </ol>
+            </div>
+          )}
+          {esPermiso && (
+            <div className="bg-white border border-red-200 rounded-xl p-4 text-left text-xs text-gray-600 mb-4">
+              <p className="font-semibold mb-1">Solución:</p>
+              <p>Comparte el Google Calendar de esta tienda con <strong>caducidades@gmail.com</strong> con permisos de lectura.</p>
+            </div>
+          )}
+          <button onClick={cargar} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 mx-auto text-sm">
+            <RefreshCw size={15} /> Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
