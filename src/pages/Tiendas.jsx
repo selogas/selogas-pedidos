@@ -15,11 +15,22 @@ function TiendaModal({ tienda, onSave, onClose }) {
 
   const handleSave = async () => {
     setSaving(true);
+    const campos = {
+      nombre:             form.nombre,
+      codigo:             form.codigo || null,
+      email:              form.email || null,
+      responsable:        form.responsable || null,
+      grupo:              form.grupo || "estacion",
+      activa:             form.activa !== false,
+      mensaje_banner:     form.mensaje_banner || null,
+      google_calendar_id: form.google_calendar_id || null,
+      doble_pedido:       form.doble_pedido === true,
+    };
     if (tienda?.id) {
-      const { error } = await supabase.from("tiendas").update(form).eq("id", tienda.id);
+      const { error } = await supabase.from("tiendas").update(campos).eq("id", tienda.id);
       if (error) { alert("Error: " + error.message); setSaving(false); return; }
     } else {
-      const { error } = await supabase.from("tiendas").insert([form]);
+      const { error } = await supabase.from("tiendas").insert([campos]);
       if (error) { alert("Error: " + error.message); setSaving(false); return; }
     }
     setSaving(false);
