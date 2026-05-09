@@ -33,7 +33,12 @@ export default function Catalogo() {
   const grupoTienda = tienda?.grupo || "estacion";
 
   const [productos, setProductos]         = useState([]);
-  const [carrito, setCarrito]             = useState({});
+  const [carrito, setCarrito] = useState(() => {
+    try {
+      const saved = localStorage.getItem('selogas_carrito');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [categoriaActiva, setCategoriaActiva] = useState("__todas__");
   const [busqueda, setBusqueda]           = useState("");
   const [cartOpen, setCartOpen]           = useState(false);
@@ -41,6 +46,13 @@ export default function Catalogo() {
   const [enviando, setEnviando]           = useState(false);
   const [exito, setExito]                 = useState(null);
   const [sugerencias, setSugerencias]     = useState([]);
+
+  // ── Persistir carrito en localStorage ───────────────────────────
+  useEffect(() => {
+    try {
+      localStorage.setItem('selogas_carrito', JSON.stringify(carrito));
+    } catch {}
+  }, [carrito]);
 
   // ── Carga de productos — solo columnas necesarias ────────────────
   useEffect(() => {
@@ -204,6 +216,7 @@ export default function Catalogo() {
       enviarEmail(pedido.id, numeroPedido, fecha, tiendaNombre, observaciones, lineasData).catch(() => {});
 
       setCarrito({});
+      localStorage.removeItem('selogas_carrito');
       setCartOpen(false);
       setExito(numeroPedido);
       setTimeout(() => setExito(null), 6000);

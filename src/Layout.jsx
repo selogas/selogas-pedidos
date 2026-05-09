@@ -39,10 +39,7 @@ export default function Layout({ children }) {
   const navItems = isAdmin ? navItemsAdmin : navItemsTienda;
   const currentPath = location.pathname;
 
-  const handleLogout = async () => {
-    await signOut();
-    window.location.href = '/login';
-  };
+  const handleLogout = () => signOut();
 
   const NavLink = ({ item, mobile = false }) => (
     <Link
