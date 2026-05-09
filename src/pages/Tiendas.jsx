@@ -530,7 +530,8 @@ export default function Tiendas() {
                 </button>
               </div>
             ) : (
-              <table className="w-full">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     {["Código", "Nombre", "Email", "Responsable", "Tipo", "Estado", "Acciones"].map(h => (
@@ -568,6 +569,7 @@ export default function Tiendas() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </>
@@ -587,7 +589,7 @@ export default function Tiendas() {
               </button>
             </div>
           ) : (
-            <table className="w-full">
+            <div className="overflow-x-auto"><table className="w-full min-w-[650px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   {["Usuario", "Email", "Rol", "Tienda asignada", "Estado", "Acciones"].map(h => (
@@ -655,6 +657,7 @@ export default function Tiendas() {
                 ))}
               </tbody>
             </table>
+</div>
           )}
         </div>
       )}

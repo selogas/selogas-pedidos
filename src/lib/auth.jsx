@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { supabase } from './supabase';
 
 const AuthContext = createContext(null);
-const INACTIVITY_MS = 20 * 60 * 1000;
+const INACTIVITY_MS = 90 * 60 * 1000;
 const STORAGE_KEY   = 'sb-pasllyqgczegpvquaxvb-auth-token';
 const SUPABASE_URL  = 'https://pasllyqgczegpvquaxvb.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhc2xseXFnY3plZ3B2cXVheHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MzE3MzIsImV4cCI6MjA5MzAwNzczMn0.XEz01HOL7g0ziWtMullK1TU7tdFGWFiNDZA8H041p_w';
