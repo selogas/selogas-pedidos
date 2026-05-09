@@ -127,21 +127,35 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
     try {
       if (esEdicion) {
         // Editar solo el perfil (email y contraseña no cambian desde aquí)
+        // Si es admin, asignar tienda PRINCIPAL
+        let tiendaIdEdit = form.tienda_id || null;
+        if (form.rol === "admin") {
+          const { data: principal } = await supabase
+            .from("tiendas").select("id").eq("nombre", "PRINCIPAL").single();
+          tiendaIdEdit = principal?.id || null;
+        }
         const { error: e } = await supabase.from("perfiles").update({
           nombre_completo: form.nombre_completo,
-          rol: form.rol,
-          tienda_id: form.tienda_id || null,
+          rol: "tienda",
+          tienda_id: tiendaIdEdit,
           activo: form.activo,
         }).eq("id", usuarioEditar.id);
         if (e) throw e;
       } else {
         // Crear usuario via función SQL con privilegios de servicio
+        // Si es admin, buscar tienda PRINCIPAL y asignarla
+        let tiendaId = form.tienda_id || null;
+        if (form.rol === "admin") {
+          const { data: principal } = await supabase
+            .from("tiendas").select("id").eq("nombre", "PRINCIPAL").single();
+          tiendaId = principal?.id || null;
+        }
         const { data: rpcData, error: rpcError } = await supabase.rpc("crear_usuario_tienda", {
           p_email: form.email.trim(),
           p_password: password,
           p_nombre: form.nombre_completo || "",
-          p_rol: form.rol,
-          p_tienda_id: form.tienda_id || null,
+          p_rol: "tienda",  // todos son rol tienda, la tienda PRINCIPAL da acceso admin
+          p_tienda_id: tiendaId,
         });
         if (rpcError) throw rpcError;
         if (rpcData?.error) throw new Error(rpcData.error);
@@ -534,12 +548,12 @@ export default function Tiendas() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold ${
-                        u.rol === "admin"
+                        (u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin")
                           ? "bg-purple-100 text-purple-700"
                           : "bg-blue-100 text-blue-700"
                       }`}>
-                        {u.rol === "admin" ? <ShieldCheck size={11} /> : <Store size={11} />}
-                        {u.rol === "admin" ? "Admin" : "Tienda"}
+                        {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? <ShieldCheck size={11} /> : <Store size={11} />}
+                        {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? "Admin" : "Tienda"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">

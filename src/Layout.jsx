@@ -15,7 +15,7 @@ export default function Layout({ children }) {
     || user?.email?.split('@')[0] || '';
 
   // Banner: solo se muestra a tiendas con mensaje activo
-  const mensajeBanner = !isAdmin && tienda?.mensaje_banner?.trim()
+  const mensajeBanner = !isAdmin && tienda?.nombre !== 'PRINCIPAL' && tienda?.mensaje_banner?.trim()
     ? tienda.mensaje_banner.trim()
     : null;
 

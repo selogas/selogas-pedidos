@@ -64,8 +64,9 @@ export function AuthProvider({ children }) {
     setPerfil(null);
   };
 
-  const isAdmin  = perfil?.rol === 'admin';
-  const isTienda = perfil?.rol === 'tienda';
+  // Admin = usuario asignado a la tienda PRINCIPAL
+  const isAdmin  = perfil?.tiendas?.nombre === 'PRINCIPAL' || perfil?.rol === 'admin';
+  const isTienda = !isAdmin;
 
   return (
     <AuthContext.Provider value={{ user, perfil, loading, signIn, signOut, isAdmin, isTienda }}>
