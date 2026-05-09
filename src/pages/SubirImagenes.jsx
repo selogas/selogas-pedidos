@@ -332,8 +332,11 @@ export default function SubirImagenes() {
 
     let candidatos = data.filter(p => !p.imagen_url);
     // Filtrar por categoría — usar el parámetro directo, no el estado
+    console.log('[Bulk] categoriaFinal:', categoriaFinal, '| total sin imagen:', candidatos.length);
     if (categoriaFinal !== "todas") {
       candidatos = candidatos.filter(p => p.categoria_id === categoriaFinal);
+      console.log('[Bulk] candidatos filtrados por categoria:', candidatos.length);
+      if (candidatos.length > 0) console.log('[Bulk] primer candidato categoria_id:', candidatos[0].categoria_id);
     }
 
     if (candidatos.length === 0) { alert("Todos los productos del ámbito seleccionado ya tienen imagen."); return; }
