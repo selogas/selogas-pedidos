@@ -130,6 +130,60 @@ function ConfirmModal({ titulo, mensaje, onConfirm, onCancel, loading }) {
   );
 }
 
+// ── Tarjeta de producto con botón eliminar en hover ──────────────────
+function TarjetaProducto({ prod, imagenActual, estaGuardando, recienGuardado, bulkActivo, onBuscar, onEliminar }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      className={`bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${recienGuardado ? "border-green-400" : hovered ? "border-blue-200" : "border-gray-100"}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="relative h-28 bg-gray-50 flex items-center justify-center">
+        {imagenActual ? (
+          <img src={imagenActual} alt={prod.nombre} className="w-full h-full object-contain p-2" onError={e => { e.target.style.display = "none"; }} />
+        ) : (
+          <Package size={28} className="text-gray-200" />
+        )}
+        {/* Tick verde — recién guardada */}
+        {recienGuardado && (
+          <div className="absolute top-1.5 right-1.5 bg-green-500 rounded-full p-0.5 pointer-events-none">
+            <CheckCircle size={12} className="text-white" />
+          </div>
+        )}
+        {/* Botón eliminar — esquina superior izquierda, aparece al hacer hover */}
+        {imagenActual && !estaGuardando && hovered && (
+          <button
+            onClick={e => { e.stopPropagation(); onEliminar(); }}
+            disabled={bulkActivo}
+            className="absolute top-1.5 left-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg disabled:opacity-50 transition-colors"
+            title="Eliminar imagen"
+          >
+            <Trash2 size={11} />
+          </button>
+        )}
+      </div>
+      <div className="p-2 flex flex-col flex-1 gap-1">
+        <p className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug min-h-[2rem]">{prod.nombre}</p>
+        {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
+        <div className="mt-auto">
+          <button
+            onClick={onBuscar}
+            disabled={estaGuardando || bulkActivo}
+            className="w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-40"
+          >
+            {estaGuardando ? (
+              <><Loader2 size={12} className="animate-spin" /> Guardando...</>
+            ) : (
+              <><Globe size={12} /> {imagenActual ? "Cambiar" : "Buscar"}</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principal ──────────────────────────────────────────────
 export default function SubirImagenes() {
   const [tab, setTab] = useState("archivo");
@@ -248,7 +302,11 @@ export default function SubirImagenes() {
     setLoadingProds(false);
   };
 
-  useEffect(() => { if (tab === "internet" && productos.length === 0) cargarProductosInternet(); }, [tab]);
+  useEffect(() => {
+    if ((tab === "internet" || tab === "eliminar") && categorias.length === 0) {
+      cargarProductosInternet();
+    }
+  }, [tab]);
 
   // ── Internet: guardar imagen individual ──────────────────────────
   const handleSeleccionarImagen = async (producto, url) => {
@@ -650,40 +708,16 @@ export default function SubirImagenes() {
                   const estaGuardando = guardando === prod.id;
                   const recienGuardado = !!guardados[prod.id];
                   return (
-                    <div key={prod.id} className={`group bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${recienGuardado ? "border-green-400" : "border-gray-100 hover:border-blue-200"}`}>
-                      <div className="relative h-28 bg-gray-50 flex items-center justify-center">
-                        {imagenActual ? (
-                          <img src={imagenActual} alt={prod.nombre} className="w-full h-full object-contain p-2" onError={e => { e.target.style.display = "none"; }} />
-                        ) : (<Package size={28} className="text-gray-200" />)}
-                        {/* Tick verde — imagen recién guardada */}
-                        {recienGuardado && (
-                          <div className="absolute top-1 right-1 bg-green-500 rounded-full p-0.5 pointer-events-none">
-                            <CheckCircle size={12} className="text-white" />
-                          </div>
-                        )}
-                        {/* Botón eliminar — esquina superior izquierda, visible al pasar el ratón */}
-                        {imagenActual && !estaGuardando && (
-                          <button
-                            onClick={() => setConfirmEliminar({ tipo: "producto", productoId: prod.id, productoNombre: prod.nombre })}
-                            disabled={bulkActivo}
-                            className="absolute top-1.5 left-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 disabled:opacity-0"
-                            title="Eliminar imagen"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="p-2 flex flex-col flex-1 gap-1">
-                        <p className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug min-h-[2rem]">{prod.nombre}</p>
-                        {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
-                        <div className="mt-auto">
-                          <button onClick={() => setBuscandoPanel(prod)} disabled={estaGuardando || bulkActivo}
-                            className="w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-40">
-                            {estaGuardando ? (<><Loader2 size={12} className="animate-spin" /> Guardando...</>) : (<><Globe size={12} /> {imagenActual ? "Cambiar" : "Buscar"}</>)}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <TarjetaProducto
+                      key={prod.id}
+                      prod={prod}
+                      imagenActual={imagenActual}
+                      estaGuardando={estaGuardando}
+                      recienGuardado={recienGuardado}
+                      bulkActivo={bulkActivo}
+                      onBuscar={() => setBuscandoPanel(prod)}
+                      onEliminar={() => setConfirmEliminar({ tipo: "producto", productoId: prod.id, productoNombre: prod.nombre })}
+                    />
                   );
                 })}
               </div>
