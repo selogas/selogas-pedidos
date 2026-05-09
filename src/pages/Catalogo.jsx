@@ -27,7 +27,7 @@ function getCatEmoji(nombre) {
 
 export default function Catalogo() {
   // ── Usar contexto auth — NO volvemos a pedir el perfil ──────────
-  const { user, perfil, isAdmin } = useAuth();
+  const { user, perfil, isAdmin, loading: authLoading } = useAuth();
 
   const tienda = perfil?.tiendas || null;
   const grupoTienda = tienda?.grupo || "estacion";
@@ -44,7 +44,8 @@ export default function Catalogo() {
 
   // ── Carga de productos — solo columnas necesarias ────────────────
   useEffect(() => {
-    if (!user || perfil === undefined) return; // esperar a que auth esté listo
+    if (!user) return; // sin usuario no hay catálogo
+    if (authLoading) return; // esperar a que auth termine de cargar el perfil
 
     const cargar = async () => {
       setLoading(true);
@@ -90,7 +91,7 @@ export default function Catalogo() {
     };
 
     cargar();
-  }, [user?.id, perfil?.id]); // solo re-ejecutar si cambia el usuario
+  }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]); // re-ejecutar si cambia rol o tienda
 
   // ── Sugerencias: IDs de productos pedidos últimas 2 semanas ─────
   async function cargarSugerencias(tiendaId) {
