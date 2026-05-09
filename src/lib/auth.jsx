@@ -4,27 +4,47 @@ import { supabase } from './supabase';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]     = useState(null);
-  const [perfil, setPerfil] = useState(null);
+  const [user, setUser]       = useState(null);
+  const [perfil, setPerfil]   = useState(null);
   const [loading, setLoading] = useState(true);
 
   const cargarPerfil = async (u) => {
     if (!u) { setPerfil(null); return; }
-    const { data } = await supabase
-      .from('perfiles')
-      .select('*, tiendas(*)')
-      .eq('id', u.id)
-      .single();
-    setPerfil(data || null);
+    try {
+      const { data } = await supabase
+        .from('perfiles')
+        .select('*, tiendas(*)')
+        .eq('id', u.id)
+        .single();
+      setPerfil(data || null);
+    } catch {
+      setPerfil(null);
+    }
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const u = session?.user || null;
-      setUser(u);
-      await cargarPerfil(u);
-      setLoading(false);
-    });
+    let mounted = true;
+
+    const init = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const u = session?.user || null;
+        if (!mounted) return;
+        setUser(u);
+        await cargarPerfil(u);
+      } catch {
+        // error de red — dejamos pasar, la app redirigirá a login
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    init();
+
+    // Timeout de seguridad: si en 8s no termina, liberamos el loading
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 8000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = session?.user || null;
@@ -32,7 +52,11 @@ export function AuthProvider({ children }) {
       await cargarPerfil(u);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email, password) => {
