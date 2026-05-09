@@ -152,14 +152,14 @@ function TarjetaProducto({ prod, imagenActual, estaGuardando, recienGuardado, bu
           </div>
         )}
         {/* Botón eliminar — esquina superior izquierda, aparece al hacer hover */}
-        {imagenActual && !estaGuardando && hovered && (
+        {imagenActual && !estaGuardando && (
           <button
             onClick={e => { e.stopPropagation(); onEliminar(); }}
             disabled={bulkActivo}
-            className="absolute top-1.5 left-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg disabled:opacity-50 transition-colors"
+            className="absolute top-1.5 left-1.5 bg-red-500 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md disabled:opacity-50 transition-colors"
             title="Eliminar imagen"
           >
-            <Trash2 size={11} />
+            <Trash2 size={12} />
           </button>
         )}
       </div>
@@ -202,7 +202,7 @@ export default function SubirImagenes() {
   const [categorias, setCategorias] = useState([]);
   const [loadingProds, setLoadingProds] = useState(false);
   const [busquedaInternet, setBusquedaInternet] = useState("");
-  const [filtroBuscar, setFiltroBuscar] = useState("sin_imagen");
+  const [filtroBuscar, setFiltroBuscar] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
   const [buscandoPanel, setBuscandoPanel] = useState(null);
   const [guardando, setGuardando] = useState(null);
