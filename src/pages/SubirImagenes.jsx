@@ -1,14 +1,20 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Upload, FolderOpen, CheckCircle, XCircle, Loader2, Image, Package, AlertTriangle, Search, Globe, X, Play, Pause, StopCircle, Zap } from "lucide-react";
+import {
+  Upload, FolderOpen, CheckCircle, XCircle, Loader2, Image,
+  Package, AlertTriangle, Search, Globe, X, Play, Pause,
+  StopCircle, Zap, Trash2, Layers, Filter, ChevronDown,
+  RefreshCw, AlertCircle
+} from "lucide-react";
 
-// Busca imagenes via Edge Function proxy (evita CORS)
+// ── Edge Function helper ─────────────────────────────────────────────
 async function buscarImagenesOnline(query) {
   const { data, error } = await supabase.functions.invoke("buscar-imagen", { body: { query } });
   if (error) throw error;
   return data.images || [];
 }
 
+// ── Modal de búsqueda individual ─────────────────────────────────────
 function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
   const [query, setQuery] = useState(nombre || "");
   const [results, setResults] = useState([]);
@@ -22,7 +28,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
     try {
       const imgs = await buscarImagenesOnline(q);
       setResults(imgs);
-      if (!imgs.length) setError("No se encontraron imagenes. Prueba con otro nombre o pega una URL.");
+      if (!imgs.length) setError("No se encontraron imágenes. Prueba con otro nombre o pega una URL.");
     } catch (err) { setError("Error al buscar: " + (err.message || String(err))); }
     setLoading(false);
   };
@@ -35,7 +41,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-bold text-base flex items-center gap-2"><Globe size={18} className="text-blue-600" /> Buscar imagen en internet</h3>
-            {codigo && <p className="text-xs text-gray-400 mt-0.5">Codigo: {codigo}</p>}
+            {codigo && <p className="text-xs text-gray-400 mt-0.5">Código: {codigo}</p>}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X size={16} /></button>
         </div>
@@ -67,8 +73,8 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
         )}
         {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-blue-500" /></div>}
         {!loading && results.length > 0 && (
-          <div className="overflow-y-auto" style={{maxHeight:"420px",minHeight:"200px"}}>
-            <p className="text-xs text-gray-400 mb-2">{results.length} resultados - haz clic para seleccionar</p>
+          <div className="overflow-y-auto" style={{ maxHeight: "420px", minHeight: "200px" }}>
+            <p className="text-xs text-gray-400 mb-2">{results.length} resultados — haz clic para seleccionar</p>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {results.map((img, i) => (
                 <button key={i} onClick={() => onSelect(img.url)}
@@ -88,7 +94,6 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
               className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 font-semibold hover:bg-blue-100">
               <Globe size={14} /> Buscar en Google Images
             </a>
-            <p className="text-xs text-gray-400 mt-2">Copia la URL de la imagen y pegala arriba</p>
           </div>
         )}
       </div>
@@ -96,6 +101,36 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
   );
 }
 
+// ── Modal de confirmación de borrado ─────────────────────────────────
+function ConfirmModal({ titulo, mensaje, onConfirm, onCancel, loading }) {
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="bg-red-100 p-2 rounded-full flex-shrink-0">
+            <AlertCircle size={22} className="text-red-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 text-base">{titulo}</h3>
+            <p className="text-sm text-gray-500 mt-1">{mensaje}</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onCancel} disabled={loading} className="flex-1 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2">
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Componente principal ──────────────────────────────────────────────
 export default function SubirImagenes() {
   const [tab, setTab] = useState("archivo");
 
@@ -108,16 +143,18 @@ export default function SubirImagenes() {
   const [fase, setFase] = useState("inicio");
   const inputRef = useRef();
 
-  // ===== TAB INTERNET - individual =====
+  // ===== TAB INTERNET — individual =====
   const [productos, setProductos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [loadingProds, setLoadingProds] = useState(false);
   const [busquedaInternet, setBusquedaInternet] = useState("");
   const [filtroBuscar, setFiltroBuscar] = useState("sin_imagen");
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
   const [buscandoPanel, setBuscandoPanel] = useState(null);
   const [guardando, setGuardando] = useState(null);
   const [guardados, setGuardados] = useState({});
 
-  // ===== TAB INTERNET - masivo =====
+  // ===== TAB INTERNET — búsqueda masiva =====
   const [bulkActivo, setBulkActivo] = useState(false);
   const [bulkPausado, setBulkPausado] = useState(false);
   const [bulkProgreso, setBulkProgreso] = useState(0);
@@ -128,13 +165,30 @@ export default function SubirImagenes() {
   const [bulkLog, setBulkLog] = useState([]);
   const bulkCancelRef = useRef(false);
   const bulkPauseRef = useRef(false);
+  const [bulkScopeCategoria, setBulkScopeCategoria] = useState("todas");
 
+  // ===== ELIMINAR =====
+  const [confirmEliminar, setConfirmEliminar] = useState(null); // { tipo, categoriaId?, categoriaNombre?, productoId?, productoNombre? }
+  const [eliminando, setEliminando] = useState(false);
+  const [eliminados, setEliminados] = useState(0);
+
+  // ── Helpers ──────────────────────────────────────────────────────
   const cargarProductos = async () => {
-    const { data } = await supabase.from("productos").select("id, nombre, codigo, imagen_url").order("nombre");
+    const { data } = await supabase.from("productos")
+      .select("id, nombre, codigo, imagen_url, categoria_id, categorias(id, nombre)")
+      .order("nombre");
     return data || [];
   };
 
-  // ---- Subir desde carpeta ----
+  const cargarCategorias = async () => {
+    const { data } = await supabase.from("categorias")
+      .select("id, nombre")
+      .eq("activa", true)
+      .order("nombre");
+    return data || [];
+  };
+
+  // ── TAB ARCHIVO ───────────────────────────────────────────────────
   const handleSeleccionCarpeta = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -185,17 +239,18 @@ export default function SubirImagenes() {
 
   const resetear = () => { setArchivos([]); setResultados([]); setProgreso(0); setFase("inicio"); if (inputRef.current) inputRef.current.value = ""; };
 
-  // ---- Internet: cargar productos ----
+  // ── TAB INTERNET — cargar ─────────────────────────────────────────
   const cargarProductosInternet = async () => {
     setLoadingProds(true);
-    const data = await cargarProductos();
-    setProductos(data);
+    const [prods, cats] = await Promise.all([cargarProductos(), cargarCategorias()]);
+    setProductos(prods);
+    setCategorias(cats);
     setLoadingProds(false);
   };
 
   useEffect(() => { if (tab === "internet" && productos.length === 0) cargarProductosInternet(); }, [tab]);
 
-  // ---- Internet: guardar imagen individual ----
+  // ── Internet: guardar imagen individual ──────────────────────────
   const handleSeleccionarImagen = async (producto, url) => {
     setBuscandoPanel(null);
     setGuardando(producto.id);
@@ -208,46 +263,38 @@ export default function SubirImagenes() {
     setGuardando(null);
   };
 
-  // ---- Busqueda masiva ----
+  // ── Búsqueda masiva ───────────────────────────────────────────────
   const iniciarBulk = async () => {
-    // Carga productos sin imagen
     setLoadingProds(true);
     const data = await cargarProductos();
     setProductos(data);
     setLoadingProds(false);
 
-    const sinImagen = data.filter(p => !p.imagen_url);
-    if (sinImagen.length === 0) { alert("Todos los productos ya tienen imagen."); return; }
+    let candidatos = data.filter(p => !p.imagen_url);
+    // Filtrar por categoría si se seleccionó una
+    if (bulkScopeCategoria !== "todas") {
+      candidatos = candidatos.filter(p => p.categoria_id === bulkScopeCategoria);
+    }
 
-    setBulkActivo(true);
-    setBulkPausado(false);
-    setBulkProgreso(0);
-    setBulkTotal(sinImagen.length);
-    setBulkOk(0);
-    setBulkFail(0);
-    setBulkLog([]);
-    setBulkActual("");
-    bulkCancelRef.current = false;
-    bulkPauseRef.current = false;
+    if (candidatos.length === 0) { alert("Todos los productos del ámbito seleccionado ya tienen imagen."); return; }
 
-    let ok = 0;
-    let fail = 0;
+    setBulkActivo(true); setBulkPausado(false);
+    setBulkProgreso(0); setBulkTotal(candidatos.length);
+    setBulkOk(0); setBulkFail(0); setBulkLog([]); setBulkActual("");
+    bulkCancelRef.current = false; bulkPauseRef.current = false;
 
-    for (let i = 0; i < sinImagen.length; i++) {
-      // Cancelar
+    let ok = 0; let fail = 0;
+    for (let i = 0; i < candidatos.length; i++) {
       if (bulkCancelRef.current) break;
-
-      // Pausar: esperar hasta que se reanude
       while (bulkPauseRef.current) {
         await new Promise(r => setTimeout(r, 300));
         if (bulkCancelRef.current) break;
       }
       if (bulkCancelRef.current) break;
 
-      const prod = sinImagen[i];
+      const prod = candidatos[i];
       setBulkActual(prod.nombre);
       setBulkProgreso(i);
-
       try {
         const imgs = await buscarImagenesOnline(prod.nombre);
         if (imgs.length > 0) {
@@ -256,80 +303,165 @@ export default function SubirImagenes() {
           if (error) throw error;
           setGuardados(prev => ({ ...prev, [prod.id]: url }));
           setProductos(prev => prev.map(p => p.id === prod.id ? { ...p, imagen_url: url } : p));
-          ok++;
-          setBulkOk(ok);
+          ok++; setBulkOk(ok);
           setBulkLog(prev => [{ nombre: prod.nombre, exito: true, url }, ...prev].slice(0, 50));
         } else {
-          fail++;
-          setBulkFail(fail);
+          fail++; setBulkFail(fail);
           setBulkLog(prev => [{ nombre: prod.nombre, exito: false, error: "Sin resultados" }, ...prev].slice(0, 50));
         }
       } catch (err) {
-        fail++;
-        setBulkFail(fail);
+        fail++; setBulkFail(fail);
         setBulkLog(prev => [{ nombre: prod.nombre, exito: false, error: err.message }, ...prev].slice(0, 50));
       }
-
-      // Pequeña pausa entre peticiones para no saturar la Edge Function
       await new Promise(r => setTimeout(r, 400));
     }
-
-    setBulkProgreso(sinImagen.length);
-    setBulkActual("");
-    setBulkActivo(false);
-    setBulkPausado(false);
-    bulkCancelRef.current = false;
-    bulkPauseRef.current = false;
+    setBulkProgreso(candidatos.length); setBulkActual(""); setBulkActivo(false); setBulkPausado(false);
+    bulkCancelRef.current = false; bulkPauseRef.current = false;
   };
 
-  const pausarBulk = () => {
-    bulkPauseRef.current = true;
-    setBulkPausado(true);
+  const pausarBulk = () => { bulkPauseRef.current = true; setBulkPausado(true); };
+  const reanudarBulk = () => { bulkPauseRef.current = false; setBulkPausado(false); };
+  const detenerBulk = () => { bulkCancelRef.current = true; bulkPauseRef.current = false; setBulkPausado(false); };
+
+  // ── ELIMINAR IMÁGENES ─────────────────────────────────────────────
+
+  // Eliminar imagen de un producto específico
+  const eliminarImagenProducto = async (productoId) => {
+    setEliminando(true);
+    try {
+      await supabase.from("productos").update({ imagen_url: null }).eq("id", productoId);
+      setProductos(prev => prev.map(p => p.id === productoId ? { ...p, imagen_url: null } : p));
+      setGuardados(prev => { const n = { ...prev }; delete n[productoId]; return n; });
+      setEliminados(1);
+    } catch (err) { alert("Error al eliminar: " + err.message); }
+    setEliminando(false);
+    setConfirmEliminar(null);
   };
 
-  const reanudarBulk = () => {
-    bulkPauseRef.current = false;
-    setBulkPausado(false);
+  // Eliminar imágenes de una categoría
+  const eliminarImagenesCategoria = async (categoriaId) => {
+    setEliminando(true);
+    try {
+      const { data: prods } = await supabase.from("productos")
+        .select("id").eq("categoria_id", categoriaId).not("imagen_url", "is", null);
+      if (prods && prods.length > 0) {
+        const ids = prods.map(p => p.id);
+        await supabase.from("productos").update({ imagen_url: null }).in("id", ids);
+        setProductos(prev => prev.map(p => ids.includes(p.id) ? { ...p, imagen_url: null } : p));
+        setGuardados(prev => {
+          const n = { ...prev };
+          ids.forEach(id => delete n[id]);
+          return n;
+        });
+        setEliminados(prods.length);
+      } else {
+        setEliminados(0);
+      }
+    } catch (err) { alert("Error al eliminar: " + err.message); }
+    setEliminando(false);
+    setConfirmEliminar(null);
   };
 
-  const detenerBulk = () => {
-    bulkCancelRef.current = true;
-    bulkPauseRef.current = false;
-    setBulkPausado(false);
+  // Eliminar TODAS las imágenes
+  const eliminarTodasImagenes = async () => {
+    setEliminando(true);
+    try {
+      const { data: prods } = await supabase.from("productos")
+        .select("id").not("imagen_url", "is", null);
+      if (prods && prods.length > 0) {
+        const ids = prods.map(p => p.id);
+        // Actualizar en lotes de 100
+        for (let i = 0; i < ids.length; i += 100) {
+          await supabase.from("productos").update({ imagen_url: null }).in("id", ids.slice(i, i + 100));
+        }
+        setProductos(prev => prev.map(p => ({ ...p, imagen_url: null })));
+        setGuardados({});
+        setEliminados(prods.length);
+      } else {
+        setEliminados(0);
+      }
+    } catch (err) { alert("Error al eliminar: " + err.message); }
+    setEliminando(false);
+    setConfirmEliminar(null);
   };
 
+  const ejecutarEliminacion = () => {
+    if (!confirmEliminar) return;
+    if (confirmEliminar.tipo === "producto") eliminarImagenProducto(confirmEliminar.productoId);
+    else if (confirmEliminar.tipo === "categoria") eliminarImagenesCategoria(confirmEliminar.categoriaId);
+    else if (confirmEliminar.tipo === "todas") eliminarTodasImagenes();
+  };
+
+  // ── Filtrado de productos ─────────────────────────────────────────
   const productosFiltrados = productos.filter(p => {
     const imagenActual = guardados[p.id] || p.imagen_url;
     const sinImg = filtroBuscar === "sin_imagen" ? !imagenActual : true;
     const q = busquedaInternet.toLowerCase();
     const matchBusq = !q || p.nombre?.toLowerCase().includes(q) || p.codigo?.toLowerCase().includes(q);
-    return sinImg && matchBusq;
+    const matchCat = filtroCategoria === "todas" || p.categoria_id === filtroCategoria;
+    return sinImg && matchBusq && matchCat;
   });
+
+  // Contadores para categoría seleccionada
+  const conImagenEnCategoria = filtroCategoria !== "todas"
+    ? productos.filter(p => p.categoria_id === filtroCategoria && (guardados[p.id] || p.imagen_url)).length
+    : productos.filter(p => guardados[p.id] || p.imagen_url).length;
+
+  const sinImagenEnCategoria = filtroCategoria !== "todas"
+    ? productos.filter(p => p.categoria_id === filtroCategoria && !(guardados[p.id] || p.imagen_url)).length
+    : productos.filter(p => !(guardados[p.id] || p.imagen_url)).length;
 
   const listos = archivos.filter(a => a.estado === "listo");
   const sinMatch = archivos.filter(a => a.estado === "sin_match");
   const exitosos = resultados.filter(r => r.exito);
   const fallidos = resultados.filter(r => !r.exito);
 
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="max-w-5xl mx-auto">
+      {/* Modal búsqueda individual */}
       {buscandoPanel && (
-        <BuscarImagenPanel nombre={buscandoPanel.nombre} codigo={buscandoPanel.codigo}
+        <BuscarImagenPanel
+          nombre={buscandoPanel.nombre} codigo={buscandoPanel.codigo}
           onSelect={(url) => handleSeleccionarImagen(buscandoPanel, url)}
-          onClose={() => setBuscandoPanel(null)} />
+          onClose={() => setBuscandoPanel(null)}
+        />
+      )}
+
+      {/* Modal confirmación eliminar */}
+      {confirmEliminar && (
+        <ConfirmModal
+          titulo={
+            confirmEliminar.tipo === "producto" ? `Eliminar imagen de "${confirmEliminar.productoNombre}"` :
+            confirmEliminar.tipo === "categoria" ? `Eliminar imágenes de "${confirmEliminar.categoriaNombre}"` :
+            "Eliminar TODAS las imágenes"
+          }
+          mensaje={
+            confirmEliminar.tipo === "producto" ? "Se borrará la URL de la imagen de este producto. No se puede deshacer." :
+            confirmEliminar.tipo === "categoria" ? `Se eliminarán las URLs de imagen de todos los productos de esta categoría. No se puede deshacer.` :
+            "⚠️ Se eliminarán las URLs de imagen de TODOS los productos del catálogo. Esta acción no se puede deshacer."
+          }
+          onConfirm={ejecutarEliminacion}
+          onCancel={() => setConfirmEliminar(null)}
+          loading={eliminando}
+        />
       )}
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Imagenes de Productos</h1>
-        <p className="text-gray-500 text-sm">Sube imagenes desde tu ordenador o busca automaticamente en internet.</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Imágenes de Productos</h1>
+        <p className="text-gray-500 text-sm">Sube imágenes desde tu ordenador, busca en internet o gestiona las existentes.</p>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         <button onClick={() => setTab("archivo")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "archivo" ? "bg-white text-blue-700 shadow" : "text-gray-500 hover:text-gray-700"}`}>
           <FolderOpen size={16} /> Subir desde carpeta
         </button>
         <button onClick={() => setTab("internet")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "internet" ? "bg-white text-blue-700 shadow" : "text-gray-500 hover:text-gray-700"}`}>
           <Globe size={16} /> Buscar en internet
+        </button>
+        <button onClick={() => setTab("eliminar")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "eliminar" ? "bg-white text-red-700 shadow" : "text-gray-500 hover:text-gray-700"}`}>
+          <Trash2 size={16} /> Eliminar imágenes
         </button>
       </div>
 
@@ -339,8 +471,8 @@ export default function SubirImagenes() {
           {fase === "inicio" && (
             <div className="border-2 border-dashed border-gray-300 rounded-2xl p-16 text-center hover:border-blue-400 transition-colors cursor-pointer bg-white" onClick={() => inputRef.current?.click()}>
               <FolderOpen size={56} className="mx-auto mb-4 text-gray-300" />
-              <h2 className="text-lg font-bold text-gray-700 mb-2">Seleccionar carpeta de imagenes</h2>
-              <p className="text-gray-400 text-sm mb-4">El nombre de cada archivo debe ser el <strong>codigo del producto</strong> (ej: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">856607.jpg</code>)</p>
+              <h2 className="text-lg font-bold text-gray-700 mb-2">Seleccionar carpeta de imágenes</h2>
+              <p className="text-gray-400 text-sm mb-4">El nombre de cada archivo debe ser el <strong>código del producto</strong> (ej: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">856607.jpg</code>)</p>
               <div className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors"><FolderOpen size={18} /> Elegir carpeta</div>
               <input ref={inputRef} type="file" multiple accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.avif" webkitdirectory="" directory="" className="hidden" onChange={handleSeleccionCarpeta} />
               {cargandoProds && (<div className="mt-4 flex items-center justify-center gap-2 text-blue-600"><Loader2 size={16} className="animate-spin" /><span className="text-sm">Cargando productos...</span></div>)}
@@ -349,32 +481,32 @@ export default function SubirImagenes() {
           {fase === "preview" && archivos.length > 0 && (
             <div>
               <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><div className="text-3xl font-bold text-gray-900">{archivos.length}</div><div className="text-sm text-gray-500 mt-1">Imagenes detectadas</div></div>
+                <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><div className="text-3xl font-bold text-gray-900">{archivos.length}</div><div className="text-sm text-gray-500 mt-1">Imágenes detectadas</div></div>
                 <div className="bg-green-50 rounded-xl border border-green-200 p-4 text-center"><div className="text-3xl font-bold text-green-700">{listos.length}</div><div className="text-sm text-green-600 mt-1">Con producto coincidente</div></div>
                 <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 text-center"><div className="text-3xl font-bold text-amber-700">{sinMatch.length}</div><div className="text-sm text-amber-600 mt-1">Sin coincidencia</div></div>
               </div>
-              {sinMatch.length > 0 && (<div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2"><AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" /><p className="text-sm text-amber-700"><strong>{sinMatch.length} imagenes</strong> no coinciden con ningun codigo de producto y seran ignoradas.</p></div>)}
+              {sinMatch.length > 0 && (<div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2"><AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" /><p className="text-sm text-amber-700"><strong>{sinMatch.length} imágenes</strong> no coinciden con ningún código de producto y serán ignoradas.</p></div>)}
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between"><span className="font-semibold text-gray-700 text-sm">Vista previa</span><span className="text-xs text-gray-400">{archivos.length} archivos</span></div>
                 <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[500px] overflow-y-auto">
                   {archivos.map((item, i) => (
                     <div key={i} className={`rounded-xl border-2 overflow-hidden ${item.estado === "listo" ? "border-green-300 bg-green-50" : "border-amber-300 bg-amber-50"}`}>
                       <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden"><img src={item.previewUrl} alt={item.nombreArchivo} className="w-full h-full object-contain p-1" /></div>
-                      <div className="p-2"><p className="text-xs font-bold truncate text-gray-700" title={item.nombreArchivo}>{item.codigoBuscado}</p>{item.producto ? (<p className="text-xs text-green-700 truncate" title={item.producto.nombre}>ok {item.producto.nombre}</p>) : (<p className="text-xs text-amber-600">Sin coincidencia</p>)}</div>
+                      <div className="p-2"><p className="text-xs font-bold truncate text-gray-700" title={item.nombreArchivo}>{item.codigoBuscado}</p>{item.producto ? (<p className="text-xs text-green-700 truncate" title={item.producto.nombre}>✓ {item.producto.nombre}</p>) : (<p className="text-xs text-amber-600">Sin coincidencia</p>)}</div>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="flex gap-3">
                 <button onClick={resetear} className="flex-1 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">Cancelar</button>
-                <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={18} /> Subir {listos.length} imagenes</button>
+                <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={18} /> Subir {listos.length} imágenes</button>
               </div>
             </div>
           )}
           {fase === "subiendo" && (
             <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
               <Loader2 size={48} className="animate-spin mx-auto mb-4 text-blue-600" />
-              <h2 className="text-lg font-bold text-gray-800 mb-2">Subiendo imagenes...</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">Subiendo imágenes...</h2>
               <p className="text-gray-500 text-sm mb-6">{progreso}% completado</p>
               <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className="bg-blue-600 h-3 rounded-full transition-all duration-300" style={{ width: progreso + "%" }} /></div>
             </div>
@@ -382,7 +514,7 @@ export default function SubirImagenes() {
           {fase === "hecho" && (
             <div>
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-green-50 rounded-xl border border-green-200 p-5 text-center"><CheckCircle size={32} className="mx-auto mb-2 text-green-600" /><div className="text-3xl font-bold text-green-700">{exitosos.length}</div><div className="text-sm text-green-600 mt-1">Imagenes subidas correctamente</div></div>
+                <div className="bg-green-50 rounded-xl border border-green-200 p-5 text-center"><CheckCircle size={32} className="mx-auto mb-2 text-green-600" /><div className="text-3xl font-bold text-green-700">{exitosos.length}</div><div className="text-sm text-green-600 mt-1">Imágenes subidas correctamente</div></div>
                 <div className="bg-red-50 rounded-xl border border-red-200 p-5 text-center"><XCircle size={32} className="mx-auto mb-2 text-red-500" /><div className="text-3xl font-bold text-red-600">{fallidos.length}</div><div className="text-sm text-red-500 mt-1">Con errores o sin coincidencia</div></div>
               </div>
               {fallidos.length > 0 && (
@@ -398,7 +530,7 @@ export default function SubirImagenes() {
                   </div>
                 </div>
               )}
-              <button onClick={resetear} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2"><FolderOpen size={18} /> Subir mas imagenes</button>
+              <button onClick={resetear} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2"><FolderOpen size={18} /> Subir más imágenes</button>
             </div>
           )}
         </div>
@@ -407,28 +539,23 @@ export default function SubirImagenes() {
       {/* ===== TAB INTERNET ===== */}
       {tab === "internet" && (
         <div>
-          {/* Banner de progreso masivo */}
+          {/* Banner búsqueda masiva activa */}
           {bulkActivo && (
             <div className="mb-5 bg-blue-50 border border-blue-200 rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Zap size={18} className="text-blue-600" />
-                  <span className="font-bold text-blue-800 text-sm">Busqueda masiva en curso</span>
+                  <span className="font-bold text-blue-800 text-sm">Búsqueda masiva en curso</span>
+                  {bulkScopeCategoria !== "todas" && <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">{categorias.find(c => c.id === bulkScopeCategoria)?.nombre || "Categoría"}</span>}
                   {bulkPausado && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">PAUSADO</span>}
                 </div>
                 <div className="flex gap-2">
                   {!bulkPausado ? (
-                    <button onClick={pausarBulk} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600">
-                      <Pause size={13} /> Pausar
-                    </button>
+                    <button onClick={pausarBulk} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600"><Pause size={13} /> Pausar</button>
                   ) : (
-                    <button onClick={reanudarBulk} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700">
-                      <Play size={13} /> Reanudar
-                    </button>
+                    <button onClick={reanudarBulk} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700"><Play size={13} /> Reanudar</button>
                   )}
-                  <button onClick={detenerBulk} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600">
-                    <StopCircle size={13} /> Detener
-                  </button>
+                  <button onClick={detenerBulk} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600"><StopCircle size={13} /> Detener</button>
                 </div>
               </div>
               <div className="flex items-center gap-3 mb-2">
@@ -456,75 +583,226 @@ export default function SubirImagenes() {
           )}
 
           {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="relative flex-1">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" value={busquedaInternet} onChange={e => setBusquedaInternet(e.target.value)}
-                placeholder="Buscar producto por nombre o codigo..." className="w-full pl-9 pr-4 py-2.5 border rounded-xl text-sm" />
+                placeholder="Buscar por nombre o código..." className="w-full pl-9 pr-4 py-2.5 border rounded-xl text-sm" />
             </div>
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => setFiltroBuscar("sin_imagen")} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filtroBuscar === "sin_imagen" ? "bg-amber-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>Sin imagen</button>
               <button onClick={() => setFiltroBuscar("todos")} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filtroBuscar === "todos" ? "bg-blue-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>Todos</button>
-              <button onClick={cargarProductosInternet} disabled={loadingProds || bulkActivo}
-                className="px-3 py-2 border rounded-xl text-gray-600 hover:bg-gray-50 disabled:opacity-50" title="Recargar">
-                {loadingProds ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+              <button onClick={cargarProductosInternet} disabled={loadingProds || bulkActivo} className="px-3 py-2 border rounded-xl text-gray-600 hover:bg-gray-50 disabled:opacity-50" title="Recargar">
+                {loadingProds ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
               </button>
-              {/* BOTON BUSCAR TODAS */}
+            </div>
+          </div>
+
+          {/* Filtro categoría + botones masivos */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+            <div className="relative flex-1">
+              <Layers size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
+                className="w-full pl-9 pr-8 py-2.5 border rounded-xl text-sm bg-white appearance-none cursor-pointer">
+                <option value="todas">Todas las categorías</option>
+                {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+            <div className="flex gap-2">
+              {/* Buscar masivo (ámbito = categoría seleccionada o todas) */}
               {!bulkActivo ? (
-                <button onClick={iniciarBulk} disabled={loadingProds}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 disabled:opacity-50 shadow-sm">
-                  <Zap size={15} /> Buscar todas
+                <button onClick={() => { setBulkScopeCategoria(filtroCategoria); iniciarBulk(); }} disabled={loadingProds}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 disabled:opacity-50 shadow-sm whitespace-nowrap">
+                  <Zap size={15} />
+                  {filtroCategoria === "todas" ? "Buscar todas" : "Buscar categoría"}
                 </button>
               ) : (
-                <button disabled className="flex items-center gap-2 px-4 py-2 bg-purple-300 text-white rounded-xl text-sm font-bold cursor-not-allowed">
+                <button disabled className="flex items-center gap-2 px-4 py-2 bg-purple-300 text-white rounded-xl text-sm font-bold cursor-not-allowed whitespace-nowrap">
                   <Loader2 size={15} className="animate-spin" /> En curso...
                 </button>
               )}
             </div>
           </div>
 
+          {/* Estadísticas rápidas */}
+          {!loadingProds && productos.length > 0 && (
+            <div className="flex gap-3 mb-4 text-sm">
+              <span className="text-gray-500">{productosFiltrados.length} productos mostrados</span>
+              <span className="text-green-600 font-semibold">• {conImagenEnCategoria} con imagen</span>
+              <span className="text-amber-600 font-semibold">• {sinImagenEnCategoria} sin imagen</span>
+              {Object.keys(guardados).length > 0 && <span className="text-blue-600 font-semibold">• {Object.keys(guardados).length} actualizados esta sesión</span>}
+            </div>
+          )}
+
           {loadingProds ? (
             <div className="flex items-center justify-center py-16"><Loader2 size={40} className="animate-spin text-blue-500" /></div>
           ) : (
-            <div>
-              <div className="mb-3 text-sm text-gray-500">
-                {productosFiltrados.length} productos {filtroBuscar === "sin_imagen" ? "sin imagen" : "en total"}
-                {Object.keys(guardados).length > 0 && <span className="ml-2 text-green-600 font-semibold">({Object.keys(guardados).length} actualizados esta sesion)</span>}
+            productosFiltrados.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <Image size={48} className="mx-auto mb-3 opacity-30" />
+                <p className="font-semibold">{filtroBuscar === "sin_imagen" ? "Todos los productos tienen imagen" : "No hay productos con ese nombre"}</p>
               </div>
-              {productosFiltrados.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
-                  <Image size={48} className="mx-auto mb-3 opacity-30" />
-                  <p className="font-semibold">{filtroBuscar === "sin_imagen" ? "Todos los productos tienen imagen" : "No hay productos con ese nombre"}</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {productosFiltrados.map(prod => {
-                    const imagenActual = guardados[prod.id] || prod.imagen_url;
-                    const estaGuardando = guardando === prod.id;
-                    const recienGuardado = !!guardados[prod.id];
-                    return (
-                      <div key={prod.id} className={`bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${recienGuardado ? "border-green-400" : "border-gray-100 hover:border-blue-200"}`}>
-                        <div className="relative h-28 bg-gray-50 flex items-center justify-center">
-                          {imagenActual ? (
-                            <img src={imagenActual} alt={prod.nombre} className="w-full h-full object-contain p-2" onError={e => { e.target.style.display="none"; }} />
-                          ) : (<Package size={28} className="text-gray-200" />)}
-                          {recienGuardado && (<div className="absolute top-1 right-1 bg-green-500 rounded-full p-0.5"><CheckCircle size={12} className="text-white" /></div>)}
-                        </div>
-                        <div className="p-2 flex flex-col flex-1 gap-1">
-                          <p className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug min-h-[2rem]">{prod.nombre}</p>
-                          {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
-                          <button onClick={() => setBuscandoPanel(prod)} disabled={estaGuardando || bulkActivo}
-                            className="mt-auto w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-40">
-                            {estaGuardando ? (<><Loader2 size={12} className="animate-spin" /> Guardando...</>) : (<><Globe size={12} /> {imagenActual ? "Cambiar imagen" : "Buscar imagen"}</>)}
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {productosFiltrados.map(prod => {
+                  const imagenActual = guardados[prod.id] || prod.imagen_url;
+                  const estaGuardando = guardando === prod.id;
+                  const recienGuardado = !!guardados[prod.id];
+                  return (
+                    <div key={prod.id} className={`bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${recienGuardado ? "border-green-400" : "border-gray-100 hover:border-blue-200"}`}>
+                      <div className="relative h-28 bg-gray-50 flex items-center justify-center">
+                        {imagenActual ? (
+                          <img src={imagenActual} alt={prod.nombre} className="w-full h-full object-contain p-2" onError={e => { e.target.style.display = "none"; }} />
+                        ) : (<Package size={28} className="text-gray-200" />)}
+                        {recienGuardado && (<div className="absolute top-1 right-1 bg-green-500 rounded-full p-0.5"><CheckCircle size={12} className="text-white" /></div>)}
+                        {/* Botón eliminar imagen individual */}
+                        {imagenActual && (
+                          <button
+                            onClick={() => setConfirmEliminar({ tipo: "producto", productoId: prod.id, productoNombre: prod.nombre })}
+                            className="absolute top-1 left-1 bg-red-500 hover:bg-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Eliminar imagen"
+                          >
+                            <X size={11} className="text-white" />
                           </button>
+                        )}
+                      </div>
+                      <div className="p-2 flex flex-col flex-1 gap-1 group">
+                        <p className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug min-h-[2rem]">{prod.nombre}</p>
+                        {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
+                        <div className="mt-auto flex gap-1">
+                          <button onClick={() => setBuscandoPanel(prod)} disabled={estaGuardando || bulkActivo}
+                            className="flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-40">
+                            {estaGuardando ? (<><Loader2 size={12} className="animate-spin" /> Guardando...</>) : (<><Globe size={12} /> {imagenActual ? "Cambiar" : "Buscar"}</>)}
+                          </button>
+                          {imagenActual && (
+                            <button
+                              onClick={() => setConfirmEliminar({ tipo: "producto", productoId: prod.id, productoNombre: prod.nombre })}
+                              disabled={estaGuardando || bulkActivo}
+                              className="px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-40"
+                              title="Eliminar imagen"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+        </div>
+      )}
+
+      {/* ===== TAB ELIMINAR ===== */}
+      {tab === "eliminar" && (
+        <div className="space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">Las siguientes acciones eliminan las URLs de imagen de los productos en la base de datos. <strong>No se pueden deshacer.</strong> Los archivos en Supabase Storage no se borran.</p>
+          </div>
+
+          {/* Eliminar por categoría */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2"><Layers size={18} className="text-orange-500" /> Eliminar imágenes por categoría</h2>
+            <p className="text-sm text-gray-500 mb-4">Selecciona una categoría y elimina todas las imágenes de sus productos.</p>
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Layers size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <select id="cat-eliminar" className="w-full pl-9 pr-8 py-2.5 border rounded-xl text-sm bg-white appearance-none"
+                  onChange={e => {/* solo para leer al hacer clic en el botón */}}>
+                  <option value="">— Selecciona una categoría —</option>
+                  {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+              <button
+                onClick={() => {
+                  const sel = document.getElementById("cat-eliminar");
+                  const catId = sel.value;
+                  const catNombre = sel.options[sel.selectedIndex]?.text;
+                  if (!catId) { alert("Selecciona una categoría primero."); return; }
+                  setConfirmEliminar({ tipo: "categoria", categoriaId: catId, categoriaNombre: catNombre });
+                }}
+                className="px-5 py-2.5 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 flex items-center gap-2 whitespace-nowrap">
+                <Trash2 size={16} /> Eliminar categoría
+              </button>
+            </div>
+          </div>
+
+          {/* Eliminar por producto */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2"><Package size={18} className="text-blue-500" /> Eliminar imagen de un producto</h2>
+            <p className="text-sm text-gray-500 mb-4">Busca un producto específico y elimina su imagen.</p>
+            <BuscarProductoEliminar
+              productos={productos}
+              onEliminar={(prod) => setConfirmEliminar({ tipo: "producto", productoId: prod.id, productoNombre: prod.nombre })}
+            />
+          </div>
+
+          {/* Eliminar todas */}
+          <div className="bg-white rounded-2xl border border-red-200 p-6">
+            <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2"><XCircle size={18} className="text-red-500" /> Eliminar TODAS las imágenes</h2>
+            <p className="text-sm text-gray-500 mb-4">Borra las imágenes de <strong>todos</strong> los productos del catálogo. Úsalo solo si quieres empezar de cero.</p>
+            <button
+              onClick={() => setConfirmEliminar({ tipo: "todas" })}
+              className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 flex items-center gap-2">
+              <Trash2 size={16} /> Eliminar todas las imágenes
+            </button>
+          </div>
+
+          {/* Confirmación resultado */}
+          {eliminados > 0 && !eliminando && (
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+              <CheckCircle size={20} className="text-green-600" />
+              <p className="text-sm text-green-700 font-semibold">{eliminados} {eliminados === 1 ? "imagen eliminada" : "imágenes eliminadas"} correctamente.</p>
+              <button onClick={() => setEliminados(0)} className="ml-auto text-green-600 hover:text-green-800"><X size={16} /></button>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sub-componente: buscar producto para eliminar ─────────────────────
+function BuscarProductoEliminar({ productos, onEliminar }) {
+  const [q, setQ] = useState("");
+  const filtrados = q.trim().length > 1
+    ? productos.filter(p => (p.nombre?.toLowerCase().includes(q.toLowerCase()) || p.codigo?.toLowerCase().includes(q.toLowerCase())) && (p.imagen_url))
+    : [];
+
+  return (
+    <div>
+      <div className="relative mb-3">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input type="text" value={q} onChange={e => setQ(e.target.value)}
+          placeholder="Buscar producto por nombre o código (solo muestra los que tienen imagen)..."
+          className="w-full pl-9 pr-4 py-2.5 border rounded-xl text-sm" />
+      </div>
+      {q.trim().length > 1 && filtrados.length === 0 && (
+        <p className="text-sm text-gray-400 text-center py-4">No se encontraron productos con imagen para ese criterio.</p>
+      )}
+      {filtrados.length > 0 && (
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {filtrados.slice(0, 20).map(prod => (
+            <div key={prod.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-gray-50">
+              {prod.imagen_url && (
+                <img src={prod.imagen_url} alt={prod.nombre} className="w-10 h-10 object-contain rounded-lg bg-gray-100 flex-shrink-0" onError={e => { e.target.style.display = "none"; }} />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800 truncate">{prod.nombre}</p>
+                {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
+              </div>
+              <button onClick={() => onEliminar(prod)}
+                className="flex-shrink-0 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 flex items-center gap-1">
+                <Trash2 size={12} /> Eliminar
+              </button>
+            </div>
+          ))}
+          {filtrados.length > 20 && <p className="text-xs text-center text-gray-400">Mostrando 20 de {filtrados.length}. Refina la búsqueda.</p>}
         </div>
       )}
     </div>
