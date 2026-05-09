@@ -1,24 +1,48 @@
-import { Package, Star, Clock } from 'lucide-react';
+import { Package, Star, Clock, TrendingDown, TrendingUp } from 'lucide-react';
 
 const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 
 function formatearDiasPedido(fechas) {
   if (!fechas?.length) return null;
-  const dias = fechas.map(f => {
-    const d = new Date(f);
-    return DIAS[d.getDay()];
-  });
-  // Únicos y ordenados
-  const unicos = [...new Set(dias)];
+  const unicos = [...new Set(fechas.map(f => DIAS[new Date(f).getDay()]))];
   return unicos.join(', ');
 }
 
-export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fechasPedido = [] }) {
+// Lógica inteligente de aviso de cantidad
+function calcularAvisoMedia(cantidad, mediaHistorica) {
+  if (!mediaHistorica || !cantidad) return null;
+  const { media, numPedidos } = mediaHistorica;
+  if (!media || numPedidos < 3) return null;
+
+  const ratio = cantidad / media;
+
+  if (ratio < 0.6) {
+    // Pide menos del 60% de su media → aviso bajada
+    return {
+      tipo: 'bajo',
+      texto: `Sueles pedir ${media} uds`,
+      icon: TrendingDown,
+      color: 'text-orange-600 bg-orange-50',
+    };
+  }
+  if (ratio > 1.4) {
+    // Pide más del 140% de su media → aviso subida
+    return {
+      tipo: 'alto',
+      texto: `Sueles pedir ${media} uds`,
+      icon: TrendingUp,
+      color: 'text-blue-600 bg-blue-50',
+    };
+  }
+  return null;
+}
+
+export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fechasPedido = [], mediaHistorica = null }) {
   const multiplo  = producto.multiplo || 1;
-  const minimo    = producto.minimo || multiplo;
   const agotado   = producto.disponible === false;
   const yaPedido  = fechasPedido.length > 0;
   const diasStr   = formatearDiasPedido(fechasPedido);
+  const aviso     = calcularAvisoMedia(cantidad, mediaHistorica);
 
   return (
     <div className={`bg-white rounded-2xl border-2 flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-all
@@ -50,9 +74,17 @@ export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fe
 
       <div className="p-3 flex flex-col gap-1 flex-1">
         <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2 min-h-[2rem]">{producto.nombre}</h3>
-        {producto.formato && <p className="text-xs text-gray-400 truncate">{producto.formato}</p>}
         {producto.codigo && <p className="text-xs text-gray-400 font-mono">{producto.codigo}</p>}
         <p className="text-xs text-blue-600 font-semibold">x{multiplo}</p>
+
+        {/* Aviso inteligente de cantidad */}
+        {aviso && (
+          <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-lg ${aviso.color}`}>
+            <aviso.icon size={11} />
+            {aviso.texto}
+          </div>
+        )}
+
         <div className="mt-auto pt-1">
           {cantidad > 0 ? (
             <div className="flex items-center gap-1.5">

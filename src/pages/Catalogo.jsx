@@ -47,6 +47,7 @@ export default function Catalogo() {
   const [exito, setExito]                 = useState(null);
   const [sugerencias, setSugerencias]     = useState([]);
   const [pedidoEstaSemanaPorProducto, setPedidoEstaSemanaPorProducto] = useState({}); // {producto_id: [fecha1, fecha2]}
+  const [mediasPorProducto, setMediasPorProducto] = useState({}); // {producto_id: { media, numPedidos }}
 
   // ── Persistir carrito en localStorage ───────────────────────────
   useEffect(() => {
@@ -79,17 +80,21 @@ export default function Catalogo() {
           }
         }
 
-        // Cargar productos, sugerencias y pedidos recientes en PARALELO
-        const [{ data: prods }, sugsData, pedidosRecientes] = await Promise.all([
+        // Cargar productos, sugerencias, pedidos recientes e historial en PARALELO
+        const [{ data: prods }, sugsData, pedidosRecientes, mediasHistoricas] = await Promise.all([
           query,
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
           (tienda?.id && tienda?.doble_pedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
+          tienda?.id ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
         ]);
 
         const listaProductos = prods || [];
         setProductos(listaProductos);
         if (Object.keys(pedidosRecientes).length > 0) {
           setPedidoEstaSemanaPorProducto(pedidosRecientes);
+        }
+        if (Object.keys(mediasHistoricas).length > 0) {
+          setMediasPorProducto(mediasHistoricas);
         }
 
         // Calcular sugerencias con los productos ya cargados
@@ -140,6 +145,48 @@ export default function Catalogo() {
         mapa[item.producto_id].push(fecha);
       }
       return mapa;
+    } catch {
+      return {};
+    }
+  }
+
+  // ── Historial de cantidades: media por producto últimos 90 días ─
+  async function cargarMediasHistoricas(tiendaId) {
+    try {
+      const hace90dias = new Date();
+      hace90dias.setDate(hace90dias.getDate() - 90);
+
+      const { data: pedidos } = await supabase
+        .from("pedidos")
+        .select("id")
+        .eq("tienda_id", tiendaId)
+        .gte("fecha_pedido", hace90dias.toISOString())
+        .limit(100);
+
+      if (!pedidos?.length) return {};
+
+      const { data: items } = await supabase
+        .from("pedido_items")
+        .select("producto_id, cantidad")
+        .in("pedido_id", pedidos.map(p => p.id));
+
+      if (!items?.length) return {};
+
+      // Agrupar: { producto_id: [qty1, qty2, ...] }
+      const grupos = {};
+      for (const item of items) {
+        if (!grupos[item.producto_id]) grupos[item.producto_id] = [];
+        grupos[item.producto_id].push(item.cantidad);
+      }
+
+      // Calcular media solo si ≥ 3 pedidos del producto
+      const medias = {};
+      for (const [prodId, cantidades] of Object.entries(grupos)) {
+        if (cantidades.length < 3) continue;
+        const media = cantidades.reduce((a, b) => a + b, 0) / cantidades.length;
+        medias[prodId] = { media: Math.round(media), numPedidos: cantidades.length, cantidades };
+      }
+      return medias;
     } catch {
       return {};
     }
@@ -330,6 +377,7 @@ export default function Catalogo() {
             tiendaNombre={tienda?.nombre || ""}
             enviando={enviando}
             pedidoEstaSemanaPorProducto={pedidoEstaSemanaPorProducto}
+            mediasPorProducto={mediasPorProducto}
           />
         </div>
       )}
@@ -435,6 +483,7 @@ export default function Catalogo() {
                       onAdd={() => handleAdd(prod)}
                       onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
                       fechasPedido={pedidoEstaSemanaPorProducto[prod.id] || []}
+                      mediaHistorica={mediasPorProducto[prod.id] || null}
                     />
                   ))}
                 </div>

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { X, Trash2, ShoppingCart, Send, ChevronDown, AlertCircle, Plus, Lightbulb, Clock } from 'lucide-react';
+import { X, Trash2, ShoppingCart, Send, ChevronDown, AlertCircle, Plus, Lightbulb, Clock, TrendingDown, TrendingUp } from 'lucide-react';
 
-export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onAddSugerencia, tiendaNombre, pedidoEstaSemanaPorProducto = {} }) {
+export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onAddSugerencia, tiendaNombre, pedidoEstaSemanaPorProducto = {}, mediasPorProducto = {} }) {
   const [observaciones, setObservaciones] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showSugerencias, setShowSugerencias] = useState(true);
@@ -58,12 +58,26 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
                 const d = new Date(f);
                 return ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d.getDay()];
               }))].join(', ') : '';
+              // Aviso inteligente de cantidad vs media histórica
+              const mediaData = mediasPorProducto[prod.id];
+              let avisoMedia = null;
+              if (mediaData && mediaData.numPedidos >= 3 && mediaData.media > 0) {
+                const ratio = qty / mediaData.media;
+                if (ratio < 0.6) avisoMedia = { tipo: 'bajo', texto: `Sueles pedir ${mediaData.media} uds`, icon: TrendingDown, color: 'text-orange-600 bg-orange-50' };
+                else if (ratio > 1.4) avisoMedia = { tipo: 'alto', texto: `Sueles pedir ${mediaData.media} uds`, icon: TrendingUp, color: 'text-blue-600 bg-blue-50' };
+              }
               return (
                 <div key={prod.id} className={`p-3 hover:bg-gray-50 ${yaPedido ? 'bg-orange-50' : ''}`}>
                   {yaPedido && (
-                    <div className="flex items-center gap-1.5 mb-2 text-orange-700 bg-orange-100 rounded-lg px-2 py-1">
+                    <div className="flex items-center gap-1.5 mb-1.5 text-orange-700 bg-orange-100 rounded-lg px-2 py-1">
                       <Clock size={12} className="flex-shrink-0" />
                       <span className="text-xs font-semibold">Ya pedido el {diasStr}</span>
+                    </div>
+                  )}
+                  {avisoMedia && (
+                    <div className={`flex items-center gap-1.5 mb-1.5 rounded-lg px-2 py-1 ${avisoMedia.color}`}>
+                      <avisoMedia.icon size={12} className="flex-shrink-0" />
+                      <span className="text-xs font-semibold">{avisoMedia.texto}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-3">
