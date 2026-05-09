@@ -14,9 +14,13 @@ import Caducidades from './pages/Caducidades';
 
 // Protege rutas solo para admin — si eres tienda redirige al catálogo
 function AdminRoute({ children }) {
-  const { isAdmin, loading, perfil } = useAuth();
-  // Esperar tanto a loading como a que el perfil haya cargado
-  if (loading || (perfil === null && loading)) return null;
+  const { isAdmin, loading } = useAuth();
+  // Mientras carga no hacer nada — isAdmin ya incluye la guarda de loading
+  if (loading) return (
+    <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+    </div>
+  );
   return isAdmin ? children : <Navigate to="/Catalogo" replace />;
 }
 
