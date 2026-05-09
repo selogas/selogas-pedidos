@@ -21,6 +21,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [manualUrl, setManualUrl] = useState("");
+  const [clipboardMsg, setClipboardMsg] = useState(""); // feedback al pegar
 
   const buscar = async (q) => {
     if (!q.trim()) return;
@@ -61,6 +62,43 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
             <button onClick={() => { if (manualUrl.trim()) onSelect(manualUrl.trim()); }} disabled={!manualUrl.trim()}
               className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 disabled:opacity-50">Usar URL</button>
           </div>
+
+          {/* Opción secundaria: pegar del portapapeles + abrir Google Images */}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <button
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (text.match(/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif|avif)/i) || text.match(/^https?:\/\/.+/)) {
+                    onSelect(text.trim());
+                    setClipboardMsg("✓ Imagen pegada");
+                  } else {
+                    setClipboardMsg("⚠️ No es una URL de imagen válida");
+                    setTimeout(() => setClipboardMsg(""), 3000);
+                  }
+                } catch {
+                  setClipboardMsg("⚠️ Permite el acceso al portapapeles en el navegador");
+                  setTimeout(() => setClipboardMsg(""), 4000);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors"
+              title="Copia la dirección de una imagen en Google Images y pulsa este botón"
+            >
+              📋 Pegar imagen del portapapeles
+            </button>
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(query + ' imagen producto')}&tbm=isch`}
+              target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-100 transition-colors"
+              title="Abre Google Images, haz clic derecho en la imagen → Copiar dirección, y luego pega con el botón de arriba"
+            >
+              <Globe size={12} /> Buscar en Google Images
+            </a>
+            {clipboardMsg && <span className="text-xs font-semibold text-blue-600">{clipboardMsg}</span>}
+          </div>
+          <p className="text-xs text-gray-400 mt-1.5">
+            💡 <strong>Truco:</strong> Abre Google Images → clic derecho en la imagen → "Copiar dirección de imagen" → vuelve aquí y pulsa "Pegar imagen del portapapeles"
+          </p>
         </div>
         {error && (
           <div className="mb-3 p-3 bg-amber-50 rounded-xl">
