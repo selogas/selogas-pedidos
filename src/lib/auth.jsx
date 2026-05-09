@@ -9,7 +9,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const cargarPerfil = async (u) => {
-    if (!u) { setPerfil(null); return null; }
+    if (!u) { setPerfil(null); return; }
     try {
       const { data } = await supabase
         .from('perfiles')
@@ -17,26 +17,39 @@ export function AuthProvider({ children }) {
         .eq('id', u.id)
         .single();
       setPerfil(data || null);
-      return data;
     } catch {
       setPerfil(null);
-      return null;
     }
   };
 
   useEffect(() => {
-    // onAuthStateChange maneja TODO — incluyendo la sesión inicial
-    // No usar getSession() por separado para evitar condiciones de carrera
+    let mounted = true;
+
+    // Carga inicial con getSession — no usa locks
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      const u = session?.user || null;
+      setUser(u);
+      await cargarPerfil(u);
+      if (mounted) setLoading(false);
+    });
+
+    // Escuchar cambios posteriores (login, logout, refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        // Ignorar INITIAL_SESSION — ya lo manejamos con getSession
+        if (event === 'INITIAL_SESSION') return;
         const u = session?.user || null;
         setUser(u);
         await cargarPerfil(u);
-        setLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email, password) => {
