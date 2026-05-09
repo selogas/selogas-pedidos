@@ -3,9 +3,11 @@ import { supabase } from './supabase';
 
 const AuthContext = createContext(null);
 const INACTIVITY_MS = 20 * 60 * 1000;
-const STORAGE_KEY = 'sb-pasllyqgczegpvquaxvb-auth-token';
+const STORAGE_KEY   = 'sb-pasllyqgczegpvquaxvb-auth-token';
+const SUPABASE_URL  = 'https://pasllyqgczegpvquaxvb.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhc2xseXFnY3plZ3B2cXVheHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MzE3MzIsImV4cCI6MjA5MzAwNzczMn0.XEz01HOL7g0ziWtMullK1TU7tdFGWFiNDZA8H041p_w';
 
-// Leer sesión directamente de localStorage sin locks
+// Lee la sesión de localStorage sin usar ningún lock
 function getSessionFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -13,13 +15,21 @@ function getSessionFromStorage() {
     const data = JSON.parse(raw);
     const token = data.access_token;
     if (!token) return null;
-    // Verificar que no ha expirado
     const payload = JSON.parse(atob(token.split('.')[1]));
     if (payload.exp < Date.now() / 1000) return null;
     return { user: { id: payload.sub, email: payload.email }, access_token: token };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
+}
+
+// Carga el perfil con fetch directo — sin Supabase client (que usa locks)
+async function fetchPerfil(userId, accessToken) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/perfiles?select=*,tiendas(*)&id=eq.${userId}&limit=1`,
+    { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data?.[0] || null;
 }
 
 export function AuthProvider({ children }) {
@@ -27,22 +37,6 @@ export function AuthProvider({ children }) {
   const [perfil, setPerfil]   = useState(null);
   const [loading, setLoading] = useState(true);
   const lastUserId = useRef(null);
-
-  const cargarPerfil = async (u) => {
-    if (!u) { setPerfil(null); return; }
-    if (lastUserId.current === u.id) return;
-    lastUserId.current = u.id;
-    try {
-      const { data } = await supabase
-        .from('perfiles')
-        .select('*, tiendas(*)')
-        .eq('id', u.id)
-        .single();
-      setPerfil(data || null);
-    } catch {
-      setPerfil(null);
-    }
-  };
 
   const signOut = useCallback(async () => {
     try {
@@ -65,16 +59,19 @@ export function AuthProvider({ children }) {
 
     const init = async () => {
       try {
-        // Leer sesión de localStorage directamente — SIN locks, SIN API calls
+        // Leer sesión SIN locks
         const session = getSessionFromStorage();
         if (!mounted) return;
 
         if (session) {
           setUser(session.user);
-          await cargarPerfil(session.user);
+          // Cargar perfil con fetch directo SIN locks
+          const p = await fetchPerfil(session.user.id, session.access_token);
+          if (mounted) setPerfil(p);
+          lastUserId.current = session.user.id;
         }
       } catch {
-        // ignorar errores
+        // ignorar
       } finally {
         if (mounted) setLoading(false);
       }
@@ -82,10 +79,11 @@ export function AuthProvider({ children }) {
 
     init();
 
-    // onAuthStateChange solo para SIGNED_IN y SIGNED_OUT explícitos
+    // onAuthStateChange solo para login/logout explícito del usuario
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
+        // Ignorar eventos automáticos que usan el lock
         if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') return;
 
         if (event === 'SIGNED_OUT') {
@@ -94,20 +92,21 @@ export function AuthProvider({ children }) {
           setPerfil(null);
           return;
         }
-        if (event === 'SIGNED_IN') {
-          const u = session?.user || null;
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          const u = session.user;
           setUser(u);
-          lastUserId.current = null;
-          await cargarPerfil(u);
+          if (lastUserId.current !== u.id) {
+            lastUserId.current = u.id;
+            const p = await fetchPerfil(u.id, session.access_token);
+            if (mounted) setPerfil(p);
+          }
           setLoading(false);
         }
       }
     );
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
   // Auto-logout inactividad 20min
