@@ -3,6 +3,24 @@ import { supabase } from './supabase';
 
 const AuthContext = createContext(null);
 const INACTIVITY_MS = 20 * 60 * 1000;
+const STORAGE_KEY = 'sb-pasllyqgczegpvquaxvb-auth-token';
+
+// Leer sesión directamente de localStorage sin locks
+function getSessionFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    const token = data.access_token;
+    if (!token) return null;
+    // Verificar que no ha expirado
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.exp < Date.now() / 1000) return null;
+    return { user: { id: payload.sub, email: payload.email }, access_token: token };
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
@@ -12,7 +30,7 @@ export function AuthProvider({ children }) {
 
   const cargarPerfil = async (u) => {
     if (!u) { setPerfil(null); return; }
-    if (lastUserId.current === u.id) return; // ya cargado
+    if (lastUserId.current === u.id) return;
     lastUserId.current = u.id;
     try {
       const { data } = await supabase
@@ -33,8 +51,7 @@ export function AuthProvider({ children }) {
         new Promise((_, r) => setTimeout(() => r(), 2000))
       ]);
     } catch {
-      const k = Object.keys(localStorage).find(k => k.startsWith('sb-'));
-      if (k) localStorage.removeItem(k);
+      localStorage.removeItem(STORAGE_KEY);
     } finally {
       lastUserId.current = null;
       setUser(null);
@@ -48,14 +65,16 @@ export function AuthProvider({ children }) {
 
     const init = async () => {
       try {
-        // getSession() NO usa el lock — es lectura directa de localStorage
-        const { data: { session } } = await supabase.auth.getSession();
+        // Leer sesión de localStorage directamente — SIN locks, SIN API calls
+        const session = getSessionFromStorage();
         if (!mounted) return;
-        const u = session?.user || null;
-        setUser(u);
-        await cargarPerfil(u);
+
+        if (session) {
+          setUser(session.user);
+          await cargarPerfil(session.user);
+        }
       } catch {
-        // sin conexión
+        // ignorar errores
       } finally {
         if (mounted) setLoading(false);
       }
@@ -63,14 +82,12 @@ export function AuthProvider({ children }) {
 
     init();
 
-    // onAuthStateChange solo para LOGIN y LOGOUT — ignorar INITIAL_SESSION y TOKEN_REFRESHED
+    // onAuthStateChange solo para SIGNED_IN y SIGNED_OUT explícitos
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') return;
 
-        // Solo procesar SIGNED_IN y SIGNED_OUT
-        const u = session?.user || null;
         if (event === 'SIGNED_OUT') {
           lastUserId.current = null;
           setUser(null);
@@ -78,9 +95,11 @@ export function AuthProvider({ children }) {
           return;
         }
         if (event === 'SIGNED_IN') {
+          const u = session?.user || null;
           setUser(u);
-          lastUserId.current = null; // forzar recarga del perfil al hacer login
+          lastUserId.current = null;
           await cargarPerfil(u);
+          setLoading(false);
         }
       }
     );
