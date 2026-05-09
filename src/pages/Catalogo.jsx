@@ -180,7 +180,7 @@ export default function Catalogo() {
     setEnviando(true);
     try {
       const tiendaNombre = tienda?.nombre || perfil?.nombre_completo || perfil?.nombre || user?.email || "Sin tienda";
-      const numeroPedido = "PED-" + Date.now().toString().slice(-8);
+      const numeroPedido = "PED-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2,6).toUpperCase();
       const fecha = new Date().toISOString();
 
       const { data: pedido, error: pedidoError } = await supabase.from("pedidos").insert([{
