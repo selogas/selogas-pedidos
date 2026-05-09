@@ -10,7 +10,7 @@ export default function Layout({ children }) {
 
   const tienda = perfil?.tiendas || null;
   const grupoLabel = tienda?.grupo === 'cafeteria' ? 'Cafetería' : 'Estación';
-  const nombreUsuario = perfil?.nombre_completo?.split(' ')[0] || user?.email?.split('@')[0] || '';
+  const nombreUsuario = (perfil?.nombre_completo || perfil?.nombre)?.split(' ')[0] || user?.email?.split('@')[0] || '';
 
   const navItemsTienda = [
     { path: '/Inicio',     label: 'Inicio',     icon: Home },
