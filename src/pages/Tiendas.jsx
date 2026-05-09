@@ -9,7 +9,7 @@ import {
 // ── Modal Tienda ─────────────────────────────────────────────────────
 function TiendaModal({ tienda, onSave, onClose }) {
   const [form, setForm] = useState(
-    tienda || { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion", mensaje_banner: "" }
+    tienda || { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion", mensaje_banner: "", google_calendar_id: "" }
   );
   const [saving, setSaving] = useState(false);
 
@@ -50,6 +50,18 @@ function TiendaModal({ tienda, onSave, onClose }) {
               />
             </div>
           ))}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700">📅 Google Calendar ID</label>
+            <input
+              type="text"
+              value={form.google_calendar_id || ""}
+              onChange={e => setForm(f => ({ ...f, google_calendar_id: e.target.value }))}
+              placeholder="Ej: tormo22@megino.com o bpnassica365@gmail.com"
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">Email del Google Calendar de caducidades de esta tienda.</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">
               📢 Mensaje banner (opcional)

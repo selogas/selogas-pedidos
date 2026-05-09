@@ -10,6 +10,7 @@ import ImportarProductos from './pages/ImportarProductos';
 import SubirImagenes from './pages/SubirImagenes';
 import Configuracion from './pages/Configuracion';
 import Tiendas from './pages/Tiendas';
+import Caducidades from './pages/Caducidades';
 
 // Protege rutas solo para admin — si eres tienda redirige al catálogo
 function AdminRoute({ children }) {
@@ -45,7 +46,8 @@ function AppRoutes() {
         {/* Rutas accesibles para TODOS los usuarios autenticados */}
         <Route path="/Inicio"     element={<Inicio />} />
         <Route path="/Catalogo"   element={<Catalogo />} />
-        <Route path="/MisPedidos" element={<MisPedidos />} />
+        <Route path="/MisPedidos"   element={<MisPedidos />} />
+        <Route path="/Caducidades"  element={<Caducidades />} />
 
         {/* Rutas solo para ADMIN */}
         <Route path="/Productos"        element={<AdminRoute><Productos /></AdminRoute>} />

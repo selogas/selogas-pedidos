@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
-import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell } from 'lucide-react';
+import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle } from 'lucide-react';
 
 export default function Layout({ children }) {
   const { user, perfil, isAdmin, signOut } = useAuth();
@@ -22,13 +22,15 @@ export default function Layout({ children }) {
   const navItemsTienda = [
     { path: '/Inicio',     label: 'Inicio',      icon: Home },
     { path: '/Catalogo',   label: 'Catálogo',    icon: ShoppingCart },
-    { path: '/MisPedidos', label: 'Mis Pedidos', icon: ClipboardList },
+    { path: '/MisPedidos',   label: 'Mis Pedidos', icon: ClipboardList },
+    { path: '/Caducidades',  label: 'Caducidades', icon: AlertTriangle },
   ];
 
   const navItemsAdmin = [
     { path: '/Inicio',            label: 'Inicio',    icon: Home },
     { path: '/Catalogo',          label: 'Catálogo',  icon: ShoppingCart },
-    { path: '/MisPedidos',        label: 'Pedidos',   icon: ClipboardList },
+    { path: '/MisPedidos',        label: 'Pedidos',     icon: ClipboardList },
+    { path: '/Caducidades',        label: 'Caducidades', icon: AlertTriangle },
     { path: '/Tiendas',           label: 'Tiendas',   icon: Store },
     { path: '/Productos',         label: 'Productos', icon: Package },
     { path: '/ImportarProductos', label: 'Importar',  icon: Upload },
