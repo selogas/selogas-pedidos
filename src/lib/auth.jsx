@@ -2,8 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from './supabase';
 
 const AuthContext = createContext(null);
-
-const INACTIVITY_MS = 20 * 60 * 1000; // 20 minutos
+const INACTIVITY_MS = 20 * 60 * 1000;
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
@@ -24,19 +23,15 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // ── Cierre de sesión robusto ──────────────────────────────────────
-  // Limpia localStorage directamente para no depender del lock de Supabase
   const signOut = useCallback(async () => {
     try {
-      // Intentar signOut normal con timeout de 2s
       await Promise.race([
         supabase.auth.signOut(),
-        new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000))
+        new Promise((_, r) => setTimeout(() => r('timeout'), 2000))
       ]);
     } catch {
-      // Si falla o timeout, limpiar manualmente
-      const sbKey = Object.keys(localStorage).find(k => k.includes('supabase') || k.startsWith('sb-'));
-      if (sbKey) localStorage.removeItem(sbKey);
+      const k = Object.keys(localStorage).find(k => k.startsWith('sb-'));
+      if (k) localStorage.removeItem(k);
     } finally {
       setUser(null);
       setPerfil(null);
@@ -46,19 +41,16 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
-    const timeout = setTimeout(() => { if (mounted) setLoading(false); }, 5000);
 
+    // Timeout de seguridad: 6s máximo
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 6000);
+
+    // Un solo listener que maneja todo — incluyendo INITIAL_SESSION
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
-        if (event === 'INITIAL_SESSION') {
-          const u = session?.user || null;
-          setUser(u);
-          await cargarPerfil(u);
-          clearTimeout(timeout);
-          if (mounted) setLoading(false);
-          return;
-        }
         const u = session?.user || null;
         setUser(u);
         await cargarPerfil(u);
@@ -74,27 +66,20 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // ── Auto-logout por inactividad (20 min) ─────────────────────────
+  // Auto-logout por inactividad
   useEffect(() => {
     if (!user) return;
-
     let timer;
-
-    const resetTimer = () => {
+    const reset = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        signOut();
-      }, INACTIVITY_MS);
+      timer = setTimeout(signOut, INACTIVITY_MS);
     };
-
-    // Eventos que resetean el temporizador
     const eventos = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
-    eventos.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
-    resetTimer(); // arrancar el timer al montar
-
+    eventos.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
     return () => {
       clearTimeout(timer);
-      eventos.forEach(e => window.removeEventListener(e, resetTimer));
+      eventos.forEach(e => window.removeEventListener(e, reset));
     };
   }, [user, signOut]);
 
