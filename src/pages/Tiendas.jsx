@@ -374,6 +374,7 @@ export default function Tiendas() {
       )}
       {modalUsuario && (
         <UsuarioModal
+          key={editandoUsuario?.id || 'nuevo'}
           tiendas={tiendas}
           usuarioEditar={editandoUsuario}
           onSave={() => { setModalUsuario(false); setEditandoUsuario(null); cargarUsuarios(); }}
@@ -505,7 +506,7 @@ export default function Tiendas() {
             <div className="p-12 text-center text-gray-400">
               <Users size={48} className="mx-auto mb-3 opacity-30" />
               <p>No hay usuarios registrados</p>
-              <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700" onClick={() => setModalUsuario(true)}>
+              <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700" onClick={() => { setEditandoUsuario(null); setModalUsuario(true); }}>
                 Crear primer usuario
               </button>
             </div>
