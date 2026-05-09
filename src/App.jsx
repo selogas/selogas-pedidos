@@ -13,8 +13,9 @@ import Tiendas from './pages/Tiendas';
 
 // Protege rutas solo para admin — si eres tienda redirige al catálogo
 function AdminRoute({ children }) {
-  const { isAdmin, loading } = useAuth();
-  if (loading) return null;
+  const { isAdmin, loading, perfil } = useAuth();
+  // Esperar tanto a loading como a que el perfil haya cargado
+  if (loading || (perfil === null && loading)) return null;
   return isAdmin ? children : <Navigate to="/Catalogo" replace />;
 }
 
