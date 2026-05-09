@@ -322,16 +322,18 @@ export default function SubirImagenes() {
   };
 
   // ── Búsqueda masiva ───────────────────────────────────────────────
-  const iniciarBulk = async () => {
+  const iniciarBulk = async (scopeCategoria) => {
+    const categoriaFinal = scopeCategoria ?? bulkScopeCategoria;
+    setBulkScopeCategoria(categoriaFinal);
     setLoadingProds(true);
     const data = await cargarProductos();
     setProductos(data);
     setLoadingProds(false);
 
     let candidatos = data.filter(p => !p.imagen_url);
-    // Filtrar por categoría si se seleccionó una
-    if (bulkScopeCategoria !== "todas") {
-      candidatos = candidatos.filter(p => p.categoria_id === bulkScopeCategoria);
+    // Filtrar por categoría — usar el parámetro directo, no el estado
+    if (categoriaFinal !== "todas") {
+      candidatos = candidatos.filter(p => p.categoria_id === categoriaFinal);
     }
 
     if (candidatos.length === 0) { alert("Todos los productos del ámbito seleccionado ya tienen imagen."); return; }
@@ -670,7 +672,7 @@ export default function SubirImagenes() {
             <div className="flex gap-2">
               {/* Buscar masivo (ámbito = categoría seleccionada o todas) */}
               {!bulkActivo ? (
-                <button onClick={() => { setBulkScopeCategoria(filtroCategoria); iniciarBulk(); }} disabled={loadingProds}
+                <button onClick={() => iniciarBulk(filtroCategoria)} disabled={loadingProds}
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 disabled:opacity-50 shadow-sm whitespace-nowrap">
                   <Zap size={15} />
                   {filtroCategoria === "todas" ? "Buscar todas" : "Buscar categoría"}
