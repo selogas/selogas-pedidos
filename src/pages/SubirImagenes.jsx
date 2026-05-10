@@ -265,6 +265,15 @@ export default function SubirImagenes() {
   const [eliminados, setEliminados] = useState(0);
 
   // ── Helpers ──────────────────────────────────────────────────────
+  // Invalida la caché del catálogo en todas las instancias
+  const invalidarCache = () => {
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('selogas_cat_'))
+        .forEach(k => localStorage.removeItem(k));
+    } catch {}
+  };
+
   const cargarProductos = async () => {
     const { data } = await supabase.from("productos")
       .select("id, nombre, codigo, imagen_url, categoria_id, categorias(id, nombre)")
@@ -320,6 +329,7 @@ export default function SubirImagenes() {
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("imagenes").getPublicUrl(fileName);
         const { error: updateError } = await supabase.from("productos").update({ imagen_url: urlData.publicUrl }).eq("id", item.producto.id);
+        invalidarCache();
         if (updateError) throw updateError;
         res.push({ ...item, exito: true, url: urlData.publicUrl });
       } catch (err) { res.push({ ...item, exito: false, error: err.message }); }
@@ -352,6 +362,7 @@ export default function SubirImagenes() {
     setGuardando(producto.id);
     try {
       const { error } = await supabase.from("productos").update({ imagen_url: url }).eq("id", producto.id);
+      if (!error) invalidarCache();
       if (error) throw error;
       setGuardados(prev => ({ ...prev, [producto.id]: url }));
       setProductos(prev => prev.map(p => p.id === producto.id ? { ...p, imagen_url: url } : p));
@@ -401,6 +412,7 @@ export default function SubirImagenes() {
         if (imgs.length > 0) {
           const url = imgs[0].url;
           const { error } = await supabase.from("productos").update({ imagen_url: url }).eq("id", prod.id);
+          if (!error) invalidarCache();
           if (error) throw error;
           setGuardados(prev => ({ ...prev, [prod.id]: url }));
           setProductos(prev => prev.map(p => p.id === prod.id ? { ...p, imagen_url: url } : p));
@@ -431,6 +443,7 @@ export default function SubirImagenes() {
     setEliminando(true);
     try {
       await supabase.from("productos").update({ imagen_url: null }).eq("id", productoId);
+    invalidarCache();
       setProductos(prev => prev.map(p => p.id === productoId ? { ...p, imagen_url: null } : p));
       setGuardados(prev => { const n = { ...prev }; delete n[productoId]; return n; });
       setEliminados(1);
@@ -448,6 +461,7 @@ export default function SubirImagenes() {
       if (prods && prods.length > 0) {
         const ids = prods.map(p => p.id);
         await supabase.from("productos").update({ imagen_url: null }).in("id", ids);
+        invalidarCache();
         setProductos(prev => prev.map(p => ids.includes(p.id) ? { ...p, imagen_url: null } : p));
         setGuardados(prev => {
           const n = { ...prev };

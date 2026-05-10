@@ -2607,6 +2607,8 @@ export default function ImportarProductos() {
       for (let i = 0; i < productos.length; i += 50) {
         const batch = productos.slice(i, i + 50);
         const { error: insertError } = await supabase.from("productos").insert(batch);
+        // Invalidar caché del catálogo
+        try { Object.keys(localStorage).filter(k => k.startsWith('selogas_cat_')).forEach(k => localStorage.removeItem(k)); } catch {}
         if (insertError) throw insertError;
         created += batch.length;
         setProgress("Guardando... " + created + "/" + total);

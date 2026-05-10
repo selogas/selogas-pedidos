@@ -118,7 +118,7 @@ export function AuthProvider({ children }) {
         const p = perfil;
         if (p) registrarSesion(p, session.access_token);
       }
-    }, 2 * 60 * 1000);
+    }, 5 * 60 * 1000);
 
     // Verificar modo mantenimiento cada minuto (solo tiendas)
     const checkMant = setInterval(async () => {

@@ -59,58 +59,68 @@ export default function Catalogo() {
     } catch {}
   }, [carrito]);
 
-  // ── Carga de productos — solo columnas necesarias ────────────────
+  // ── Carga de productos con caché 30 min ─────────────────────────
   useEffect(() => {
-    if (!user) return; // sin usuario no hay catálogo
-    if (authLoading) return; // esperar a que auth termine de cargar el perfil
+    if (!user) return;
+    if (authLoading) return;
 
     const cargar = async () => {
       setLoading(true);
       try {
-        // Query productos — solo las columnas que usa la UI
-        let query = supabase
-          .from("productos")
-          .select("id, codigo, nombre, precio, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, grupo_visualizacion, categorias(id, nombre)")
-          .eq("disponible", true)
-          .order("orden_excel");
-
-        // Filtrar por grupo si no es admin
-        if (!isAdmin) {
-          if (grupoTienda === "ambos") {
-            query = query.in("grupo_visualizacion", ["ambos", "estacion", "cafeteria"]);
-          } else {
-            query = query.in("grupo_visualizacion", ["ambos", grupoTienda]);
+        // ── CACHÉ: productos en localStorage (30 min TTL) ──────────
+        const CACHE_KEY = `selogas_cat_${perfil?.tienda_id || 'admin'}`;
+        const CACHE_TTL = 30 * 60 * 1000;
+        let listaProductos = null;
+        try {
+          const raw = localStorage.getItem(CACHE_KEY);
+          if (raw) {
+            const { ts, data } = JSON.parse(raw);
+            if (Date.now() - ts < CACHE_TTL) listaProductos = data;
           }
+        } catch {}
+
+        if (!listaProductos) {
+          // Sin caché válida — descargar (quitar precio que no se usa en UI)
+          let query = supabase
+            .from("productos")
+            .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, grupo_visualizacion, categorias(id, nombre)")
+            .eq("disponible", true)
+            .order("orden_excel");
+
+          if (!isAdmin) {
+            if (grupoTienda === "ambos") {
+              query = query.in("grupo_visualizacion", ["ambos", "estacion", "cafeteria"]);
+            } else {
+              query = query.in("grupo_visualizacion", ["ambos", grupoTienda]);
+            }
+          }
+
+          const { data: prods } = await query;
+          listaProductos = prods || [];
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: listaProductos })); } catch {}
         }
 
-        // Cargar productos, sugerencias, pedidos recientes e historial en PARALELO
-        const [{ data: prods }, sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla] = await Promise.all([
-          query,
+        setProductos(listaProductos);
+
+        // ── Datos dinámicos en paralelo (sin caché) ────────────────
+        const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla] = await Promise.all([
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
           (tienda?.id && tienda?.doble_pedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
-          tienda?.id ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
+          (tienda?.id && tienda?.doble_pedido) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
           tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
         ]);
 
-        const listaProductos = prods || [];
-        setProductos(listaProductos);
-        if (Object.keys(pedidosRecientes).length > 0) {
-          setPedidoEstaSemanaPorProducto(pedidosRecientes);
-        }
-        if (Object.keys(mediasHistoricas).length > 0) {
-          setMediasPorProducto(mediasHistoricas);
-        }
+        if (Object.keys(pedidosRecientes).length > 0) setPedidoEstaSemanaPorProducto(pedidosRecientes);
+        if (Object.keys(mediasHistoricas).length > 0) setMediasPorProducto(mediasHistoricas);
         if (favSet.size > 0) setFavoritos(favSet);
         if (plantilla) setPlantilla(plantilla);
 
-        // Calcular sugerencias con los productos ya cargados
         if (sugsData.length > 0 && listaProductos.length > 0) {
           const idsOrdenados = new Set(sugsData);
-          const sugs = listaProductos
+          setSugerencias(listaProductos
             .filter(p => !idsOrdenados.has(p.id) && (p.hoja_excel || "").toUpperCase() !== "AUTOCONSUMO")
-            .slice(0, 20);
-          setSugerencias(sugs);
+            .slice(0, 20));
         }
       } catch (e) {
         console.error("Error cargando catálogo:", e.message);
@@ -120,7 +130,7 @@ export default function Catalogo() {
     };
 
     cargar();
-  }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]); // re-ejecutar si cambia rol o tienda
+  }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]);
 
   // ── Favoritos ─────────────────────────────────────────────────────
   async function cargarFavoritos(tiendaId) {
