@@ -23,6 +23,11 @@ export default function Catalogo() {
   const tienda = perfil?.tiendas || null;
   const grupoTienda = tienda?.grupo || "estacion";
 
+  // Preferencias del usuario
+  const prefPlantilla      = perfil?.pref_plantilla      !== false;
+  const prefAvisosCantidad = perfil?.pref_avisos_cantidad !== false;
+  const prefDoblePedido    = perfil?.pref_doble_pedido    !== false;
+
   const [productos, setProductos]         = useState([]);
   const [carrito, setCarrito] = useState(() => {
     try {
@@ -126,8 +131,8 @@ export default function Catalogo() {
         // ── Datos dinámicos en paralelo (sin caché) ────────────────
         const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla] = await Promise.all([
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
-          (tienda?.id && tienda?.doble_pedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
-          (tienda?.id && tienda?.doble_pedido) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
+          (tienda?.id && tienda?.doble_pedido && prefDoblePedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
+          (tienda?.id && prefAvisosCantidad) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
           tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
         ]);
@@ -495,7 +500,7 @@ export default function Catalogo() {
       )}
 
       {/* Barra plantilla */}
-      {plantillaActiva && (
+      {plantillaActiva && prefPlantilla && (
         <div className="mb-3 flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-2xl px-4 py-2.5">
           <span className="text-sm text-purple-700 font-semibold flex-1">📋 {plantillaActiva.nombre}</span>
           <button onClick={togglePlantilla}
@@ -507,7 +512,7 @@ export default function Catalogo() {
           </button>
         </div>
       )}
-      {!plantillaActiva && Object.values(carrito).some(v => v > 0) && (
+      {!plantillaActiva && prefPlantilla && Object.values(carrito).some(v => v > 0) && (
         <div className="mb-3 flex justify-end">
           <button onClick={guardarPlantilla} className="text-xs text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1">
             💾 Guardar como plantilla
@@ -650,8 +655,8 @@ export default function Catalogo() {
                       cantidad={carrito[prod.id] || 0}
                       onAdd={() => handleAdd(prod)}
                       onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
-                      fechasPedido={pedidoEstaSemanaPorProducto[prod.id] || []}
-                      mediaHistorica={mediasPorProducto[prod.id] || null}
+                      fechasPedido={prefDoblePedido ? (pedidoEstaSemanaPorProducto[prod.id] || []) : []}
+                      mediaHistorica={prefAvisosCantidad ? (mediasPorProducto[prod.id] || null) : null}
                       esFavorito={favoritos.has(prod.id)}
                       onToggleFavorito={() => toggleFavorito(prod.id)}
                     />

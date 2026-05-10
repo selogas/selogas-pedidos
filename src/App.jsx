@@ -14,6 +14,7 @@ import Caducidades from './pages/Caducidades';
 import Comunicados from './pages/Comunicados';
 import Dashboard from './pages/Dashboard';
 import Sesiones from './pages/Sesiones';
+import Preferencias from './pages/Preferencias';
 
 // Protege rutas solo para admin — si eres tienda redirige al catálogo
 function AdminRoute({ children }) {
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="/Comunicados"    element={<Comunicados />} />
         <Route path="/Dashboard"      element={<AdminRoute><Dashboard /></AdminRoute>} />
         <Route path="/Sesiones"       element={<AdminRoute><Sesiones /></AdminRoute>} />
+        <Route path="/Preferencias"   element={<Preferencias />} />
 
         {/* Rutas solo para ADMIN */}
         <Route path="/Productos"        element={<AdminRoute><Productos /></AdminRoute>} />

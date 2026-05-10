@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
-import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2, Radio } from 'lucide-react';
+import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2, Radio, SlidersHorizontal } from 'lucide-react';
 
 export default function Layout({ children }) {
   const { user, perfil, isAdmin, signOut } = useAuth();
@@ -24,7 +24,8 @@ export default function Layout({ children }) {
     { path: '/Catalogo',   label: 'Catálogo',    icon: ShoppingCart },
     { path: '/MisPedidos',   label: 'Mis Pedidos', icon: ClipboardList },
     { path: '/Caducidades',  label: 'Caducidades', icon: AlertTriangle },
-    { path: '/Comunicados',   label: 'Avisos',       icon: Bell },
+    { path: '/Comunicados',   label: 'Avisos',        icon: Bell },
+    { path: '/Preferencias',  label: 'Preferencias',  icon: SlidersHorizontal },
   ];
 
   const navItemsAdmin = [
@@ -32,7 +33,8 @@ export default function Layout({ children }) {
     { path: '/Catalogo',          label: 'Catálogo',  icon: ShoppingCart },
     { path: '/MisPedidos',        label: 'Pedidos',     icon: ClipboardList },
     { path: '/Caducidades',        label: 'Caducidades', icon: AlertTriangle },
-    { path: '/Comunicados',        label: 'Comunicados',  icon: Bell },
+    { path: '/Comunicados',        label: 'Comunicados',   icon: Bell },
+    { path: '/Preferencias',       label: 'Preferencias',  icon: SlidersHorizontal },
     { path: '/Dashboard',          label: 'Dashboard',    icon: BarChart2 },
     { path: '/Sesiones',           label: 'Sesiones',     icon: Radio },
     { path: '/Tiendas',           label: 'Tiendas',   icon: Store },
