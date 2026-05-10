@@ -240,6 +240,11 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
   const guardarEdicion = async (id) => {
     if (!editNombre.trim()) return;
     await supabase.from("categorias").update({ nombre: editNombre.trim() }).eq("id", id);
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("selogas_cat_"))
+        .forEach(k => localStorage.removeItem(k));
+    } catch {}
     setEditandoId(null);
     setEditNombre("");
     onUpdated();
@@ -375,6 +380,12 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
     await supabase.from("productos")
       .update({ categoria_id: destino === "__sin__" ? null : destino })
       .in("id", [...seleccion]);
+    // Invalidar caché del catálogo para todas las tiendas
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("selogas_cat_"))
+        .forEach(k => localStorage.removeItem(k));
+    } catch {}
     setMoving(false);
     onMoved();
   };
