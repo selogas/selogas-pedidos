@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
-import { Upload, CheckCircle, AlertCircle, Loader2, Trash2, Database } from "lucide-react";
+import { Upload, CheckCircle, AlertCircle, Loader2, Trash2, Database, FileSpreadsheet, LayoutGrid } from "lucide-react";
 
 // Catalogo importado de tutienda.repsol.es/centralizado/all
 // Total: 2556 productos en 29 categorias
@@ -2564,11 +2565,131 @@ const PRODUCTOS_SELOGAS = [
 ];
 
 export default function ImportarProductos() {
+  const [tab, setTab] = useState("excel"); // "excel" | "plantilla" | "repsol"
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [borrandoTodo, setBorrandoTodo] = useState(false);
+  const fileRefExcel = useRef(null);
+  const fileRefPlantilla = useRef(null);
+
+  // ── Opción 1: Importar productos nuevos desde Excel simple ──────
+  // Col A = código, Col B = nombre
+  const handleExcelSimple = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true); setError(null); setResult(null); setProgress("Leyendo Excel...");
+    try {
+      const data = await file.arrayBuffer();
+      const wb   = XLSX.read(data);
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+      const productos = [];
+      for (const row of rows) {
+        const codigo = String(row[0] || "").trim();
+        const nombre = String(row[1] || "").trim();
+        if (!codigo || !nombre) continue;
+        if (codigo.toLowerCase() === "codigo" || codigo.toLowerCase() === "código") continue; // saltar cabecera
+        productos.push({ codigo, nombre, disponible: true });
+      }
+
+      if (!productos.length) throw new Error("No se encontraron productos en el archivo.");
+
+      setProgress(`Importando ${productos.length} productos...`);
+
+      // Obtener códigos existentes para omitirlos
+      const { data: existentes } = await supabase.from("productos").select("codigo");
+      const codigosExistentes = new Set((existentes || []).map(p => p.codigo));
+
+      const nuevos = productos.filter(p => !codigosExistentes.has(p.codigo));
+      const omitidos = productos.length - nuevos.length;
+
+      // Insertar en lotes de 100
+      let insertados = 0;
+      for (let i = 0; i < nuevos.length; i += 100) {
+        const lote = nuevos.slice(i, i + 100);
+        const { error: e } = await supabase.from("productos").insert(lote);
+        if (e) throw e;
+        insertados += lote.length;
+        setProgress(`Insertando... ${insertados}/${nuevos.length}`);
+      }
+
+      // Invalidar caché
+      try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
+      setResult({ total: insertados, omitidos });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false); setProgress("");
+      if (fileRefExcel.current) fileRefExcel.current.value = "";
+    }
+  };
+
+  // ── Opción 2: Importar plantilla SELOGAS ───────────────────────
+  // Formato PDF: 3 bloques (CODIGO, ARTICULO, PED) por fila
+  // Actualiza columna_excel y orden_excel en productos existentes
+  const handlePlantillaSelogas = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true); setError(null); setResult(null); setProgress("Leyendo plantilla...");
+    try {
+      const data = await file.arrayBuffer();
+      const wb   = XLSX.read(data);
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+      // Parsear los 3 bloques: cols 0-2, 3-5, 6-8
+      const productos = [];
+      let orden = 1;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        for (let bloque = 0; bloque < 3; bloque++) {
+          const codigo = String(row[bloque * 3] || "").trim();
+          // Solo filas con código numérico real
+          if (codigo && /^\d+$/.test(codigo.replace(/\./g, ""))) {
+            productos.push({
+              codigo,
+              columna_excel: bloque + 1,
+              orden_excel: orden++,
+            });
+          }
+        }
+      }
+
+      if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
+      setProgress(`Actualizando posición de ${productos.length} productos...`);
+
+      let actualizados = 0;
+      let noEncontrados = 0;
+
+      for (const p of productos) {
+        const { data: found } = await supabase
+          .from("productos")
+          .select("id")
+          .eq("codigo", p.codigo)
+          .single();
+
+        if (!found) { noEncontrados++; continue; }
+
+        await supabase.from("productos").update({
+          columna_excel: p.columna_excel,
+          orden_excel:   p.orden_excel,
+        }).eq("id", found.id);
+        actualizados++;
+      }
+
+      // Invalidar caché
+      try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
+      setResult({ total: actualizados, noEncontrados, tipo: "plantilla" });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false); setProgress("");
+      if (fileRefPlantilla.current) fileRefPlantilla.current.value = "";
+    }
+  };
 
   const handleImportar = async () => {
     if (!confirm("\u00BFImportar " + PRODUCTOS_SELOGAS.length + " productos del cat\u00E1logo Repsol? Si ya tienes productos, c\u00E1mbialos o b\u00F3rralos primero.")) return;
@@ -2640,6 +2761,125 @@ export default function ImportarProductos() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-1">Importar Productos</h1>
+      <p className="text-gray-500 text-sm mb-5">Tres opciones para añadir o actualizar productos</p>
+
+      {/* Pestañas */}
+      <div className="flex gap-2 mb-5 bg-gray-100 p-1 rounded-2xl">
+        {[
+          { id: "excel",    icon: FileSpreadsheet, label: "Excel simple" },
+          { id: "plantilla",icon: LayoutGrid,      label: "Plantilla SELOGAS" },
+          { id: "repsol",   icon: Database,        label: "Catálogo Repsol" },
+        ].map(t => (
+          <button key={t.id} onClick={() => { setTab(t.id); setResult(null); setError(null); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              tab === t.id ? "bg-white shadow text-[#00913f]" : "text-gray-500 hover:text-gray-700"
+            }`}>
+            <t.icon size={15} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB: Excel simple ── */}
+      {tab === "excel" && (
+        <div className="bg-white rounded-2xl border p-6 shadow-sm">
+          <h2 className="font-bold text-lg mb-1 flex items-center gap-2">
+            <FileSpreadsheet size={20} className="text-[#00913f]" /> Importar productos nuevos
+          </h2>
+          <p className="text-gray-500 text-sm mb-4">
+            Excel con <strong>columna A = código</strong> y <strong>columna B = nombre</strong>.
+            Si el código ya existe se omite. Los productos quedan sin categoría.
+          </p>
+          <div
+            onClick={() => !loading && fileRefExcel.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+              loading ? "opacity-50 cursor-not-allowed" : "border-gray-200 hover:border-[#00913f] hover:bg-[#edf7f2]"
+            }`}
+          >
+            <Upload size={36} className="mx-auto mb-3 text-gray-300" />
+            <p className="font-semibold text-gray-600">Haz clic para seleccionar el Excel</p>
+            <p className="text-xs text-gray-400 mt-1">.xlsx · .xls · .ods</p>
+          </div>
+          <input ref={fileRefExcel} type="file" accept=".xlsx,.xls,.ods,.csv" className="hidden"
+            onChange={handleExcelSimple} />
+
+          {progress && (
+            <div className="mt-4 p-3 bg-[#edf7f2] rounded-xl text-[#007a34] text-sm flex items-center gap-2">
+              <Loader2 size={15} className="animate-spin" /> {progress}
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 rounded-xl text-red-700 text-sm flex items-center gap-2">
+              <AlertCircle size={15} /> {error}
+            </div>
+          )}
+          {result && !result.tipo && (
+            <div className="mt-4 p-3 bg-green-50 rounded-xl text-green-700 text-sm flex items-center gap-2">
+              <CheckCircle size={15} />
+              <span>✅ <strong>{result.total} productos</strong> importados correctamente.
+              {result.omitidos > 0 && ` ${result.omitidos} omitidos (código ya existía).`}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: Plantilla SELOGAS ── */}
+      {tab === "plantilla" && (
+        <div className="bg-white rounded-2xl border p-6 shadow-sm">
+          <h2 className="font-bold text-lg mb-1 flex items-center gap-2">
+            <LayoutGrid size={20} className="text-[#00913f]" /> Plantilla SELOGAS
+          </h2>
+          <p className="text-gray-500 text-sm mb-2">
+            Importa el Excel con el formato de la hoja de pedido (3 bloques: CODIGO · ARTICULO · PED).
+            Actualiza el <strong>orden y columna</strong> de cada producto en el PDF para los productos que ya existen en la BD.
+          </p>
+          <div className="bg-gray-50 border rounded-xl p-3 mb-4 text-xs text-gray-500 font-mono">
+            <div className="grid grid-cols-9 gap-0.5 text-center font-bold text-gray-700 mb-1">
+              <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
+              <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
+              <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
+              <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
+              <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
+              <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
+              <span className="col-span-1 bg-gray-200 rounded p-1">...</span>
+            </div>
+            <p className="text-center text-gray-400 mt-1">Mismo formato que el PDF del pedido</p>
+          </div>
+          <div
+            onClick={() => !loading && fileRefPlantilla.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+              loading ? "opacity-50 cursor-not-allowed" : "border-gray-200 hover:border-[#00913f] hover:bg-[#edf7f2]"
+            }`}
+          >
+            <LayoutGrid size={36} className="mx-auto mb-3 text-gray-300" />
+            <p className="font-semibold text-gray-600">Haz clic para seleccionar la plantilla</p>
+            <p className="text-xs text-gray-400 mt-1">.xlsx · .xls · .ods</p>
+          </div>
+          <input ref={fileRefPlantilla} type="file" accept=".xlsx,.xls,.ods" className="hidden"
+            onChange={handlePlantillaSelogas} />
+
+          {progress && (
+            <div className="mt-4 p-3 bg-[#edf7f2] rounded-xl text-[#007a34] text-sm flex items-center gap-2">
+              <Loader2 size={15} className="animate-spin" /> {progress}
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 rounded-xl text-red-700 text-sm flex items-center gap-2">
+              <AlertCircle size={15} /> {error}
+            </div>
+          )}
+          {result?.tipo === "plantilla" && (
+            <div className="mt-4 p-3 bg-green-50 rounded-xl text-green-700 text-sm flex items-center gap-2">
+              <CheckCircle size={15} />
+              <span>✅ <strong>{result.total} productos</strong> actualizados con orden y columna del PDF.
+              {result.noEncontrados > 0 && ` ${result.noEncontrados} no encontrados (código no existe en BD).`}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: Catálogo Repsol (el existente) ── */}
+      {tab === "repsol" && (
       <div className="bg-white rounded-2xl shadow-sm border p-8" style={{ borderColor: "var(--color-border)" }}>
         <h1 className="text-2xl font-bold mb-2">Importar Cat&aacute;logo Repsol</h1>
         <p className="text-gray-500 mb-1 text-sm">
@@ -2714,6 +2954,7 @@ export default function ImportarProductos() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
