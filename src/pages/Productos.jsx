@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Upload, ChevronRight, FolderOpen, Tag } from "lucide-react";
+import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Upload, ChevronRight, FolderOpen, Tag, Check } from "lucide-react";
 
 function CardImagen({ prod, gi, onEliminar }) {
   const [hover, setHover] = useState(false);
@@ -212,31 +212,113 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
 
 function GestionCategorias({ categorias, onClose, onUpdated }) {
   const [nuevaNombre, setNuevaNombre] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [editandoId, setEditandoId]   = useState(null);  // id de la categoría en edición
+  const [editNombre, setEditNombre]   = useState("");     // nombre temporal mientras edita
+  const [saving, setSaving]           = useState(false);
+
   const handleCrear = async () => {
     if (!nuevaNombre.trim()) return;
     setSaving(true);
-    await supabase.from('categorias').insert([{ nombre: nuevaNombre.trim() }]);
+    await supabase.from("categorias").insert([{ nombre: nuevaNombre.trim(), activa: true }]);
     setSaving(false); setNuevaNombre(""); onUpdated();
   };
+
   const handleEliminar = async (cat) => {
-    if (!confirm(`\u00BFEliminar la categor\u00EDa "${cat.nombre}"?`)) return;
+    if (!confirm(`¿Eliminar la categoría "${cat.nombre}"? Los productos quedarán sin categoría.`)) return;
     await supabase.from("productos").update({ categoria_id: null }).eq("categoria_id", cat.id);
-    await supabase.from("categorias").delete().eq("id", cat.id); onUpdated();
+    await supabase.from("categorias").delete().eq("id", cat.id);
+    onUpdated();
   };
+
+  const iniciarEdicion = (cat) => {
+    setEditandoId(cat.id);
+    setEditNombre(cat.nombre);
+  };
+
+  const cancelarEdicion = () => { setEditandoId(null); setEditNombre(""); };
+
+  const guardarEdicion = async (id) => {
+    if (!editNombre.trim()) return;
+    await supabase.from("categorias").update({ nombre: editNombre.trim() }).eq("id", id);
+    setEditandoId(null);
+    setEditNombre("");
+    onUpdated();
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> Categor&iacute;as</h2><button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button></div>
+
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> Categorías</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
+        </div>
+
+        {/* Nueva categoría */}
         <div className="flex gap-2 mb-4">
-          <input type="text" value={nuevaNombre} onChange={e => setNuevaNombre(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCrear()} placeholder="Nueva categor&iacute;a..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
-          <button onClick={handleCrear} disabled={saving || !nuevaNombre.trim()} className="px-3 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50">{saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}</button>
+          <input
+            type="text" value={nuevaNombre}
+            onChange={e => setNuevaNombre(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleCrear()}
+            placeholder="Nueva categoría..."
+            className="flex-1 border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-400"
+          />
+          <button onClick={handleCrear} disabled={saving || !nuevaNombre.trim()}
+            className="px-3 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+          </button>
         </div>
+
+        {/* Lista de categorías */}
         <div className="overflow-y-auto flex-1 space-y-1">
-          {!categorias.length && <p className="text-sm text-gray-400 text-center py-4">No hay categor&iacute;as a&uacute;n</p>}
-          {categorias.map(cat => <div key={cat.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 border border-gray-100"><span className="text-sm font-medium">{cat.nombre}</span><button onClick={() => handleEliminar(cat)} className="p-1 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button></div>)}
+          {!categorias.length && (
+            <p className="text-sm text-gray-400 text-center py-4">No hay categorías aún</p>
+          )}
+          {categorias.map(cat => (
+            <div key={cat.id} className="flex items-center gap-2 p-2 rounded-xl hover:bg-gray-50 border border-gray-100 group">
+              {editandoId === cat.id ? (
+                // Modo edición inline
+                <>
+                  <input
+                    autoFocus
+                    type="text" value={editNombre}
+                    onChange={e => setEditNombre(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") guardarEdicion(cat.id);
+                      if (e.key === "Escape") cancelarEdicion();
+                    }}
+                    className="flex-1 border border-blue-400 rounded-lg px-2.5 py-1 text-sm focus:outline-none bg-blue-50"
+                  />
+                  <button onClick={() => guardarEdicion(cat.id)}
+                    className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg flex-shrink-0" title="Guardar">
+                    <Check size={14} />
+                  </button>
+                  <button onClick={cancelarEdicion}
+                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg flex-shrink-0" title="Cancelar">
+                    <X size={14} />
+                  </button>
+                </>
+              ) : (
+                // Modo lectura
+                <>
+                  <span className="flex-1 text-sm font-medium truncate">{cat.nombre}</span>
+                  <button onClick={() => iniciarEdicion(cat)}
+                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" title="Editar nombre">
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => handleEliminar(cat)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" title="Eliminar">
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
         </div>
-        <button onClick={onClose} className="mt-4 w-full py-2 border rounded-xl text-sm font-medium hover:bg-gray-50">Cerrar</button>
+
+        <button onClick={onClose} className="mt-4 w-full py-2 border rounded-xl text-sm font-medium hover:bg-gray-50">
+          Cerrar
+        </button>
       </div>
     </div>
   );
