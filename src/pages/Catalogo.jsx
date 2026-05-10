@@ -5,24 +5,15 @@ import { ShoppingCart, Search, Package, Loader2, CheckCircle } from "lucide-reac
 import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
-const CATEGORIA_EMOJIS = {
-  "Bebidas": "🍺", "Alimentacion": "🍞", "Cafeteria": "☕",
-  "Limpieza": "🧹", "Higiene": "🧼", "Papeleria": "📋",
-  "Snacks": "🍿", "Dulces": "🍫", "Lacteos": "🥛",
-  "Congelados": "❄", "Panaderia": "🥖", "Frutas": "🍎",
-  "Verduras": "🥬", "Carnes": "🥩", "Pescados": "🐟",
-  "Tabaco": "🚬", "Lonja": "🏪", "Butano": "🔥",
-  "Gas": "💨", "Aditivos": "🧪", "Lubricantes": "🛢",
-  "Bazar": "🛍", "Aguas": "💧", "Aceites": "🛢",
-  "Frutas y Verduras": "🍏", "Apoyo": "💼", "Varios": "📦",
-};
+const CAT_COLORS = [
+  "#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6",
+  "#f97316","#06b6d4","#ec4899","#84cc16","#6366f1",
+  "#14b8a6","#a855f7","#f43f5e","#0ea5e9","#d97706",
+  "#4ade80","#fb7185","#38bdf8","#c084fc","#facc15",
+];
 
-function getCatEmoji(nombre) {
-  if (!nombre) return "📦";
-  for (const [key, emoji] of Object.entries(CATEGORIA_EMOJIS)) {
-    if (nombre.toLowerCase().includes(key.toLowerCase())) return emoji;
-  }
-  return "📦";
+function getCatColor(nombre, index) {
+  return CAT_COLORS[index % CAT_COLORS.length];
 }
 
 export default function Catalogo() {
@@ -523,52 +514,75 @@ export default function Catalogo() {
         </button>
       </div>
 
-      {/* Filtros de categoría con scroll y flechas */}
+      {/* Filtros de categoría — píldoras elegantes con scroll */}
       {categorias.length > 0 && (
-        <div className="mb-6 relative">
+        <div className="mb-6 relative flex items-center gap-1.5">
+
           {/* Flecha izquierda */}
           <button
-            onClick={() => scrollCatRef.current?.scrollBy({ left: -200, behavior: "smooth" })}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full shadow flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:shadow-md transition-all"
-            style={{ marginTop: "-4px" }}
+            onClick={() => scrollCatRef.current?.scrollBy({ left: -220, behavior: "smooth" })}
+            className="flex-shrink-0 w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-all text-base leading-none shadow-sm"
+            aria-label="Scroll izquierda"
           >‹</button>
 
-          {/* Scroll container */}
+          {/* Degradado izquierdo */}
+          <div className="absolute left-9 top-0 bottom-0 w-5 pointer-events-none z-10"
+            style={{ background: "linear-gradient(to right, white, transparent)" }} />
+
+          {/* Área de scroll */}
           <div
             ref={scrollCatRef}
-            className="flex gap-3 overflow-x-auto px-10 pb-2"
-            style={{ scrollbarWidth: "thin", scrollbarColor: "#cbd5e1 transparent" }}
+            className="flex gap-2 overflow-x-auto flex-1 py-1"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
+            {/* Píldora "Todas" */}
             <button
               onClick={() => setCategoriaActiva("__todas__")}
-              className={`flex-shrink-0 px-4 py-2.5 rounded-2xl border-2 font-bold text-sm transition-all shadow-sm ${
-                categoriaActiva === "__todas__"
-                  ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
-                  : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
-              }`}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border"
+              style={categoriaActiva === "__todas__"
+                ? { background: "#1e293b", color: "#fff", borderColor: "#1e293b" }
+                : { background: "#fff", color: "#64748b", borderColor: "#e2e8f0" }}
             >
-              📦 Todas
+              <span style={{
+                width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                background: categoriaActiva === "__todas__" ? "#94a3b8" : "#cbd5e1"
+              }} />
+              Todas
             </button>
-            {categorias.map(cat => (
-              <button
-                key={cat.id} onClick={() => setCategoriaActiva(cat.id)}
-                className={`flex-shrink-0 px-4 py-2.5 rounded-2xl border-2 font-bold text-sm transition-all shadow-sm ${
-                  categoriaActiva === cat.id
-                    ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
-                }`}
-              >
-                {getCatEmoji(cat.nombre)} {cat.nombre}
-              </button>
-            ))}
+
+            {categorias.map((cat, idx) => {
+              const color = getCatColor(cat.nombre, idx);
+              const activa = categoriaActiva === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategoriaActiva(cat.id)}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border"
+                  style={activa
+                    ? { background: "#1e293b", color: "#fff", borderColor: "#1e293b" }
+                    : { background: "#fff", color: "#64748b", borderColor: "#e2e8f0" }}
+                >
+                  <span style={{
+                    width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                    background: color, opacity: activa ? 0.9 : 0.7
+                  }} />
+                  {cat.nombre}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Degradado derecho */}
+          <div className="absolute right-9 top-0 bottom-0 w-5 pointer-events-none z-10"
+            style={{ background: "linear-gradient(to left, white, transparent)" }} />
 
           {/* Flecha derecha */}
           <button
-            onClick={() => scrollCatRef.current?.scrollBy({ left: 200, behavior: "smooth" })}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full shadow flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:shadow-md transition-all"
-            style={{ marginTop: "-4px" }}
+            onClick={() => scrollCatRef.current?.scrollBy({ left: 220, behavior: "smooth" })}
+            className="flex-shrink-0 w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-all text-base leading-none shadow-sm"
+            aria-label="Scroll derecha"
           >›</button>
+
         </div>
       )}
 
@@ -590,14 +604,15 @@ export default function Catalogo() {
         </div>
       ) : (
         <div>
-          {categorias.map(cat => {
+          {categorias.map((cat, idx) => {
             const prodsCategoria = productosFiltrados.filter(p => p.categoria_id === cat.id);
             if (!prodsCategoria.length) return null;
+            const color = getCatColor(cat.nombre, idx);
             return (
               <div key={cat.id} className="mb-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-3xl">{getCatEmoji(cat.nombre)}</span>
-                  <h2 className="text-xl font-bold text-gray-800">{cat.nombre}</h2>
+                <div className="flex items-center gap-2.5 mb-4">
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
+                  <h2 className="text-lg font-bold text-gray-800">{cat.nombre}</h2>
                   <span className="text-sm text-gray-400 font-medium">({prodsCategoria.length})</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
