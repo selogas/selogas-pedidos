@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [pedidosPorSemana, setPorSemana] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [exportando, setExportando] = useState(false);
+  const [uso, setUso] = useState(null);
   const [rango, setRango]           = useState(30); // días
 
   useEffect(() => { cargar(); }, [rango]);
@@ -63,6 +64,11 @@ export default function Dashboard() {
     setPorSemana(Object.entries(semanaMap).map(([semana, pedidos]) => ({ semana, pedidos })));
 
     setStats({ totalPedidos: totalPedidos || 0, totalTiendas: Object.keys(tiendaMap).length, totalProductos: Object.keys(prodMap).length });
+
+    // Uso del sistema — solo en la carga inicial
+    const { data: usoData } = await supabase.rpc("get_uso_sistema");
+    if (usoData) setUso(usoData);
+
     setLoading(false);
   };
 
@@ -196,6 +202,77 @@ export default function Dashboard() {
               <Bar dataKey="pedidos" fill="#10b981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      )}
+      {/* ── Uso del sistema ── */}
+      {uso && (
+        <div className="mt-6 bg-white rounded-2xl border p-5 shadow-sm">
+          <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            🖥️ Uso del sistema
+            <span className="text-xs font-normal text-gray-400 ml-1">Límites del plan gratuito</span>
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            {/* Base de datos */}
+            {(() => {
+              const pct = Math.min(100, Math.round((uso.db_size_mb / uso.db_limit_mb) * 100));
+              const color = pct > 80 ? "bg-red-500" : pct > 60 ? "bg-amber-500" : "bg-green-500";
+              const textColor = pct > 80 ? "text-red-700" : pct > 60 ? "text-amber-700" : "text-green-700";
+              const bgColor = pct > 80 ? "bg-red-50 border-red-200" : pct > 60 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200";
+              return (
+                <div className={`border rounded-xl p-4 ${bgColor}`}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm font-semibold text-gray-700">💾 Base de datos</span>
+                    <span className={`text-xs font-bold ${textColor}`}>{pct}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div className={`h-2 rounded-full transition-all ${color}`} style={{ width: pct + "%" }} />
+                  </div>
+                  <p className="text-xs text-gray-500">{uso.db_size_mb} MB de 500 MB</p>
+                  {pct > 80 && <p className="text-xs text-red-600 font-semibold mt-1">⚠️ Considera actualizar a Pro (25€/mes)</p>}
+                </div>
+              );
+            })()}
+
+            {/* Emails Resend */}
+            {(() => {
+              const limite = 3000;
+              const pct = Math.min(100, Math.round((uso.emails_este_mes / limite) * 100));
+              const color = pct > 80 ? "bg-red-500" : pct > 60 ? "bg-amber-500" : "bg-green-500";
+              const textColor = pct > 80 ? "text-red-700" : pct > 60 ? "text-amber-700" : "text-green-700";
+              const bgColor = pct > 80 ? "bg-red-50 border-red-200" : pct > 60 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200";
+              return (
+                <div className={`border rounded-xl p-4 ${bgColor}`}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm font-semibold text-gray-700">📧 Emails (Resend)</span>
+                    <span className={`text-xs font-bold ${textColor}`}>{pct}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div className={`h-2 rounded-full transition-all ${color}`} style={{ width: pct + "%" }} />
+                  </div>
+                  <p className="text-xs text-gray-500">{uso.emails_este_mes} de {limite} este mes</p>
+                  {pct > 80 && <p className="text-xs text-red-600 font-semibold mt-1">⚠️ Límite próximo — plan gratuito Resend</p>}
+                </div>
+              );
+            })()}
+
+            {/* Resumen general */}
+            <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+              <p className="text-sm font-semibold text-gray-700 mb-3">📊 Totales</p>
+              <div className="space-y-1.5 text-xs text-gray-600">
+                <div className="flex justify-between"><span>Tiendas activas</span><span className="font-bold">{uso.total_tiendas}</span></div>
+                <div className="flex justify-between"><span>Usuarios</span><span className="font-bold">{uso.total_usuarios}</span></div>
+                <div className="flex justify-between"><span>Productos</span><span className="font-bold">{uso.total_productos}</span></div>
+                <div className="flex justify-between"><span>Pedidos totales</span><span className="font-bold">{uso.total_pedidos}</span></div>
+                <div className="flex justify-between"><span>Pedidos este mes</span><span className="font-bold text-blue-600">{uso.pedidos_este_mes}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-400">
+            ℹ️ El ancho de banda de Supabase (500 MB/mes gratis) no se puede medir desde la app.
+            Consúltalo en <a href="https://supabase.com/dashboard/project/pasllyqgczegpvquaxvb/reports" target="_blank" rel="noreferrer" className="text-blue-500 underline">Supabase Dashboard → Reports</a>.
+          </p>
         </div>
       )}
     </div>
