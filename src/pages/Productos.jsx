@@ -243,36 +243,172 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
 }
 
 function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
-  const [origen, setOrigen] = useState("");
-  const [destino, setDestino] = useState("");
-  const [seleccion, setSeleccion] = useState([]);
-  const [moving, setMoving] = useState(false);
+  const [origen, setOrigen]     = useState("");
+  const [destino, setDestino]   = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [seleccion, setSeleccion] = useState(new Set()); // Set para O(1) lookup
+  const [moving, setMoving]     = useState(false);
+
+  // Productos visibles según filtro de categoría Y búsqueda
+  // La selección es INDEPENDIENTE — no se borra al cambiar filtros
   const productosFiltrados = useMemo(() => {
-    if (!origen) return productos;
-    if (origen === "__sin__") return productos.filter(p => !p.categoria_id);
-    return productos.filter(p => p.categoria_id === origen);
-  }, [productos, origen]);
-  const toggleSeleccion = (id) => setSeleccion(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  const toggleTodos = () => setSeleccion(seleccion.length === productosFiltrados.length ? [] : productosFiltrados.map(p => p.id));
-  const handleMover = async () => {
-    if (!seleccion.length || !destino) return;
-    setMoving(true);
-    await supabase.from("productos").update({ categoria_id: destino === "__sin__" ? null : destino }).in("id", seleccion);
-    setMoving(false); onMoved();
+    let lista = productos;
+    if (origen === "__sin__") lista = lista.filter(p => !p.categoria_id);
+    else if (origen) lista = lista.filter(p => p.categoria_id === origen);
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase();
+      lista = lista.filter(p =>
+        p.nombre?.toLowerCase().includes(q) ||
+        p.codigo?.toLowerCase().includes(q)
+      );
+    }
+    return lista;
+  }, [productos, origen, busqueda]);
+
+  const toggleSeleccion = (id) => {
+    setSeleccion(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
+
+  // Seleccionar/deseleccionar solo los visibles actualmente
+  const toggleVisibles = () => {
+    const idsVisibles = productosFiltrados.map(p => p.id);
+    const todosVisiblesSeleccionados = idsVisibles.every(id => seleccion.has(id));
+    setSeleccion(prev => {
+      const next = new Set(prev);
+      if (todosVisiblesSeleccionados) idsVisibles.forEach(id => next.delete(id));
+      else idsVisibles.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
+  const limpiarSeleccion = () => setSeleccion(new Set());
+
+  const handleMover = async () => {
+    if (!seleccion.size || !destino) return;
+    setMoving(true);
+    await supabase.from("productos")
+      .update({ categoria_id: destino === "__sin__" ? null : destino })
+      .in("id", [...seleccion]);
+    setMoving(false);
+    onMoved();
+  };
+
+  const todosVisiblesSeleccionados = productosFiltrados.length > 0 &&
+    productosFiltrados.every(p => seleccion.has(p.id));
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-lg flex items-center gap-2"><FolderOpen size={18} /> Mover productos</h2><button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button></div>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div><label className="block text-xs font-semibold text-gray-600 mb-1">Filtrar por categor&iacute;a</label><select value={origen} onChange={e => { setOrigen(e.target.value); setSeleccion([]); }} className="w-full border rounded-xl px-3 py-2 text-sm"><option value="">Todas</option><option value="__sin__">Sin categor&iacute;a</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
-          <div><label className="block text-xs font-semibold text-gray-600 mb-1">Mover a</label><select value={destino} onChange={e => setDestino(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm"><option value="">Selecciona destino...</option><option value="__sin__">Sin categor&iacute;a</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 max-h-[90vh] flex flex-col gap-3">
+
+        {/* Cabecera */}
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg flex items-center gap-2">
+            <FolderOpen size={18} /> Mover productos
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
         </div>
-        <div className="flex items-center justify-between mb-2"><span className="text-xs text-gray-500">{productosFiltrados.length} productos &middot; {seleccion.length} seleccionados</span><button onClick={toggleTodos} className="text-xs text-blue-600 hover:underline">{seleccion.length === productosFiltrados.length ? "Deseleccionar todos" : "Seleccionar todos"}</button></div>
-        <div className="overflow-y-auto flex-1 space-y-1 border rounded-xl p-2">{productosFiltrados.map(prod => <label key={prod.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"><input type="checkbox" checked={seleccion.includes(prod.id)} onChange={() => toggleSeleccion(prod.id)} className="rounded" />{prod.imagen_url && <img src={prod.imagen_url} alt="" className="w-8 h-8 object-contain rounded" />}<span className="text-sm flex-1 truncate">{prod.nombre}</span></label>)}</div>
-        <div className="flex gap-3 mt-4">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleMover} disabled={moving || !seleccion.length || !destino} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">{moving ? <Loader2 size={15} className="animate-spin" /> : <ChevronRight size={15} />}Mover {seleccion.length > 0 ? `(${seleccion.length})` : ""}</button>
+
+        {/* Filtro categoría + destino */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Filtrar por categoría</label>
+            <select value={origen} onChange={e => setOrigen(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2 text-sm">
+              <option value="">Todas</option>
+              <option value="__sin__">Sin categoría</option>
+              {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Mover a</label>
+            <select value={destino} onChange={e => setDestino(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2 text-sm">
+              <option value="">Selecciona destino...</option>
+              <option value="__sin__">Sin categoría</option>
+              {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Buscador */}
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o código..."
+            className="w-full border rounded-xl pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+          />
+          {busqueda && (
+            <button onClick={() => setBusqueda("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Controles selección */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            {productosFiltrados.length} visibles ·{" "}
+            <span className="font-semibold text-blue-600">{seleccion.size} seleccionados</span>
+            {seleccion.size > 0 && (
+              <button onClick={limpiarSeleccion} className="ml-2 text-red-400 hover:text-red-600 underline">
+                limpiar
+              </button>
+            )}
+          </span>
+          <button onClick={toggleVisibles} className="text-xs text-blue-600 hover:underline">
+            {todosVisiblesSeleccionados ? "Deseleccionar visibles" : "Seleccionar visibles"}
+          </button>
+        </div>
+
+        {/* Lista de productos */}
+        <div className="overflow-y-auto flex-1 border rounded-xl divide-y min-h-[200px]">
+          {productosFiltrados.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-400 text-sm py-8">
+              No hay productos con ese criterio
+            </div>
+          ) : (
+            productosFiltrados.map(prod => (
+              <label key={prod.id}
+                className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
+                  seleccion.has(prod.id) ? "bg-blue-50" : "hover:bg-gray-50"
+                }`}>
+                <input type="checkbox" checked={seleccion.has(prod.id)}
+                  onChange={() => toggleSeleccion(prod.id)} className="rounded flex-shrink-0" />
+                {prod.imagen_url && (
+                  <img src={prod.imagen_url} alt="" className="w-8 h-8 object-contain rounded flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate font-medium">{prod.nombre}</p>
+                  {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
+                </div>
+                {seleccion.has(prod.id) && (
+                  <span className="text-blue-500 flex-shrink-0">✓</span>
+                )}
+              </label>
+            ))
+          )}
+        </div>
+
+        {/* Acciones */}
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">
+            Cancelar
+          </button>
+          <button onClick={handleMover}
+            disabled={moving || !seleccion.size || !destino}
+            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+            {moving ? <Loader2 size={15} className="animate-spin" /> : <ChevronRight size={15} />}
+            Mover {seleccion.size > 0 ? `(${seleccion.size})` : ""}
+          </button>
         </div>
       </div>
     </div>
