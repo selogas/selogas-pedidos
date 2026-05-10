@@ -31,9 +31,10 @@ function CardImagen({ prod, gi, onEliminar }) {
 }
 
 const GRUPOS = [
-  { value: 'ambas', label: '\uD83D\uDCE6 Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
-  { value: 'estacion', label: '\uD83C\uDFEA Estaci\u00F3n', desc: 'Solo estaciones', color: 'bg-[#d9f0e4] text-[#007a34]' },
-  { value: 'cafeteria', label: '\u2615 Cafeter\u00EDa', desc: 'Solo cafeter\u00EDas', color: 'bg-orange-100 text-orange-700' },
+  { value: 'ambos',      label: '📦 Ambos',      desc: 'Todos lo ven',         color: 'bg-purple-100 text-purple-700' },
+  { value: 'estacion',   label: '🏪 Estación',   desc: 'Solo estaciones',      color: 'bg-[#d9f0e4] text-[#007a34]' },
+  { value: 'cafeteria',  label: '☕ Cafetería',  desc: 'Solo cafeterías',      color: 'bg-orange-100 text-orange-700' },
+  { value: 'especifico', label: '🎯 Específicas', desc: 'Tiendas concretas',   color: 'bg-amber-100 text-amber-700' },
 ];
 
 function SubirImagenesModal({ productos, onClose, onDone }) {
@@ -337,10 +338,20 @@ function CambiarGrupoModal({ productos, onClose, onChanged }) {
   const [saving, setSaving]                   = useState(false);
 
   const GRUPOS = [
-    { value: "estacion",  label: "🏪 Estación" },
-    { value: "cafeteria", label: "☕ Cafetería" },
-    { value: "ambos",     label: "📦 Ambos" },
+    { value: "estacion",   label: "🏪 Estación" },
+    { value: "cafeteria",  label: "☕ Cafetería" },
+    { value: "ambos",      label: "📦 Ambos" },
+    { value: "especifico", label: "🎯 Tiendas específicas" },
   ];
+
+  const [tiendas, setTiendas]               = useState([]);
+  const [tiendasSeleccionadas, setTiendaSel] = useState(new Set());
+
+  useEffect(() => {
+    supabase.from("tiendas").select("id, nombre").eq("activa", true)
+      .neq("nombre", "PRINCIPAL").order("nombre")
+      .then(({ data }) => setTiendas(data || []));
+  }, []);
 
   const categorias = [...new Map(
     productos.filter(p => p.categoria_id && p.categorias?.nombre)
@@ -381,10 +392,25 @@ function CambiarGrupoModal({ productos, onClose, onChanged }) {
 
   const handleGuardar = async () => {
     if (!seleccion.size || !grupoDestino) return;
+    if (grupoDestino === "especifico" && tiendasSeleccionadas.size === 0) {
+      alert("Selecciona al menos una tienda específica."); return;
+    }
     setSaving(true);
-    await supabase.from("productos")
-      .update({ grupo_visualizacion: grupoDestino })
-      .in("id", [...seleccion]);
+    const ids = [...seleccion];
+    await supabase.from("productos").update({ grupo_visualizacion: grupoDestino }).in("id", ids);
+
+    if (grupoDestino === "especifico") {
+      // Borrar asignaciones anteriores y crear las nuevas
+      await supabase.from("producto_tiendas").delete().in("producto_id", ids);
+      const filas = ids.flatMap(pid =>
+        [...tiendasSeleccionadas].map(tid => ({ producto_id: pid, tienda_id: tid }))
+      );
+      if (filas.length) await supabase.from("producto_tiendas").insert(filas);
+    } else {
+      // Si pasan a otro grupo, limpiar asignaciones específicas
+      await supabase.from("producto_tiendas").delete().in("producto_id", ids);
+    }
+
     try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
     setSaving(false);
     onChanged();
@@ -393,7 +419,7 @@ function CambiarGrupoModal({ productos, onClose, onChanged }) {
   const todosVisiblesSeleccionados = productosFiltrados.length > 0 &&
     productosFiltrados.every(p => seleccion.has(p.id));
 
-  const GRUPO_BADGE = { estacion: "bg-blue-100 text-blue-700", cafeteria: "bg-orange-100 text-orange-700", ambos: "bg-purple-100 text-purple-700" };
+  const GRUPO_BADGE = { estacion: "bg-blue-100 text-blue-700", cafeteria: "bg-orange-100 text-orange-700", ambos: "bg-purple-100 text-purple-700", especifico: "bg-amber-100 text-amber-700" };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
@@ -476,12 +502,44 @@ function CambiarGrupoModal({ productos, onClose, onChanged }) {
           ))}
         </div>
 
+        {/* Selector de tiendas — solo si grupo = especifico */}
+        {grupoDestino === "especifico" && (
+          <div className="border rounded-xl p-3 bg-amber-50 border-amber-200">
+            <p className="text-xs font-semibold text-amber-800 mb-2">
+              🎯 Selecciona las tiendas que verán estos productos:
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
+              {tiendas.map(t => (
+                <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-amber-100 rounded-lg p-1.5">
+                  <input type="checkbox"
+                    checked={tiendasSeleccionadas.has(t.id)}
+                    onChange={() => {
+                      setTiendaSel(prev => {
+                        const next = new Set(prev);
+                        if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                        return next;
+                      });
+                    }}
+                    className="rounded flex-shrink-0"
+                  />
+                  <span className="truncate font-medium">{t.nombre}</span>
+                </label>
+              ))}
+            </div>
+            {tiendasSeleccionadas.size > 0 && (
+              <p className="text-xs text-amber-700 mt-1.5 font-semibold">
+                {tiendasSeleccionadas.size} tienda{tiendasSeleccionadas.size > 1 ? "s" : ""} seleccionada{tiendasSeleccionadas.size > 1 ? "s" : ""}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Botones */}
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">
             Cancelar
           </button>
-          <button onClick={handleGuardar} disabled={saving || !seleccion.size || !grupoDestino}
+          <button onClick={handleGuardar} disabled={saving || !seleccion.size || !grupoDestino || (grupoDestino === "especifico" && tiendasSeleccionadas.size === 0)}
             className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] disabled:opacity-50 flex items-center justify-center gap-2">
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
             Asignar grupo {seleccion.size > 0 ? `(${seleccion.size})` : ""}
@@ -675,8 +733,8 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
   const [form, setForm] = useState(producto ? {
     nombre: producto.nombre||'', codigo: producto.codigo||'', categoria_id: producto.categoria_id||'',
     formato: producto.formato||'', multiplo: producto.multiplo||1, imagen_url: producto.imagen_url||'',
-    descripcion: producto.descripcion||'', disponible: producto.disponible!==false, grupo_visualizacion: producto.grupo_visualizacion||'ambas',
-  } : { nombre:'', codigo:'', categoria_id:'', formato:'', multiplo:1, imagen_url:'', descripcion:'', disponible:true, grupo_visualizacion:'ambas' });
+    descripcion: producto.descripcion||'', disponible: producto.disponible!==false, grupo_visualizacion: producto.grupo_visualizacion||'ambos',
+  } : { nombre:'', codigo:'', categoria_id:'', formato:'', multiplo:1, imagen_url:'', descripcion:'', disponible:true, grupo_visualizacion:'ambos' });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [buscandoImagen, setBuscandoImagen] = useState(false);
@@ -722,7 +780,7 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilidad</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {GRUPOS.map(g => <button key={g.value} onClick={() => setForm(f => ({...f, grupo_visualizacion: g.value}))} className={`flex flex-col items-center p-3 rounded-xl border-2 text-center transition-all ${form.grupo_visualizacion === g.value ? 'border-[#00913f] bg-[#edf7f2]' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-sm font-bold">{g.label}</span><span className="text-xs text-gray-500 mt-0.5">{g.desc}</span></button>)}
               </div>
             </div>
@@ -776,7 +834,7 @@ export default function Productos() {
     let list = productos;
     if (categoriaActiva === "__sin__") list = list.filter(p => !p.categoria_id);
     else if (categoriaActiva !== "__todas__") list = list.filter(p => p.categoria_id === categoriaActiva);
-    if (filtroGrupo !== '__todos__') list = list.filter(p => (p.grupo_visualizacion || 'ambas') === filtroGrupo);
+    if (filtroGrupo !== '__todos__') list = list.filter(p => (p.grupo_visualizacion || 'ambos') === filtroGrupo);
     if (busqueda.trim()) { const q = busqueda.toLowerCase(); list = list.filter(p => p.nombre?.toLowerCase().includes(q) || p.codigo?.toLowerCase().includes(q)); }
     return list;
   }, [productos, categoriaActiva, busqueda, filtroGrupo]);

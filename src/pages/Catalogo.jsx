@@ -80,16 +80,45 @@ export default function Catalogo() {
             .order("orden_excel");
 
           if (!isAdmin) {
+            // Productos generales por grupo
             if (grupoTienda === "ambos") {
               query = query.in("grupo_visualizacion", ["ambos", "estacion", "cafeteria"]);
             } else {
               query = query.in("grupo_visualizacion", ["ambos", grupoTienda]);
             }
+            // Los productos 'especifico' se añaden después (ver más abajo)
           }
 
           const { data: prods } = await query;
           listaProductos = prods || [];
           try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: listaProductos })); } catch {}
+        }
+
+        // Añadir productos 'especifico' asignados a esta tienda
+        if (!isAdmin && tienda?.id) {
+          try {
+            const { data: asignados } = await supabase
+              .from("producto_tiendas")
+              .select("producto_id")
+              .eq("tienda_id", tienda.id);
+
+            if (asignados?.length) {
+              const idsAsignados = asignados.map(a => a.producto_id);
+              // Descargar los productos específicos que no estén ya en la lista
+              const idsYaCargados = new Set(listaProductos.map(p => p.id));
+              const idsNuevos = idsAsignados.filter(id => !idsYaCargados.has(id));
+              if (idsNuevos.length) {
+                const { data: prodsEspecificos } = await supabase
+                  .from("productos")
+                  .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, grupo_visualizacion, categorias(id, nombre)")
+                  .in("id", idsNuevos)
+                  .eq("disponible", true);
+                if (prodsEspecificos?.length) {
+                  listaProductos = [...listaProductos, ...prodsEspecificos];
+                }
+              }
+            }
+          } catch {}
         }
 
         setProductos(listaProductos);
