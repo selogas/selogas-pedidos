@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, Package } from 'lucide-react';
 
 export default function Login() {
+  const enMantenimiento = new URLSearchParams(window.location.search).get('mantenimiento') === '1';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,6 +27,12 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      {enMantenimiento && (
+        <div className="mb-4 p-4 bg-red-50 border-2 border-red-300 rounded-2xl text-center w-full max-w-sm">
+          <p className="text-red-700 font-bold text-sm">🔧 App en mantenimiento</p>
+          <p className="text-red-600 text-xs mt-1">La aplicación no está disponible temporalmente. Inténtalo más tarde.</p>
+        </div>
+      )}
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center">

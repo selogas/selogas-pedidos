@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
-import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2 } from 'lucide-react';
+import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2, Radio } from 'lucide-react';
 
 export default function Layout({ children }) {
   const { user, perfil, isAdmin, signOut } = useAuth();
@@ -34,6 +34,7 @@ export default function Layout({ children }) {
     { path: '/Caducidades',        label: 'Caducidades', icon: AlertTriangle },
     { path: '/Comunicados',        label: 'Comunicados',  icon: Bell },
     { path: '/Dashboard',          label: 'Dashboard',    icon: BarChart2 },
+    { path: '/Sesiones',           label: 'Sesiones',     icon: Radio },
     { path: '/Tiendas',           label: 'Tiendas',   icon: Store },
     { path: '/Productos',         label: 'Productos', icon: Package },
     { path: '/ImportarProductos', label: 'Importar',  icon: Upload },
