@@ -23,10 +23,10 @@ export default function Catalogo() {
   const tienda = perfil?.tiendas || null;
   const grupoTienda = tienda?.grupo || "estacion";
 
-  // Preferencias del usuario
-  const prefPlantilla      = perfil?.pref_plantilla      !== false;
-  const prefAvisosCantidad = perfil?.pref_avisos_cantidad !== false;
-  const prefDoblePedido    = perfil?.pref_doble_pedido    !== false;
+  // Preferencias de la tienda (configuradas por el admin)
+  const prefPlantilla      = tienda?.pref_plantilla           !== false;
+  const prefAvisosCantidad = tienda?.pref_avisos_cantidad      !== false;
+  const prefDoblePedido    = tienda?.pref_doble_pedido_aviso   !== false;
 
   const [productos, setProductos]         = useState([]);
   const [carrito, setCarrito] = useState(() => {

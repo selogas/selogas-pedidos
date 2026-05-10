@@ -1,122 +1,153 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
-import { Settings, Check, Loader2 } from "lucide-react";
+import { SlidersHorizontal, Loader2, Check, Store } from "lucide-react";
 
-function Toggle({ value, onChange, disabled }) {
+function Toggle({ value, onChange }) {
   return (
-    <button
-      onClick={() => !disabled && onChange(!value)}
-      disabled={disabled}
-      className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${
-        value ? "bg-[#00913f]" : "bg-gray-200"
-      } disabled:opacity-50`}
-    >
-      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-        value ? "translate-x-6" : "translate-x-0.5"
-      }`} />
+    <button onClick={() => onChange(!value)}
+      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${value ? "bg-[#00913f]" : "bg-gray-200"}`}>
+      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${value ? "translate-x-5" : "translate-x-0.5"}`} />
     </button>
   );
 }
 
+const OPCIONES = [
+  {
+    key: "pref_plantilla",
+    titulo: "Plantilla de pedido",
+    desc: "Permite guardar y cargar una plantilla de pedido tipo. Aparece la barra de plantilla en el catálogo.",
+    icono: "📋",
+  },
+  {
+    key: "pref_avisos_cantidad",
+    titulo: "Avisos de cantidad histórica",
+    desc: 'Avisa cuando la cantidad pedida es inusual vs la media. Ej: "Sueles pedir 24 uds".',
+    icono: "📊",
+  },
+  {
+    key: "pref_doble_pedido_aviso",
+    titulo: "Aviso de doble pedido semanal",
+    desc: "Avisa cuando un producto ya fue pedido esta semana. Requiere que la tienda tenga Doble Pedido activado.",
+    icono: "🔁",
+  },
+];
+
 export default function Preferencias() {
-  const { perfil, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
+  const [tiendas, setTiendas]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState({});
+  const [saved, setSaved]       = useState({});
 
-  const [prefs, setPrefs] = useState({
-    pref_plantilla:       perfil?.pref_plantilla       !== false,
-    pref_avisos_cantidad: perfil?.pref_avisos_cantidad  !== false,
-    pref_doble_pedido:    perfil?.pref_doble_pedido     !== false,
-  });
-  const [saving, setSaving] = useState(false);
-  const [saved,  setSaved]  = useState(false);
+  useEffect(() => {
+    supabase.from("tiendas")
+      .select("id, nombre, pref_plantilla, pref_avisos_cantidad, pref_doble_pedido_aviso, doble_pedido")
+      .neq("nombre", "PRINCIPAL")
+      .eq("activa", true)
+      .order("nombre")
+      .then(({ data }) => { setTiendas(data || []); setLoading(false); });
+  }, []);
 
-  const handleChange = (key, val) => {
-    setPrefs(p => ({ ...p, [key]: val }));
-    setSaved(false);
+  const handleToggle = async (tiendaId, key, val) => {
+    // Actualizar UI inmediatamente
+    setTiendas(prev => prev.map(t => t.id === tiendaId ? { ...t, [key]: val } : t));
+    setSaving(prev => ({ ...prev, [tiendaId + key]: true }));
+
+    await supabase.from("tiendas").update({ [key]: val }).eq("id", tiendaId);
+
+    setSaving(prev => ({ ...prev, [tiendaId + key]: false }));
+    setSaved(prev => ({ ...prev, [tiendaId]: true }));
+    setTimeout(() => setSaved(prev => ({ ...prev, [tiendaId]: false })), 2000);
   };
 
-  const guardar = async () => {
-    setSaving(true);
-    await supabase.from("perfiles").update(prefs).eq("id", perfil.id);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
-
-  const opciones = [
-    {
-      key:   "pref_plantilla",
-      titulo: "Plantilla de pedido",
-      desc:   "Muestra la barra de plantilla en el catálogo y permite cargar automáticamente los productos guardados al entrar.",
-      icono:  "📋",
-    },
-    {
-      key:   "pref_avisos_cantidad",
-      titulo: "Avisos de cantidad histórica",
-      desc:   "Avisa cuando pides una cantidad inusual respecto a tu media de los últimos 90 días. Ej: «Sueles pedir 24 uds».",
-      icono:  "📊",
-    },
-    {
-      key:   "pref_doble_pedido",
-      titulo: "Aviso de doble pedido semanal",
-      desc:   "Avisa cuando añades al carrito un producto que ya has pedido esta semana, mostrando el día en que se pidió.",
-      icono:  "🔁",
-      soloSi: perfil?.tiendas?.doble_pedido, // solo relevante si la tienda tiene doble_pedido activo
-    },
-  ];
+  // Si no es admin, no tiene acceso
+  if (!isAdmin) return (
+    <div className="max-w-xl mx-auto text-center py-20 text-gray-400">
+      <SlidersHorizontal size={40} className="mx-auto mb-3 opacity-30" />
+      <p>Esta sección es solo para administradores.</p>
+    </div>
+  );
 
   return (
-    <div className="max-w-xl mx-auto">
-      <div className="flex items-center gap-2 mb-6">
-        <Settings size={22} className="text-[#00913f]" />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Preferencias</h1>
-          <p className="text-gray-400 text-sm">Personaliza cómo funciona el catálogo</p>
-        </div>
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center gap-2 mb-2">
+        <SlidersHorizontal size={22} className="text-[#00913f]" />
+        <h1 className="text-2xl font-bold text-gray-900">Preferencias por tienda</h1>
       </div>
+      <p className="text-gray-400 text-sm mb-6">
+        Activa o desactiva las funciones inteligentes del catálogo para cada tienda.
+      </p>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-5">
-        {opciones.map((op, i) => (
-          <div key={op.key}
-            className={`flex items-center gap-4 p-5 ${i > 0 ? "border-t border-gray-100" : ""}`}>
-            <div className="w-10 h-10 rounded-xl bg-[#edf7f2] flex items-center justify-center text-xl flex-shrink-0">
-              {op.icono}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-900 text-sm">{op.titulo}</p>
-              <p className="text-xs text-gray-400 mt-0.5 leading-snug">{op.desc}</p>
-              {op.soloSi === false && (
-                <p className="text-xs text-amber-600 mt-1 font-medium">
-                  ⚠️ Esta opción solo tiene efecto si el admin ha activado "Doble pedido" en tu tienda
-                </p>
-              )}
-            </div>
-            <Toggle
-              value={prefs[op.key]}
-              onChange={(v) => handleChange(op.key, v)}
-            />
+      {/* Cabecera de columnas */}
+      <div className="hidden md:grid grid-cols-[1fr_repeat(3,110px)] gap-2 px-4 mb-2">
+        <div />
+        {OPCIONES.map(op => (
+          <div key={op.key} className="text-center">
+            <div className="text-lg">{op.icono}</div>
+            <div className="text-xs font-semibold text-gray-500 leading-tight mt-0.5">{op.titulo}</div>
           </div>
         ))}
       </div>
 
-      <button
-        onClick={guardar}
-        disabled={saving}
-        className="w-full py-3 bg-[#00913f] text-white rounded-xl font-bold text-sm hover:bg-[#007a34] disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
-      >
-        {saving
-          ? <><Loader2 size={16} className="animate-spin" /> Guardando...</>
-          : saved
-          ? <><Check size={16} /> Guardado correctamente</>
-          : "Guardar preferencias"
-        }
-      </button>
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 size={28} className="animate-spin text-[#00913f]" />
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          {tiendas.map((tienda, i) => (
+            <div key={tienda.id}
+              className={`grid grid-cols-1 md:grid-cols-[1fr_repeat(3,110px)] gap-3 items-center px-5 py-4 ${
+                i > 0 ? "border-t border-gray-100" : ""
+              } hover:bg-gray-50 transition-colors`}>
 
-      {!isAdmin && (
-        <p className="text-xs text-center text-gray-400 mt-3">
-          Estas preferencias son personales — solo afectan a tu cuenta
-        </p>
+              {/* Nombre tienda */}
+              <div className="flex items-center gap-2">
+                <Store size={15} className="text-gray-400 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-sm text-gray-900">{tienda.nombre}</p>
+                  {tienda.doble_pedido && (
+                    <span className="text-xs text-[#00913f] font-medium">Doble pedido activo</span>
+                  )}
+                </div>
+                {saved[tienda.id] && (
+                  <span className="flex items-center gap-1 text-xs text-[#00913f] font-semibold ml-2">
+                    <Check size={12} /> Guardado
+                  </span>
+                )}
+              </div>
+
+              {/* Toggles */}
+              {OPCIONES.map(op => (
+                <div key={op.key} className="flex md:justify-center items-center gap-2">
+                  {/* Label visible solo en móvil */}
+                  <span className="md:hidden text-xs text-gray-500 flex-1">{op.icono} {op.titulo}</span>
+                  <div className="relative">
+                    <Toggle
+                      value={tienda[op.key] !== false}
+                      onChange={(v) => handleToggle(tienda.id, op.key, v)}
+                    />
+                    {saving[tienda.id + op.key] && (
+                      <Loader2 size={10} className="animate-spin text-[#00913f] absolute -top-1 -right-1" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       )}
+
+      {/* Leyenda */}
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+        {OPCIONES.map(op => (
+          <div key={op.key} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+            <p className="text-xs font-semibold text-gray-700 mb-1">{op.icono} {op.titulo}</p>
+            <p className="text-xs text-gray-400 leading-snug">{op.desc}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
