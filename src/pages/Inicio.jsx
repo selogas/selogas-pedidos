@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { supabase } from '../lib/supabase';
 import { TrendingUp, Package, Loader2, Megaphone, Star, Trash2 } from 'lucide-react';
 
 const MEDALLAS = ['🥇','🥈','🥉'];
