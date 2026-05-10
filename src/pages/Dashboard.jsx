@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { TrendingUp, Package, Store, ShoppingCart, Loader2, Download } from "lucide-react";
+import { TrendingUp, Package, Store, ShoppingCart, Loader2, Download, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const COLORES = ["#00a847","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16"];
@@ -13,6 +13,26 @@ export default function Dashboard() {
   const [pedidosPorSemana, setPorSemana] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [exportando, setExportando] = useState(false);
+  const [reseteando, setReseteando] = useState(false);
+
+  const resetearDatos = async () => {
+    if (!confirm("¿Borrar TODOS los pedidos de prueba?\nEsto eliminará pedidos, líneas de pedido y sesiones activas.\n\nEsta acción NO se puede deshacer.")) return;
+    const confirma = prompt('Escribe BORRAR para confirmar:');
+    if (confirma !== 'BORRAR') { alert('Cancelado.'); return; }
+    setReseteando(true);
+    try {
+      await supabase.from('pedido_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('pedidos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('sesiones_activas').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      // Invalidar caché
+      Object.keys(localStorage).filter(k => k.startsWith('selogas_cat_')).forEach(k => localStorage.removeItem(k));
+      alert('✅ Datos de prueba eliminados correctamente.');
+      cargar();
+    } catch(e) {
+      alert('Error: ' + e.message);
+    }
+    setReseteando(false);
+  };
   const [uso, setUso] = useState(null);
   const [rango, setRango]           = useState(30); // días
 
@@ -137,6 +157,11 @@ export default function Dashboard() {
               {d} días
             </button>
           ))}
+          <button onClick={resetearDatos} disabled={reseteando}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50">
+            {reseteando ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+            Reset datos
+          </button>
           <button onClick={exportarExcel} disabled={exportando}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 disabled:opacity-50">
             {exportando ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
