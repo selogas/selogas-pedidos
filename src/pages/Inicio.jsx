@@ -1,13 +1,27 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { TrendingUp, Package, Loader2, Megaphone, Star } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { TrendingUp, Package, Loader2, Megaphone, Star, Trash2 } from 'lucide-react';
 
 const MEDALLAS = ['🥇','🥈','🥉'];
 
-function TopProductos() {
-  const [top, setTop]       = useState([]);
-  const [loading, setLoading] = useState(true);
+function TopProductos({ isAdmin }) {
+  const [top, setTop]         = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [reseteando, setReseteando] = useState(false);
+
+  const resetearTopProductos = async () => {
+    if (!confirm("¿Borrar todos los pedidos de prueba?\nEsto eliminará pedidos, líneas y sesiones activas.\nEsta acción NO se puede deshacer.")) return;
+    const confirma = prompt("Escribe BORRAR para confirmar:");
+    if (confirma !== "BORRAR") { alert("Cancelado."); return; }
+    setReseteando(true);
+    await supabase.from("pedido_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    await supabase.from("pedidos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    await supabase.from("sesiones_activas").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setTop([]);
+    setReseteando(false);
+  };
 
   useEffect(() => {
     const cargar = async () => {
@@ -70,6 +84,14 @@ function TopProductos() {
         <TrendingUp size={18} className="text-[#00913f]" />
         <h2 className="font-bold text-gray-900">Productos más vendidos</h2>
         <span className="text-xs text-gray-400 ml-1">últimos 90 días · todas las tiendas</span>
+        {isAdmin && (
+          <button onClick={resetearTopProductos} disabled={reseteando}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-100 disabled:opacity-50 transition-colors"
+            title="Borrar todos los pedidos de prueba">
+            {reseteando ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+            Reset datos prueba
+          </button>
+        )}
       </div>
 
       <div className="divide-y divide-gray-50">
@@ -166,7 +188,7 @@ export default function Inicio() {
       </div>
 
       {/* Top productos — visible para todos */}
-      <TopProductos />
+      <TopProductos isAdmin={isAdmin} />
 
       {/* Comunicados */}
       {loading ? (
