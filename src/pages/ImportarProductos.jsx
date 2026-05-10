@@ -2599,26 +2599,31 @@ export default function ImportarProductos() {
 
       setProgress(`Importando ${productos.length} productos...`);
 
-      // Obtener códigos existentes para omitirlos
-      const { data: existentes } = await supabase.from("productos").select("codigo");
-      const codigosExistentes = new Set((existentes || []).map(p => p.codigo));
+      // Obtener productos existentes (id + codigo) para upsert correcto
+      const { data: existentes } = await supabase.from("productos").select("id, codigo");
+      const mapaExistentes = {};
+      (existentes || []).forEach(p => { mapaExistentes[p.codigo] = p.id; });
 
-      const nuevos = productos.filter(p => !codigosExistentes.has(p.codigo));
-      const omitidos = productos.length - nuevos.length;
-
-      // Insertar en lotes de 100
-      let insertados = 0;
-      for (let i = 0; i < nuevos.length; i += 100) {
-        const lote = nuevos.slice(i, i + 100);
-        const { error: e } = await supabase.from("productos").insert(lote);
-        if (e) throw e;
-        insertados += lote.length;
-        setProgress(`Insertando... ${insertados}/${nuevos.length}`);
+      let insertados = 0, actualizados = 0;
+      for (let i = 0; i < productos.length; i += 100) {
+        const lote = productos.slice(i, i + 100);
+        for (const prod of lote) {
+          const existeId = mapaExistentes[prod.codigo];
+          if (existeId) {
+            // Actualizar nombre si el código ya existe
+            await supabase.from("productos").update({ nombre: prod.nombre }).eq("id", existeId);
+            actualizados++;
+          } else {
+            await supabase.from("productos").insert([prod]);
+            insertados++;
+          }
+        }
+        setProgress(`Procesando... ${insertados + actualizados}/${productos.length}`);
       }
 
       // Invalidar caché
       try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
-      setResult({ total: insertados, omitidos });
+      setResult({ total: insertados, actualizados });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2661,23 +2666,28 @@ export default function ImportarProductos() {
       if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
       setProgress(`Actualizando posición de ${productos.length} productos...`);
 
+      // Obtener todos los productos existentes de una sola query
+      const { data: todosProds } = await supabase.from("productos").select("id, codigo");
+      const mapaCodigos = {};
+      (todosProds || []).forEach(p => { mapaCodigos[p.codigo] = p.id; });
+
       let actualizados = 0;
       let noEncontrados = 0;
 
-      for (const p of productos) {
-        const { data: found } = await supabase
-          .from("productos")
-          .select("id")
-          .eq("codigo", p.codigo)
-          .single();
-
-        if (!found) { noEncontrados++; continue; }
-
-        await supabase.from("productos").update({
-          columna_excel: p.columna_excel,
-          orden_excel:   p.orden_excel,
-        }).eq("id", found.id);
-        actualizados++;
+      // Actualizar en lotes de 50
+      const loteSize = 50;
+      for (let i = 0; i < productos.length; i += loteSize) {
+        const lote = productos.slice(i, i + loteSize);
+        for (const p of lote) {
+          const prodId = mapaCodigos[p.codigo];
+          if (!prodId) { noEncontrados++; continue; }
+          await supabase.from("productos").update({
+            columna_excel: p.columna_excel,
+            orden_excel:   p.orden_excel,
+          }).eq("id", prodId);
+          actualizados++;
+        }
+        setProgress(`Actualizando... ${Math.min(i + loteSize, productos.length)}/${productos.length}`);
       }
 
       // Invalidar caché
@@ -2816,8 +2826,8 @@ export default function ImportarProductos() {
           {result && !result.tipo && (
             <div className="mt-4 p-3 bg-green-50 rounded-xl text-green-700 text-sm flex items-center gap-2">
               <CheckCircle size={15} />
-              <span>✅ <strong>{result.total} productos</strong> importados correctamente.
-              {result.omitidos > 0 && ` ${result.omitidos} omitidos (código ya existía).`}</span>
+              <span>✅ <strong>{result.total} nuevos</strong> insertados.
+              {result.actualizados > 0 && ` <strong>${result.actualizados}</strong> actualizados (nombre).`}</span>
             </div>
           )}
         </div>

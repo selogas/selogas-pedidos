@@ -735,9 +735,25 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
     formato: producto.formato||'', multiplo: producto.multiplo||1, imagen_url: producto.imagen_url||'',
     descripcion: producto.descripcion||'', disponible: producto.disponible!==false, grupo_visualizacion: producto.grupo_visualizacion||'ambos',
   } : { nombre:'', codigo:'', categoria_id:'', formato:'', multiplo:1, imagen_url:'', descripcion:'', disponible:true, grupo_visualizacion:'ambos' });
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving]               = useState(false);
+  const [uploading, setUploading]         = useState(false);
   const [buscandoImagen, setBuscandoImagen] = useState(false);
+  const [tiendas, setTiendas]             = useState([]);
+  const [tiendasSelec, setTiendasSelec]   = useState(new Set());
+
+  // Cargar tiendas y asignaciones actuales al montar
+  useEffect(() => {
+    supabase.from("tiendas").select("id, nombre").eq("activa", true)
+      .neq("nombre", "PRINCIPAL").order("nombre")
+      .then(({ data }) => setTiendas(data || []));
+
+    if (producto?.id && producto?.grupo_visualizacion === "especifico") {
+      supabase.from("producto_tiendas").select("tienda_id").eq("producto_id", producto.id)
+        .then(({ data }) => {
+          if (data?.length) setTiendasSelec(new Set(data.map(r => r.tienda_id)));
+        });
+    }
+  }, []);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -750,18 +766,43 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
 
   const handleSave = async () => {
     if (!form.nombre.trim()) { alert('El nombre es obligatorio'); return; }
+    if (form.grupo_visualizacion === 'especifico' && tiendasSelec.size === 0) {
+      alert('Selecciona al menos una tienda específica.'); return;
+    }
     setSaving(true);
     const payload = { ...form, categoria_id: form.categoria_id || null };
+    let prodId = producto?.id;
     if (modo === 'crear') {
       const { data, error } = await supabase.from('productos').insert([payload]).select().single();
+      if (error) { setSaving(false); alert('Error: ' + error.message); return; }
+      prodId = data.id;
+      await guardarTiendasEspecificas(prodId);
       setSaving(false);
-      if (!error) onSave(data, 'crear'); else alert('Error: ' + error.message);
+      onSave(data, 'crear');
     } else {
-      const { error } = await supabase.from('productos').update(payload).eq('id', producto.id);
+      const { error } = await supabase.from('productos').update(payload).eq('id', prodId);
+      if (error) { setSaving(false); alert('Error: ' + error.message); return; }
+      await guardarTiendasEspecificas(prodId);
       setSaving(false);
-      if (!error) onSave({ ...producto, ...payload }, 'editar'); else alert('Error: ' + error.message);
+      onSave({ ...producto, ...payload }, 'editar');
+    }
+    try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
+  };
+
+  const guardarTiendasEspecificas = async (prodId) => {
+    // Siempre limpiar asignaciones anteriores
+    await supabase.from("producto_tiendas").delete().eq("producto_id", prodId);
+    if (form.grupo_visualizacion === "especifico" && tiendasSelec.size > 0) {
+      const filas = [...tiendasSelec].map(tid => ({ producto_id: prodId, tienda_id: tid }));
+      await supabase.from("producto_tiendas").insert(filas);
     }
   };
+
+  const toggleTienda = (id) => setTiendasSelec(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   return (
     <>
@@ -784,6 +825,28 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
                 {GRUPOS.map(g => <button key={g.value} onClick={() => setForm(f => ({...f, grupo_visualizacion: g.value}))} className={`flex flex-col items-center p-3 rounded-xl border-2 text-center transition-all ${form.grupo_visualizacion === g.value ? 'border-[#00913f] bg-[#edf7f2]' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-sm font-bold">{g.label}</span><span className="text-xs text-gray-500 mt-0.5">{g.desc}</span></button>)}
               </div>
             </div>
+
+            {/* Panel tiendas específicas */}
+            {form.grupo_visualizacion === 'especifico' && (
+              <div className="border-2 border-amber-200 bg-amber-50 rounded-xl p-3">
+                <p className="text-xs font-bold text-amber-800 mb-2">
+                  🎯 Tiendas que pueden ver este producto
+                  {tiendasSelec.size > 0 && <span className="ml-2 bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">{tiendasSelec.size} seleccionadas</span>}
+                </p>
+                <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto">
+                  {tiendas.map(t => (
+                    <label key={t.id} className={`flex items-center gap-2 text-xs cursor-pointer rounded-lg p-1.5 transition-colors ${tiendasSelec.has(t.id) ? "bg-amber-100 font-semibold text-amber-900" : "hover:bg-amber-100 text-gray-700"}`}>
+                      <input type="checkbox" checked={tiendasSelec.has(t.id)} onChange={() => toggleTienda(t.id)} className="rounded flex-shrink-0" />
+                      <span className="truncate">{t.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+                {tiendasSelec.size === 0 && (
+                  <p className="text-xs text-amber-600 mt-1.5">⚠️ Ninguna seleccionada — el producto no será visible para nadie</p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
               <div className="flex gap-3 items-start">
