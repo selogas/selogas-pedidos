@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { ShoppingCart, Search, Package, Loader2, CheckCircle } from "lucide-react";
@@ -46,6 +46,7 @@ export default function Catalogo() {
   const [enviando, setEnviando]           = useState(false);
   const [exito, setExito]                 = useState(null);
   const [sugerencias, setSugerencias]     = useState([]);
+  const scrollCatRef = useRef(null);
   const [pedidoEstaSemanaPorProducto, setPedidoEstaSemanaPorProducto] = useState({}); // {producto_id: [fecha1, fecha2]}
   const [mediasPorProducto, setMediasPorProducto] = useState({}); // {producto_id: { media, numPedidos }}
   const [favoritos, setFavoritos]       = useState(new Set()); // Set de producto_id
@@ -522,31 +523,52 @@ export default function Catalogo() {
         </button>
       </div>
 
-      {/* Filtros de categoría */}
+      {/* Filtros de categoría con scroll y flechas */}
       {categorias.length > 0 && (
-        <div className="mb-6 flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+        <div className="mb-6 relative">
+          {/* Flecha izquierda */}
           <button
-            onClick={() => setCategoriaActiva("__todas__")}
-            className={`flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm ${
-              categoriaActiva === "__todas__"
-                ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
-                : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
-            }`}
+            onClick={() => scrollCatRef.current?.scrollBy({ left: -200, behavior: "smooth" })}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full shadow flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:shadow-md transition-all"
+            style={{ marginTop: "-4px" }}
+          >‹</button>
+
+          {/* Scroll container */}
+          <div
+            ref={scrollCatRef}
+            className="flex gap-3 overflow-x-auto px-10 pb-2"
+            style={{ scrollbarWidth: "thin", scrollbarColor: "#cbd5e1 transparent" }}
           >
-            📦 Todas
-          </button>
-          {categorias.map(cat => (
             <button
-              key={cat.id} onClick={() => setCategoriaActiva(cat.id)}
-              className={`flex-shrink-0 px-5 py-3 rounded-2xl border-2 font-bold text-base transition-all shadow-sm ${
-                categoriaActiva === cat.id
+              onClick={() => setCategoriaActiva("__todas__")}
+              className={`flex-shrink-0 px-4 py-2.5 rounded-2xl border-2 font-bold text-sm transition-all shadow-sm ${
+                categoriaActiva === "__todas__"
                   ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
                   : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
               }`}
             >
-              {getCatEmoji(cat.nombre)} {cat.nombre}
+              📦 Todas
             </button>
-          ))}
+            {categorias.map(cat => (
+              <button
+                key={cat.id} onClick={() => setCategoriaActiva(cat.id)}
+                className={`flex-shrink-0 px-4 py-2.5 rounded-2xl border-2 font-bold text-sm transition-all shadow-sm ${
+                  categoriaActiva === cat.id
+                    ? "border-blue-600 bg-blue-600 text-white shadow-blue-200"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                }`}
+              >
+                {getCatEmoji(cat.nombre)} {cat.nombre}
+              </button>
+            ))}
+          </div>
+
+          {/* Flecha derecha */}
+          <button
+            onClick={() => scrollCatRef.current?.scrollBy({ left: 200, behavior: "smooth" })}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full shadow flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:shadow-md transition-all"
+            style={{ marginTop: "-4px" }}
+          >›</button>
         </div>
       )}
 
