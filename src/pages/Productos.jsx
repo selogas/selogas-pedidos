@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Upload, ChevronRight, FolderOpen, Tag, Check } from "lucide-react";
+import { Search, Package, Loader2, Pencil, ToggleLeft, ToggleRight, Plus, Trash2, X, Upload, ChevronRight, FolderOpen, Tag, Check, Layers } from "lucide-react";
 
 function CardImagen({ prod, gi, onEliminar }) {
   const [hover, setHover] = useState(false);
@@ -329,6 +329,169 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
   );
 }
 
+function CambiarGrupoModal({ productos, onClose, onChanged }) {
+  const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [busqueda, setBusqueda]               = useState("");
+  const [seleccion, setSeleccion]             = useState(new Set());
+  const [grupoDestino, setGrupoDestino]       = useState("");
+  const [saving, setSaving]                   = useState(false);
+
+  const GRUPOS = [
+    { value: "estacion",  label: "🏪 Estación" },
+    { value: "cafeteria", label: "☕ Cafetería" },
+    { value: "ambos",     label: "📦 Ambos" },
+  ];
+
+  const categorias = [...new Map(
+    productos.filter(p => p.categoria_id && p.categorias?.nombre)
+      .map(p => [p.categoria_id, { id: p.categoria_id, nombre: p.categorias.nombre }])
+  ).values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  const productosFiltrados = useMemo(() => {
+    let lista = productos;
+    if (filtroCategoria) lista = lista.filter(p => p.categoria_id === filtroCategoria);
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase();
+      lista = lista.filter(p =>
+        p.nombre?.toLowerCase().includes(q) ||
+        p.codigo?.toLowerCase().includes(q)
+      );
+    }
+    return lista;
+  }, [productos, filtroCategoria, busqueda]);
+
+  const toggleSeleccion = (id) => {
+    setSeleccion(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleVisibles = () => {
+    const ids = productosFiltrados.map(p => p.id);
+    const todosSeleccionados = ids.every(id => seleccion.has(id));
+    setSeleccion(prev => {
+      const next = new Set(prev);
+      if (todosSeleccionados) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
+  const handleGuardar = async () => {
+    if (!seleccion.size || !grupoDestino) return;
+    setSaving(true);
+    await supabase.from("productos")
+      .update({ grupo_visualizacion: grupoDestino })
+      .in("id", [...seleccion]);
+    try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
+    setSaving(false);
+    onChanged();
+  };
+
+  const todosVisiblesSeleccionados = productosFiltrados.length > 0 &&
+    productosFiltrados.every(p => seleccion.has(p.id));
+
+  const GRUPO_BADGE = { estacion: "bg-blue-100 text-blue-700", cafeteria: "bg-orange-100 text-orange-700", ambos: "bg-purple-100 text-purple-700" };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 max-h-[90vh] flex flex-col gap-3">
+
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg flex items-center gap-2"><Layers size={18} /> Cambiar grupo masivo</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X size={18} /></button>
+        </div>
+
+        {/* Destino */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Asignar grupo a los seleccionados</label>
+          <div className="flex gap-2">
+            {GRUPOS.map(g => (
+              <button key={g.value} onClick={() => setGrupoDestino(g.value)}
+                className={`flex-1 py-2 rounded-xl border-2 text-sm font-bold transition-all ${
+                  grupoDestino === g.value
+                    ? "border-[#00913f] bg-[#edf7f2] text-[#00913f]"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}>
+                {g.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Filtros */}
+        <div className="grid grid-cols-2 gap-2">
+          <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
+            className="border rounded-xl px-3 py-2 text-sm">
+            <option value="">Todas las categorías</option>
+            {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar..." className="w-full border rounded-xl pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-[#00913f]" />
+          </div>
+        </div>
+
+        {/* Contador */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            {productosFiltrados.length} visibles ·{" "}
+            <span className="font-semibold text-[#00913f]">{seleccion.size} seleccionados</span>
+            {seleccion.size > 0 && (
+              <button onClick={() => setSeleccion(new Set())} className="ml-2 text-red-400 hover:text-red-600 underline">
+                limpiar
+              </button>
+            )}
+          </span>
+          <button onClick={toggleVisibles} className="text-xs text-[#00913f] hover:underline">
+            {todosVisiblesSeleccionados ? "Deseleccionar visibles" : "Seleccionar visibles"}
+          </button>
+        </div>
+
+        {/* Lista */}
+        <div className="overflow-y-auto flex-1 border rounded-xl divide-y min-h-[200px]">
+          {productosFiltrados.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-400 text-sm py-8">No hay productos</div>
+          ) : productosFiltrados.map(prod => (
+            <label key={prod.id}
+              className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
+                seleccion.has(prod.id) ? "bg-[#edf7f2]" : "hover:bg-gray-50"
+              }`}>
+              <input type="checkbox" checked={seleccion.has(prod.id)}
+                onChange={() => toggleSeleccion(prod.id)} className="rounded flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm truncate font-medium">{prod.nombre}</p>
+                {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
+              </div>
+              {prod.grupo_visualizacion && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${GRUPO_BADGE[prod.grupo_visualizacion] || "bg-gray-100 text-gray-500"}`}>
+                  {prod.grupo_visualizacion}
+                </span>
+              )}
+              {seleccion.has(prod.id) && <span className="text-[#00913f] flex-shrink-0">✓</span>}
+            </label>
+          ))}
+        </div>
+
+        {/* Botones */}
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">
+            Cancelar
+          </button>
+          <button onClick={handleGuardar} disabled={saving || !seleccion.size || !grupoDestino}
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] disabled:opacity-50 flex items-center justify-center gap-2">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+            Asignar grupo {seleccion.size > 0 ? `(${seleccion.size})` : ""}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
   const [origen, setOrigen]     = useState("");
   const [destino, setDestino]   = useState("");
@@ -599,7 +762,8 @@ export default function Productos() {
   const [creando, setCreando] = useState(false);
   const [filtroGrupo, setFiltroGrupo] = useState("__todos__");
   const [gestionCat, setGestionCat] = useState(false);
-  const [moverCat, setMoverCat] = useState(false);
+  const [moverCat, setMoverCat]       = useState(false);
+  const [cambiarGrupo, setCambiarGrupo] = useState(false);
   const [subirImagenes, setSubirImagenes] = useState(false);
 
   const cargar = async () => {
@@ -648,6 +812,7 @@ export default function Productos() {
     <div>
       {(editando || creando) && <ProductoModal producto={editando} categorias={categorias} onClose={() => { setEditando(null); setCreando(false); }} onSave={handleSave} modo={creando ? 'crear' : 'editar'} />}
       {gestionCat && <GestionCategorias categorias={categorias} onClose={() => setGestionCat(false)} onUpdated={() => { setGestionCat(false); cargar(); }} />}
+      {cambiarGrupo && <CambiarGrupoModal productos={productos} onClose={() => setCambiarGrupo(false)} onChanged={() => { setCambiarGrupo(false); cargar(); }} />}
       {moverCat && <MoverCategoriaModal productos={productos} categorias={categorias} onClose={() => setMoverCat(false)} onMoved={() => { setMoverCat(false); cargar(); }} />}
       {subirImagenes && <SubirImagenesModal productos={productos} onClose={() => setSubirImagenes(false)} onDone={cargar} />}
 
@@ -658,6 +823,7 @@ export default function Productos() {
             <Upload size={15} /> Subir Im&aacute;genes
           </button>
           <button onClick={() => setMoverCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><FolderOpen size={15} /> Mover</button>
+          <button onClick={() => setCambiarGrupo(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><Layers size={15} /> Grupo</button>
           <button onClick={() => setGestionCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><Tag size={15} /> Categor&iacute;as</button>
           <button onClick={() => setCreando(true)} className="flex items-center gap-2 px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] shadow"><Plus size={16} /> Nuevo producto</button>
         </div>
