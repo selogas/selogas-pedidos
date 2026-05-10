@@ -50,18 +50,18 @@ function ComunicadoModal({ com, onClose, onSave }) {
         <div className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">T&iacute;tulo *</label>
-            <input className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+            <input className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
               value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))} placeholder="T\u00EDtulo del comunicado" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Texto</label>
-            <textarea className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:border-blue-400"
+            <textarea className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:border-[#00c254]"
               rows={4} value={form.texto} onChange={e => setForm(f => ({...f, texto: e.target.value}))} placeholder="Contenido del comunicado..." />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Imagen</label>
             <div className="flex gap-2">
-              <input className="flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              <input className="flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
                 value={form.imagen_url || ''} onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))} placeholder="URL de imagen..." />
               <label className="px-3 py-2.5 rounded-xl border border-dashed border-gray-300 cursor-pointer hover:bg-gray-50 text-sm text-gray-500 flex items-center gap-1">
                 {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
@@ -82,13 +82,13 @@ function ComunicadoModal({ com, onClose, onSave }) {
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Orden</label>
-            <input type="number" className="w-32 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+            <input type="number" className="w-32 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
               value={form.orden || 0} onChange={e => setForm(f => ({...f, orden: Number(e.target.value)}))} />
           </div>
         </div>
         <div className="flex gap-3 p-6 border-t">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 disabled:opacity-60 flex items-center justify-center gap-2">
+          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#00913f] disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
@@ -150,7 +150,7 @@ export default function Inicio() {
           <p className="text-gray-400 text-sm mt-0.5">Comunicados y noticias</p>
         </div>
         {isAdmin && (
-          <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 shadow-sm">
+          <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34] shadow-sm">
             <Plus size={18} />
             Nuevo comunicado
           </button>
@@ -167,7 +167,7 @@ export default function Inicio() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 size={32} className="animate-spin text-blue-600" />
+          <Loader2 size={32} className="animate-spin text-[#00913f]" />
         </div>
       ) : comunicados.length === 0 ? (
         <div className="text-center py-20">
@@ -201,7 +201,7 @@ export default function Inicio() {
                         className={`p-1.5 rounded-lg hover:bg-gray-100 ${com.visible ? 'text-green-600' : 'text-gray-400'}`}>
                         {com.visible ? <Eye size={16} /> : <EyeOff size={16} />}
                       </button>
-                      <button onClick={() => setModal(com)} className="p-1.5 rounded-lg hover:bg-gray-100 text-blue-500">
+                      <button onClick={() => setModal(com)} className="p-1.5 rounded-lg hover:bg-gray-100 text-[#00a847]">
                         <Pencil size={16} />
                       </button>
                       <button onClick={() => handleDelete(com.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400">

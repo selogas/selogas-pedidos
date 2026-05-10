@@ -32,7 +32,7 @@ function CardImagen({ prod, gi, onEliminar }) {
 
 const GRUPOS = [
   { value: 'ambas', label: '\uD83D\uDCE6 Ambas', desc: 'Todos lo ven', color: 'bg-purple-100 text-purple-700' },
-  { value: 'estacion', label: '\uD83C\uDFEA Estaci\u00F3n', desc: 'Solo estaciones', color: 'bg-blue-100 text-blue-700' },
+  { value: 'estacion', label: '\uD83C\uDFEA Estaci\u00F3n', desc: 'Solo estaciones', color: 'bg-[#d9f0e4] text-[#007a34]' },
   { value: 'cafeteria', label: '\u2615 Cafeter\u00EDa', desc: 'Solo cafeter\u00EDas', color: 'bg-orange-100 text-orange-700' },
 ];
 
@@ -98,11 +98,11 @@ function SubirImagenesModal({ productos, onClose, onDone }) {
           {fase === "inicio" && (
             <div>
               <p className="text-sm text-gray-500 mb-5">Selecciona una carpeta. El <strong>nombre de cada archivo</strong> debe ser el <strong>c&oacute;digo del producto</strong> (ej: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">856607.jpg</code>). Se asociar&aacute;n autom&aacute;ticamente.</p>
-              <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-blue-400 cursor-pointer transition-colors" onClick={() => inputRef.current?.click()}>
+              <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-[#00c254] cursor-pointer transition-colors" onClick={() => inputRef.current?.click()}>
                 <FolderOpen size={48} className="mx-auto mb-3 text-gray-300" />
                 <p className="font-semibold text-gray-600 mb-1">Seleccionar carpeta de im&aacute;genes</p>
                 <p className="text-sm text-gray-400 mb-4">Haz clic o arrastra aqu&iacute;</p>
-                <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm"><FolderOpen size={16} /> Elegir carpeta</div>
+                <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm"><FolderOpen size={16} /> Elegir carpeta</div>
               </div>
               <input ref={inputRef} type="file" multiple accept="image/*" webkitdirectory="" directory="" className="hidden" onChange={handleSeleccion} />
             </div>
@@ -130,9 +130,9 @@ function SubirImagenesModal({ productos, onClose, onDone }) {
           )}
           {fase === "subiendo" && (
             <div className="text-center py-10">
-              <Loader2 size={40} className="animate-spin mx-auto mb-3 text-blue-600" />
+              <Loader2 size={40} className="animate-spin mx-auto mb-3 text-[#00913f]" />
               <p className="font-bold text-gray-700 mb-4">Subiendo im&aacute;genes... {progreso}%</p>
-              <div className="w-full bg-gray-100 rounded-full h-3"><div className="bg-blue-600 h-3 rounded-full transition-all" style={{ width: progreso + "%" }} /></div>
+              <div className="w-full bg-gray-100 rounded-full h-3"><div className="bg-[#00913f] h-3 rounded-full transition-all" style={{ width: progreso + "%" }} /></div>
             </div>
           )}
           {fase === "hecho" && (
@@ -147,7 +147,7 @@ function SubirImagenesModal({ productos, onClose, onDone }) {
         </div>
         <div className="p-4 border-t flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">{fase === "hecho" ? "Cerrar" : "Cancelar"}</button>
-          {fase === "preview" && <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={16} /> Subir {listos.length} im&aacute;genes</button>}
+          {fase === "preview" && <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm hover:bg-[#007a34] disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={16} /> Subir {listos.length} im&aacute;genes</button>}
           {fase === "hecho" && exitosos.length > 0 && <button onClick={() => { onDone(); onClose(); }} className="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700">Actualizar lista</button>}
         </div>
       </div>
@@ -187,17 +187,17 @@ function BuscarImagenPanel({ nombre, onSelect, onClose }) {
         </div>
         <div className="flex gap-2 mb-4">
           <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && buscar(query)} placeholder="Nombre del producto..." className="flex-1 border rounded-xl px-4 py-2 text-sm" />
-          <button onClick={() => buscar(query)} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
+          <button onClick={() => buscar(query)} disabled={loading} className="px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] disabled:opacity-60 flex items-center gap-2">
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
           </button>
         </div>
         {error && <div className="mb-3"><p className="text-sm text-amber-600 mb-2">{error}</p><div className="flex gap-2"><input type="text" value={manualUrl} onChange={e => setManualUrl(e.target.value)} placeholder="Pega aqu&iacute; la URL..." className="flex-1 border rounded-xl px-4 py-2 text-sm" /><button onClick={() => { if (manualUrl.trim()) onSelect(manualUrl.trim()); }} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold">Usar</button></div></div>}
-        {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-blue-500" /></div>}
+        {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>}
         {!loading && results.length > 0 && (
           <div className="overflow-y-auto flex-1">
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {results.map((img, i) => (
-                <button key={i} onClick={() => onSelect(img.url)} className="group relative rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-500 bg-gray-50 aspect-square flex items-center justify-center">
+                <button key={i} onClick={() => onSelect(img.url)} className="group relative rounded-xl overflow-hidden border-2 border-transparent hover:border-[#00a847] bg-gray-50 aspect-square flex items-center justify-center">
                   <img src={img.url} alt={img.name} className="w-full h-full object-contain p-1" onError={e => { e.target.parentElement.style.display = "none"; }} />
                 </button>
               ))}
@@ -266,10 +266,10 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
             onChange={e => setNuevaNombre(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleCrear()}
             placeholder="Nueva categoría..."
-            className="flex-1 border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-400"
+            className="flex-1 border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-[#00c254]"
           />
           <button onClick={handleCrear} disabled={saving || !nuevaNombre.trim()}
-            className="px-3 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50">
+            className="px-3 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] disabled:opacity-50">
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
           </button>
         </div>
@@ -292,7 +292,7 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
                       if (e.key === "Enter") guardarEdicion(cat.id);
                       if (e.key === "Escape") cancelarEdicion();
                     }}
-                    className="flex-1 border border-blue-400 rounded-lg px-2.5 py-1 text-sm focus:outline-none bg-blue-50"
+                    className="flex-1 border border-[#00c254] rounded-lg px-2.5 py-1 text-sm focus:outline-none bg-[#edf7f2]"
                   />
                   <button onClick={() => guardarEdicion(cat.id)}
                     className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg flex-shrink-0" title="Guardar">
@@ -308,7 +308,7 @@ function GestionCategorias({ categorias, onClose, onUpdated }) {
                 <>
                   <span className="flex-1 text-sm font-medium truncate">{cat.nombre}</span>
                   <button onClick={() => iniciarEdicion(cat)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" title="Editar nombre">
+                    className="p-1.5 text-gray-400 hover:text-[#00913f] hover:bg-[#edf7f2] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" title="Editar nombre">
                     <Pencil size={13} />
                   </button>
                   <button onClick={() => handleEliminar(cat)}
@@ -435,7 +435,7 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre o código..."
-            className="w-full border rounded-xl pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border rounded-xl pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
           />
           {busqueda && (
             <button onClick={() => setBusqueda("")}
@@ -449,14 +449,14 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-500">
             {productosFiltrados.length} visibles ·{" "}
-            <span className="font-semibold text-blue-600">{seleccion.size} seleccionados</span>
+            <span className="font-semibold text-[#00913f]">{seleccion.size} seleccionados</span>
             {seleccion.size > 0 && (
               <button onClick={limpiarSeleccion} className="ml-2 text-red-400 hover:text-red-600 underline">
                 limpiar
               </button>
             )}
           </span>
-          <button onClick={toggleVisibles} className="text-xs text-blue-600 hover:underline">
+          <button onClick={toggleVisibles} className="text-xs text-[#00913f] hover:underline">
             {todosVisiblesSeleccionados ? "Deseleccionar visibles" : "Seleccionar visibles"}
           </button>
         </div>
@@ -471,7 +471,7 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
             productosFiltrados.map(prod => (
               <label key={prod.id}
                 className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
-                  seleccion.has(prod.id) ? "bg-blue-50" : "hover:bg-gray-50"
+                  seleccion.has(prod.id) ? "bg-[#edf7f2]" : "hover:bg-gray-50"
                 }`}>
                 <input type="checkbox" checked={seleccion.has(prod.id)}
                   onChange={() => toggleSeleccion(prod.id)} className="rounded flex-shrink-0" />
@@ -483,7 +483,7 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
                   {prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}
                 </div>
                 {seleccion.has(prod.id) && (
-                  <span className="text-blue-500 flex-shrink-0">✓</span>
+                  <span className="text-[#00a847] flex-shrink-0">✓</span>
                 )}
               </label>
             ))
@@ -498,7 +498,7 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
           </button>
           <button onClick={handleMover}
             disabled={moving || !seleccion.size || !destino}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] disabled:opacity-50 flex items-center justify-center gap-2">
             {moving ? <Loader2 size={15} className="animate-spin" /> : <ChevronRight size={15} />}
             Mover {seleccion.size > 0 ? `(${seleccion.size})` : ""}
           </button>
@@ -560,7 +560,7 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilidad</label>
               <div className="grid grid-cols-3 gap-2">
-                {GRUPOS.map(g => <button key={g.value} onClick={() => setForm(f => ({...f, grupo_visualizacion: g.value}))} className={`flex flex-col items-center p-3 rounded-xl border-2 text-center transition-all ${form.grupo_visualizacion === g.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-sm font-bold">{g.label}</span><span className="text-xs text-gray-500 mt-0.5">{g.desc}</span></button>)}
+                {GRUPOS.map(g => <button key={g.value} onClick={() => setForm(f => ({...f, grupo_visualizacion: g.value}))} className={`flex flex-col items-center p-3 rounded-xl border-2 text-center transition-all ${form.grupo_visualizacion === g.value ? 'border-[#00913f] bg-[#edf7f2]' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-sm font-bold">{g.label}</span><span className="text-xs text-gray-500 mt-0.5">{g.desc}</span></button>)}
               </div>
             </div>
             <div>
@@ -568,20 +568,20 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
               <div className="flex gap-3 items-start">
                 <div className="w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">{form.imagen_url ? <img src={form.imagen_url} alt="" className="w-full h-full object-contain p-1" /> : <Package size={32} className="text-gray-300" />}</div>
                 <div className="flex-1 space-y-2">
-                  <button onClick={() => setBuscandoImagen(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 font-semibold hover:bg-blue-100">Buscar en internet</button>
-                  <label className="cursor-pointer flex items-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-600 hover:border-blue-400">{uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{uploading ? "Subiendo..." : "Subir imagen"}<input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} /></label>
+                  <button onClick={() => setBuscandoImagen(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#edf7f2] border border-[#b3dfc4] rounded-xl text-sm text-[#007a34] font-semibold hover:bg-[#d9f0e4]">Buscar en internet</button>
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-600 hover:border-[#00c254]">{uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{uploading ? "Subiendo..." : "Subir imagen"}<input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} /></label>
                   <input type="text" value={form.imagen_url} onChange={e => setForm(f => ({...f, imagen_url: e.target.value}))} placeholder="O pega una URL..." className="w-full text-xs border rounded-lg px-3 py-1.5 text-gray-600" />
                 </div>
               </div>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <div><div className="text-sm font-semibold text-gray-700">Disponible</div><div className="text-xs text-gray-400">Visible en el cat&aacute;logo</div></div>
-              <button onClick={() => setForm(f => ({...f, disponible: !f.disponible}))} className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-blue-600" : "bg-gray-300"}`}><span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.disponible ? "translate-x-6" : "translate-x-0.5"}`} /></button>
+              <button onClick={() => setForm(f => ({...f, disponible: !f.disponible}))} className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-[#00913f]" : "bg-gray-300"}`}><span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.disponible ? "translate-x-6" : "translate-x-0.5"}`} /></button>
             </div>
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
-            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-70">{saving ? "Guardando..." : modo === 'crear' ? "Crear producto" : "Guardar cambios"}</button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#00913f] hover:bg-[#007a34] disabled:opacity-70">{saving ? "Guardando..." : modo === 'crear' ? "Crear producto" : "Guardar cambios"}</button>
           </div>
         </div>
       </div>
@@ -659,13 +659,13 @@ export default function Productos() {
           </button>
           <button onClick={() => setMoverCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><FolderOpen size={15} /> Mover</button>
           <button onClick={() => setGestionCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><Tag size={15} /> Categor&iacute;as</button>
-          <button onClick={() => setCreando(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow"><Plus size={16} /> Nuevo producto</button>
+          <button onClick={() => setCreando(true)} className="flex items-center gap-2 px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] shadow"><Plus size={16} /> Nuevo producto</button>
         </div>
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
         {[{ id: "__todas__", nombre: "Todos" }, { id: "__sin__", nombre: "Sin categor\u00EDa" }, ...categorias].map(cat => (
-          <button key={cat.id} onClick={() => setCategoriaActiva(cat.id)} className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${categoriaActiva === cat.id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{cat.nombre}</button>
+          <button key={cat.id} onClick={() => setCategoriaActiva(cat.id)} className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${categoriaActiva === cat.id ? "bg-[#00913f] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{cat.nombre}</button>
         ))}
       </div>
 
@@ -682,7 +682,7 @@ export default function Productos() {
       <div className="mb-3 text-sm text-gray-500">Mostrando {productosFiltrados.length} de {productos.length} productos</div>
 
       {!productosFiltrados.length ? (
-        <div className="text-center py-16 text-gray-400"><Package size={48} className="mx-auto mb-3 opacity-30" /><p>No hay productos</p><button onClick={() => setCreando(true)} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700">+ Crear primer producto</button></div>
+        <div className="text-center py-16 text-gray-400"><Package size={48} className="mx-auto mb-3 opacity-30" /><p>No hay productos</p><button onClick={() => setCreando(true)} className="mt-4 px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34]">+ Crear primer producto</button></div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {productosFiltrados.map(prod => {
@@ -698,10 +698,10 @@ export default function Productos() {
                 />
                 <div className="p-2 flex flex-col flex-1 gap-1">
                   <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2">{prod.nombre}</h3>
-                  {catNombre && <span className="text-xs text-blue-600 font-medium truncate">{catNombre}</span>}
+                  {catNombre && <span className="text-xs text-[#00913f] font-medium truncate">{catNombre}</span>}
                   {prod.codigo && <p className="text-xs text-gray-400">SKU: {prod.codigo}</p>}
                   <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs mt-1">
-                    {GRUPOS.map(g => <button key={g.value} onClick={() => handleGrupoChange(prod, g.value)} className={`flex-1 py-0.5 transition-colors font-medium ${(prod.grupo_visualizacion||'ambas') === g.value ? (g.value==='ambas' ? 'bg-purple-600 text-white' : g.value==='estacion' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white') : 'bg-white text-gray-400 hover:bg-gray-50'}`} title={g.desc}>{g.label.split(' ')[0]}</button>)}
+                    {GRUPOS.map(g => <button key={g.value} onClick={() => handleGrupoChange(prod, g.value)} className={`flex-1 py-0.5 transition-colors font-medium ${(prod.grupo_visualizacion||'ambas') === g.value ? (g.value==='ambas' ? 'bg-purple-600 text-white' : g.value==='estacion' ? 'bg-[#00913f] text-white' : 'bg-orange-500 text-white') : 'bg-white text-gray-400 hover:bg-gray-50'}`} title={g.desc}>{g.label.split(' ')[0]}</button>)}
                   </div>
                   <div className="mt-auto pt-1 flex gap-1">
                     <button onClick={() => setEditando(prod)} className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-semibold border border-gray-200 hover:bg-gray-50"><Pencil size={11} /> Editar</button>

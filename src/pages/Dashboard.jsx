@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { TrendingUp, Package, Store, ShoppingCart, Loader2, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 
-const COLORES = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16"];
+const COLORES = ["#00a847","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16"];
 
 export default function Dashboard() {
   const [stats, setStats]           = useState(null);
@@ -119,7 +119,7 @@ export default function Dashboard() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <Loader2 size={40} className="animate-spin text-blue-500" />
+      <Loader2 size={40} className="animate-spin text-[#00a847]" />
     </div>
   );
 
@@ -127,13 +127,13 @@ export default function Dashboard() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><TrendingUp size={24} className="text-blue-600" /> Dashboard</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><TrendingUp size={24} className="text-[#00913f]" /> Dashboard</h1>
           <p className="text-gray-500 text-sm mt-1">Análisis de pedidos</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {[7, 30, 90].map(d => (
             <button key={d} onClick={() => setRango(d)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${rango === d ? "bg-blue-600 text-white" : "border border-gray-200 hover:bg-gray-50"}`}>
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${rango === d ? "bg-[#00913f] text-white" : "border border-gray-200 hover:bg-gray-50"}`}>
               {d} días
             </button>
           ))}
@@ -148,7 +148,7 @@ export default function Dashboard() {
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
-          { label: "Pedidos", value: stats?.totalPedidos, icon: ShoppingCart, color: "text-blue-600 bg-blue-50" },
+          { label: "Pedidos", value: stats?.totalPedidos, icon: ShoppingCart, color: "text-[#00913f] bg-[#edf7f2]" },
           { label: "Tiendas activas", value: stats?.totalTiendas, icon: Store, color: "text-green-600 bg-green-50" },
           { label: "Productos pedidos", value: stats?.totalProductos, icon: Package, color: "text-purple-600 bg-purple-50" },
         ].map(({ label, value, icon: Icon, color }) => (
@@ -171,7 +171,7 @@ export default function Dashboard() {
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="nombre" tick={{ fontSize: 10 }} width={130} />
               <Tooltip />
-              <Bar dataKey="cantidad" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="cantidad" fill="#00a847" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -264,14 +264,14 @@ export default function Dashboard() {
                 <div className="flex justify-between"><span>Usuarios</span><span className="font-bold">{uso.total_usuarios}</span></div>
                 <div className="flex justify-between"><span>Productos</span><span className="font-bold">{uso.total_productos}</span></div>
                 <div className="flex justify-between"><span>Pedidos totales</span><span className="font-bold">{uso.total_pedidos}</span></div>
-                <div className="flex justify-between"><span>Pedidos este mes</span><span className="font-bold text-blue-600">{uso.pedidos_este_mes}</span></div>
+                <div className="flex justify-between"><span>Pedidos este mes</span><span className="font-bold text-[#00913f]">{uso.pedidos_este_mes}</span></div>
               </div>
             </div>
           </div>
 
           <p className="text-xs text-gray-400">
             ℹ️ El ancho de banda de Supabase (500 MB/mes gratis) no se puede medir desde la app.
-            Consúltalo en <a href="https://supabase.com/dashboard/project/pasllyqgczegpvquaxvb/reports" target="_blank" rel="noreferrer" className="text-blue-500 underline">Supabase Dashboard → Reports</a>.
+            Consúltalo en <a href="https://supabase.com/dashboard/project/pasllyqgczegpvquaxvb/reports" target="_blank" rel="noreferrer" className="text-[#00a847] underline">Supabase Dashboard → Reports</a>.
           </p>
         </div>
       )}

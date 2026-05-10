@@ -55,7 +55,7 @@ export default function Configuracion() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[40vh]">
-      <Loader2 size={32} className="animate-spin text-blue-600" />
+      <Loader2 size={32} className="animate-spin text-[#00913f]" />
     </div>
   );
 
@@ -70,8 +70,8 @@ export default function Configuracion() {
         {CAMPOS.map(({ clave, label, descripcion, icon: Icon, placeholder, type }) => (
           <div key={clave} className="p-6">
             <div className="flex items-start gap-3 mb-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <Icon size={18} className="text-blue-600" />
+              <div className="w-9 h-9 rounded-lg bg-[#edf7f2] flex items-center justify-center flex-shrink-0">
+                <Icon size={18} className="text-[#00913f]" />
               </div>
               <div>
                 <div className="font-semibold text-gray-900">{label}</div>
@@ -81,7 +81,7 @@ export default function Configuracion() {
             <div className="flex gap-3 mt-3">
               {type === 'textarea' ? (
                 <textarea
-                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:border-blue-400"
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:border-[#00c254]"
                   rows={3} placeholder={placeholder}
                   value={valores[clave] || ''}
                   onChange={(e) => setValores((v) => ({ ...v, [clave]: e.target.value }))}
@@ -89,7 +89,7 @@ export default function Configuracion() {
               ) : (
                 <input
                   type={type}
-                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
                   placeholder={placeholder}
                   value={valores[clave] || ''}
                   onChange={(e) => setValores((v) => ({ ...v, [clave]: e.target.value }))}
@@ -100,7 +100,7 @@ export default function Configuracion() {
                 disabled={!!guardando[clave]}
                 className="px-4 py-2.5 rounded-xl text-white text-sm font-semibold flex items-center gap-2 flex-shrink-0 transition-colors"
                 style={{
-                  background: exito[clave] ? '#22c55e' : '#2563eb',
+                  background: exito[clave] ? '#22c55e' : '#00913f',
                   opacity: guardando[clave] ? 0.7 : 1
                 }}
               >

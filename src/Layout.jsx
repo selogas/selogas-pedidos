@@ -54,7 +54,7 @@ export default function Layout({ children }) {
       className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all
         ${mobile ? 'gap-2 py-2.5' : ''}
         ${currentPath === item.path
-          ? 'bg-blue-600 text-white'
+          ? 'bg-[#00913f] text-white'
           : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
     >
       <item.icon size={mobile ? 16 : 15} />
@@ -87,7 +87,7 @@ export default function Layout({ children }) {
         <div className="max-w-[1400px] mx-auto px-4 flex items-center h-14 gap-6">
 
           <Link to="/Catalogo" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-600">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#00913f]">
               <Package size={16} color="white" />
             </div>
             <span className="font-bold text-base text-gray-900">SELOGAS</span>

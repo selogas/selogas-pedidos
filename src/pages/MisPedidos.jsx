@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { ClipboardList, ChevronDown, ChevronUp, Package, Loader2, Calendar, Hash } from "lucide-react";
 
 const ESTADO_COLORS = {
-  enviado:       "bg-blue-100 text-blue-700",
+  enviado:       "bg-[#d9f0e4] text-[#007a34]",
   recibido:      "bg-yellow-100 text-yellow-700",
   en_preparacion:"bg-orange-100 text-orange-700",
   enviado_tienda:"bg-green-100 text-green-700",
@@ -120,7 +120,7 @@ export default function MisPedidos() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList size={24} className="text-blue-600" /> Mis Pedidos
+            <ClipboardList size={24} className="text-[#00913f]" /> Mis Pedidos
           </h1>
           <p className="text-gray-500 text-sm mt-1">Historial completo · haz clic para ver el detalle</p>
         </div>
@@ -128,7 +128,7 @@ export default function MisPedidos() {
 
       {loading && pedidos.length === 0 ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={36} className="animate-spin text-blue-500" />
+          <Loader2 size={36} className="animate-spin text-[#00a847]" />
         </div>
       ) : pedidos.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -140,7 +140,7 @@ export default function MisPedidos() {
           {pedidos.map(p => <PedidoCard key={p.id} pedido={p} />)}
           {hayMas && (
             <button onClick={() => cargar(pagina + 1)} disabled={loading}
-              className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-500 hover:border-blue-300 hover:text-blue-600 font-semibold transition-all disabled:opacity-50">
+              className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-500 hover:border-[#80c89f] hover:text-[#00913f] font-semibold transition-all disabled:opacity-50">
               {loading ? "Cargando..." : "Ver más pedidos"}
             </button>
           )}

@@ -57,7 +57,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
                 type={field === "email" ? "email" : "text"}
                 value={form[field] || ""}
                 onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
               />
             </div>
           ))}
@@ -68,7 +68,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
               value={form.google_calendar_id || ""}
               onChange={e => setForm(f => ({ ...f, google_calendar_id: e.target.value }))}
               placeholder="Ej: tormo22@megino.com o bpnassica365@gmail.com"
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
             />
             <p className="text-xs text-gray-400 mt-1">Email del Google Calendar de caducidades de esta tienda.</p>
           </div>
@@ -82,7 +82,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
               onChange={e => setForm(f => ({ ...f, mensaje_banner: e.target.value }))}
               placeholder="Ej: Tu día de pedido es el MARTES. ¡Realiza tu pedido antes de las 12h!"
               rows={2}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 resize-none"
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] resize-none"
             />
             <p className="text-xs text-gray-400 mt-1">Se muestra como banner amarillo al usuario de esta tienda al entrar. Déjalo vacío para no mostrar nada.</p>
           </div>
@@ -92,7 +92,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
             <select
               value={form.grupo || "estacion"}
               onChange={e => setForm(f => ({ ...f, grupo: e.target.value }))}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
             >
               <option value="estacion">🏪 Estación (catálogo estación)</option>
               <option value="cafeteria">☕ Cafetería (catálogo cafetería)</option>
@@ -125,7 +125,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">Cancelar</button>
           <button
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50"
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50"
             onClick={handleSave}
             disabled={saving || !form.nombre}
           >
@@ -216,7 +216,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="font-bold text-lg flex items-center gap-2">
-              <UserPlus size={20} className="text-blue-600" />
+              <UserPlus size={20} className="text-[#00913f]" />
               {esEdicion ? "Editar Usuario" : "Nuevo Usuario"}
             </h2>
             {!esEdicion && (
@@ -243,7 +243,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
               disabled={esEdicion}
               placeholder="correo@tienda.com"
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] disabled:bg-gray-50 disabled:text-gray-400"
             />
           </div>
 
@@ -255,7 +255,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
               value={form.nombre_completo}
               onChange={e => setForm(f => ({ ...f, nombre_completo: e.target.value }))}
               placeholder="Nombre del responsable"
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
             />
           </div>
 
@@ -269,7 +269,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder={esEdicion ? "Nueva contraseña (dejar vacío para no cambiar)" : "Mínimo 6 caracteres"}
-                  className="w-full border rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-blue-400"
+                  className="w-full border rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-[#00c254]"
                 />
                 <button
                   type="button"
@@ -291,7 +291,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
                 onClick={() => setForm(f => ({ ...f, rol: "tienda" }))}
                 className={`p-3 rounded-xl border-2 text-sm font-medium flex items-center gap-2 transition-all ${
                   form.rol === "tienda"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    ? "border-[#00a847] bg-[#edf7f2] text-[#007a34]"
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
                 }`}
               >
@@ -323,7 +323,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
               <select
                 value={form.tienda_id}
                 onChange={e => setForm(f => ({ ...f, tienda_id: e.target.value }))}
-                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
               >
                 <option value="">— Sin tienda asignada —</option>
                 {tiendas.filter(t => t.activa !== false).map(t => (
@@ -352,7 +352,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50"
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50"
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
             {esEdicion ? "Guardar cambios" : "Crear usuario"}
@@ -427,7 +427,7 @@ export default function Tiendas() {
   const grupoInfo = (grupo) => {
     if (grupo === "cafeteria") return { label: "Cafetería", color: "bg-orange-100 text-orange-700" };
     if (grupo === "ambos")     return { label: "Ambos",     color: "bg-purple-100 text-purple-700" };
-    return                            { label: "Estación",  color: "bg-blue-100 text-blue-700" };
+    return                            { label: "Estación",  color: "bg-[#d9f0e4] text-[#007a34]" };
   };
 
   return (
@@ -459,7 +459,7 @@ export default function Tiendas() {
           </p>
         </div>
         <button
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]"
           onClick={() => {
             if (tab === "tiendas") { setEditandoTienda(null); setModalTienda(true); }
             else                   { setEditandoUsuario(null); setModalUsuario(true); }
@@ -475,7 +475,7 @@ export default function Tiendas() {
         <button
           onClick={() => setTab("tiendas")}
           className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            tab === "tiendas" ? "bg-white text-blue-700 shadow" : "text-gray-500 hover:text-gray-700"
+            tab === "tiendas" ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"
           }`}
         >
           <Store size={15} /> Tiendas
@@ -483,7 +483,7 @@ export default function Tiendas() {
         <button
           onClick={() => setTab("usuarios")}
           className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            tab === "usuarios" ? "bg-white text-blue-700 shadow" : "text-gray-500 hover:text-gray-700"
+            tab === "usuarios" ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"
           }`}
         >
           <Users size={15} /> Usuarios
@@ -491,7 +491,7 @@ export default function Tiendas() {
         <button
           onClick={() => setTab("calendarios")}
           className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            tab === "calendarios" ? "bg-white text-blue-700 shadow" : "text-gray-500 hover:text-gray-700"
+            tab === "calendarios" ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"
           }`}
         >
           <Calendar size={15} /> Calendarios
@@ -502,12 +502,12 @@ export default function Tiendas() {
       {tab === "tiendas" && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="bg-[#edf7f2] border border-[#b3dfc4] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-2xl">🏪</span>
                 <span className="font-bold text-blue-800">Estaciones</span>
               </div>
-              <p className="text-sm text-blue-700">Ven todos los productos marcados como "estación" o "ambas"</p>
+              <p className="text-sm text-[#007a34]">Ven todos los productos marcados como "estación" o "ambas"</p>
             </div>
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-1">
@@ -520,12 +520,12 @@ export default function Tiendas() {
 
           <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
             {loading ? (
-              <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" /></div>
+              <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-[#00913f]" /></div>
             ) : tiendas.length === 0 ? (
               <div className="p-12 text-center text-gray-400">
                 <Store size={48} className="mx-auto mb-3 opacity-30" />
                 <p>No hay tiendas registradas</p>
-                <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700" onClick={() => setModalTienda(true)}>
+                <button className="mt-4 px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34]" onClick={() => setModalTienda(true)}>
                   Añadir primera tienda
                 </button>
               </div>
@@ -560,7 +560,7 @@ export default function Tiendas() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">
-                            <button onClick={() => { setEditandoTienda(t); setModalTienda(true); }} className="p-2 hover:bg-blue-50 rounded-lg text-blue-500"><Pencil size={15} /></button>
+                            <button onClick={() => { setEditandoTienda(t); setModalTienda(true); }} className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]"><Pencil size={15} /></button>
                             <button onClick={() => eliminarTienda(t.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400"><Trash2 size={15} /></button>
                           </div>
                         </td>
@@ -579,12 +579,12 @@ export default function Tiendas() {
       {tab === "usuarios" && (
         <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
           {loadingUsuarios ? (
-            <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" /></div>
+            <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-[#00913f]" /></div>
           ) : usuarios.length === 0 ? (
             <div className="p-12 text-center text-gray-400">
               <Users size={48} className="mx-auto mb-3 opacity-30" />
               <p>No hay usuarios registrados</p>
-              <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700" onClick={() => { setEditandoUsuario(null); setModalUsuario(true); }}>
+              <button className="mt-4 px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34]" onClick={() => { setEditandoUsuario(null); setModalUsuario(true); }}>
                 Crear primer usuario
               </button>
             </div>
@@ -613,7 +613,7 @@ export default function Tiendas() {
                       <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold ${
                         (u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin")
                           ? "bg-purple-100 text-purple-700"
-                          : "bg-blue-100 text-blue-700"
+                          : "bg-[#d9f0e4] text-[#007a34]"
                       }`}>
                         {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? <ShieldCheck size={11} /> : <Store size={11} />}
                         {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? "Admin" : "Tienda"}
@@ -639,7 +639,7 @@ export default function Tiendas() {
                       <div className="flex gap-1">
                         <button
                           onClick={() => { setEditandoUsuario(u); setModalUsuario(true); }}
-                          className="p-2 hover:bg-blue-50 rounded-lg text-blue-500"
+                          className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]"
                           title="Editar usuario"
                         >
                           <Pencil size={15} />
@@ -708,7 +708,7 @@ export default function Tiendas() {
                           placeholder="email@gmail.com"
                           className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none transition-colors ${
                             valor && valor !== (t.google_calendar_id || "")
-                              ? "border-blue-400 bg-blue-50"
+                              ? "border-[#00c254] bg-[#edf7f2]"
                               : "border-gray-200"
                           }`}
                         />
@@ -717,7 +717,7 @@ export default function Tiendas() {
                         <button
                           onClick={() => guardarCalendario(t.id)}
                           disabled={guardando || valor === (t.google_calendar_id || "")}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed mx-auto"
+                          className="flex items-center gap-1.5 px-3 py-2 bg-[#00913f] text-white rounded-xl text-xs font-bold hover:bg-[#007a34] disabled:opacity-40 disabled:cursor-not-allowed mx-auto"
                           title="Guardar (o pulsa Enter)"
                         >
                           {guardando

@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { Bell, Plus, Trash2, X, Check, Loader2, AlertTriangle, Info, Megaphone } from "lucide-react";
 
 const TIPO_CONFIG = {
-  info:    { color: "bg-blue-50 border-blue-200 text-blue-800",   icon: Info,         dot: "bg-blue-500",   label: "Información" },
+  info:    { color: "bg-[#edf7f2] border-[#b3dfc4] text-blue-800",   icon: Info,         dot: "bg-[#00a847]",   label: "Información" },
   aviso:   { color: "bg-amber-50 border-amber-200 text-amber-800", icon: AlertTriangle, dot: "bg-amber-500",  label: "Aviso" },
   urgente: { color: "bg-red-50 border-red-200 text-red-800",       icon: Megaphone,    dot: "bg-red-500",    label: "Urgente" },
 };
@@ -48,7 +48,7 @@ function ModalComunicado({ tiendas, onSave, onClose }) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="font-bold text-lg flex items-center gap-2"><Bell size={18} className="text-blue-600" /> Nuevo comunicado</h2>
+          <h2 className="font-bold text-lg flex items-center gap-2"><Bell size={18} className="text-[#00913f]" /> Nuevo comunicado</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
         <div className="space-y-4">
@@ -103,7 +103,7 @@ function ModalComunicado({ tiendas, onSave, onClose }) {
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm">Cancelar</button>
           <button onClick={handleSave} disabled={saving || !form.titulo || !form.mensaje}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50">
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Publicar
           </button>
         </div>
@@ -160,19 +160,19 @@ export default function Comunicados() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Bell size={24} className="text-blue-600" /> Comunicados</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Bell size={24} className="text-[#00913f]" /> Comunicados</h1>
           <p className="text-gray-500 text-sm mt-1">Avisos y mensajes importantes</p>
         </div>
         {isAdmin && (
           <button onClick={() => setModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700">
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]">
             <Plus size={16} /> Nuevo aviso
           </button>
         )}
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-blue-500" /></div>
+        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>
       ) : comunicados.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Bell size={48} className="mx-auto mb-3 opacity-30" />

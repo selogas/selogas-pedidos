@@ -6,7 +6,7 @@ import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
 
 const CAT_COLORS = [
-  "#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6",
+  "#00a847","#10b981","#f59e0b","#ef4444","#8b5cf6",
   "#f97316","#06b6d4","#ec4899","#84cc16","#6366f1",
   "#14b8a6","#a855f7","#f43f5e","#0ea5e9","#d97706",
   "#4ade80","#fb7185","#38bdf8","#c084fc","#facc15",
@@ -459,7 +459,7 @@ export default function Catalogo() {
         <div className={`mb-4 px-4 py-2 rounded-xl text-sm font-medium ${
           tienda.grupo === "cafeteria"
             ? "bg-orange-50 text-orange-700 border border-orange-200"
-            : "bg-blue-50 text-blue-700 border border-blue-200"
+            : "bg-[#edf7f2] text-[#007a34] border border-[#b3dfc4]"
         }`}>
           {tienda.grupo === "cafeteria" ? "☕" : "⚪"} <strong>{tienda.nombre}</strong> · {tienda.grupo === "cafeteria" ? "Cafetería" : "Estación"} · {productos.length} productos
         </div>
@@ -498,14 +498,14 @@ export default function Catalogo() {
         </div>
         <button
           className="relative flex items-center gap-2 px-5 py-3 rounded-full font-bold shadow-lg transition-all hover:scale-105 flex-shrink-0"
-          style={{ background: "#1e293b", color: "white", minWidth: "120px" }}
+          style={{ background: "#1a3d2b", color: "white", minWidth: "120px" }}
           onClick={() => setCartOpen(true)}
         >
           <ShoppingCart size={20} color="white" />
           <span className="text-white">Pedido</span>
           {cartCount > 0 && (
             <span style={{
-              background: "#2563eb", color: "white", borderRadius: "50%",
+              background: "#00913f", color: "white", borderRadius: "50%",
               width: "22px", height: "22px", fontSize: "11px",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: "700", position: "absolute", top: "-8px", right: "-8px"
@@ -540,7 +540,7 @@ export default function Catalogo() {
               onClick={() => setCategoriaActiva("__todas__")}
               className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border"
               style={categoriaActiva === "__todas__"
-                ? { background: "#1e293b", color: "#fff", borderColor: "#1e293b" }
+                ? { background: "#1a3d2b", color: "#fff", borderColor: "#1a3d2b" }
                 : { background: "#fff", color: "#64748b", borderColor: "#e2e8f0" }}
             >
               <span style={{
@@ -559,7 +559,7 @@ export default function Catalogo() {
                   onClick={() => setCategoriaActiva(cat.id)}
                   className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border"
                   style={activa
-                    ? { background: "#1e293b", color: "#fff", borderColor: "#1e293b" }
+                    ? { background: "#1a3d2b", color: "#fff", borderColor: "#1a3d2b" }
                     : { background: "#fff", color: "#64748b", borderColor: "#e2e8f0" }}
                 >
                   <span style={{

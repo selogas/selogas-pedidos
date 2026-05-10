@@ -28,15 +28,15 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
   return (
     <div className="w-full max-w-sm bg-white h-full flex flex-col shadow-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-blue-600 text-white">
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-[#00913f] text-white">
         <div className="flex items-center gap-2">
           <ShoppingCart size={20} />
           <div>
             <div className="font-bold text-base">Mi pedido</div>
-            {tiendaNombre && <div className="text-xs text-blue-100">{tiendaNombre}</div>}
+            {tiendaNombre && <div className="text-xs text-[#d9f0e4]">{tiendaNombre}</div>}
           </div>
         </div>
-        <button onClick={onClose} className="p-2 rounded-xl hover:bg-blue-700 transition-colors"><X size={18} /></button>
+        <button onClick={onClose} className="p-2 rounded-xl hover:bg-[#007a34] transition-colors"><X size={18} /></button>
       </div>
 
       {/* Items */}
@@ -64,7 +64,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
               if (mediaData && mediaData.numPedidos >= 3 && mediaData.media > 0) {
                 const ratio = qty / mediaData.media;
                 if (ratio < 0.6) avisoMedia = { tipo: 'bajo', texto: `Sueles pedir ${mediaData.media} uds`, icon: TrendingDown, color: 'text-orange-600 bg-orange-50' };
-                else if (ratio > 1.4) avisoMedia = { tipo: 'alto', texto: `Sueles pedir ${mediaData.media} uds`, icon: TrendingUp, color: 'text-blue-600 bg-blue-50' };
+                else if (ratio > 1.4) avisoMedia = { tipo: 'alto', texto: `Sueles pedir ${mediaData.media} uds`, icon: TrendingUp, color: 'text-[#00913f] bg-[#edf7f2]' };
               }
               return (
                 <div key={prod.id} className={`p-3 hover:bg-gray-50 ${yaPedido ? 'bg-orange-50' : ''}`}>
@@ -92,14 +92,14 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-xs text-gray-900 leading-snug line-clamp-2">{prod.nombre}</div>
                     {prod.codigo && <div className="text-xs text-gray-400 font-mono">{prod.codigo}</div>}
-                    <div className="text-xs text-blue-600 font-semibold">x{multiplo}</div>
+                    <div className="text-xs text-[#00913f] font-semibold">x{multiplo}</div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button onClick={() => onQtyChange(prod.id, Math.max(0, qty - multiplo))}
                       className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-base">&minus;</button>
                     <span className="w-8 text-center font-bold text-sm text-gray-900">{qty}</span>
                     <button onClick={() => onQtyChange(prod.id, qty + multiplo)}
-                      className="w-7 h-7 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center justify-center text-base">+</button>
+                      className="w-7 h-7 rounded-lg bg-[#00913f] hover:bg-[#007a34] text-white font-bold flex items-center justify-center text-base">+</button>
                     <button onClick={() => onRemove(prod.id)} className="w-7 h-7 ml-1 rounded-lg hover:bg-red-50 text-red-400 flex items-center justify-center">
                       <Trash2 size={14} />
                     </button>
@@ -136,10 +136,10 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-800 line-clamp-1">{prod.nombre}</div>
-                      <div className="text-xs text-blue-600">x{prod.multiplo || 1}</div>
+                      <div className="text-xs text-[#00913f]">x{prod.multiplo || 1}</div>
                     </div>
                     <button onClick={() => onAddSugerencia(prod)}
-                      className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 flex-shrink-0">
+                      className="w-7 h-7 rounded-lg bg-[#00913f] text-white flex items-center justify-center hover:bg-[#007a34] flex-shrink-0">
                       <Plus size={14} />
                     </button>
                   </div>
@@ -157,13 +157,13 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
             <span className="font-bold text-gray-900">{totalLineas}</span> {totalLineas === 1 ? 'producto' : 'productos'} en el pedido
           </div>
           <textarea
-            className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-[#00c254]"
             rows={2} placeholder="Observaciones (opcional)..."
             value={observaciones} onChange={e => setObservaciones(e.target.value)}
           />
           {!confirmOpen ? (
             <button onClick={() => setConfirmOpen(true)}
-              className="w-full py-3.5 rounded-2xl bg-blue-600 text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 shadow-md transition-colors">
+              className="w-full py-3.5 rounded-2xl bg-[#00913f] text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] shadow-md transition-colors">
               <Send size={18} />
               Enviar pedido
             </button>

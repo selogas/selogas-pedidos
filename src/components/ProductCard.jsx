@@ -31,7 +31,7 @@ function calcularAvisoMedia(cantidad, mediaHistorica) {
       tipo: 'alto',
       texto: `Sueles pedir ${media} uds`,
       icon: TrendingUp,
-      color: 'text-blue-600 bg-blue-50',
+      color: 'text-[#00913f] bg-[#edf7f2]',
     };
   }
   return null;
@@ -79,7 +79,7 @@ export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fe
       <div className="p-3 flex flex-col gap-1 flex-1">
         <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2 min-h-[2rem]">{producto.nombre}</h3>
         {producto.codigo && <p className="text-xs text-gray-400 font-mono">{producto.codigo}</p>}
-        <p className="text-xs text-blue-600 font-semibold">x{multiplo}</p>
+        <p className="text-xs text-[#00913f] font-semibold">x{multiplo}</p>
 
         {/* Aviso inteligente de cantidad */}
         {aviso && (
@@ -93,14 +93,14 @@ export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fe
           {cantidad > 0 ? (
             <div className="flex items-center gap-1.5">
               <button onClick={() => onQtyChange(Math.max(0, cantidad - multiplo))}
-                className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700">−</button>
+                className="w-7 h-7 rounded-xl bg-[#00913f] text-white font-bold flex items-center justify-center hover:bg-[#007a34]">−</button>
               <span className="flex-1 text-center font-bold text-sm">{cantidad}</span>
               <button onClick={() => onQtyChange(cantidad + multiplo)}
-                className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700">+</button>
+                className="w-7 h-7 rounded-xl bg-[#00913f] text-white font-bold flex items-center justify-center hover:bg-[#007a34]">+</button>
             </div>
           ) : (
             <button onClick={() => !agotado && onAdd(producto)} disabled={agotado}
-              className="w-full py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              className="w-full py-2 rounded-xl bg-[#00913f] text-white text-xs font-bold hover:bg-[#007a34] disabled:opacity-50 disabled:cursor-not-allowed">
               {agotado ? 'Agotado' : 'Añadir'}
             </button>
           )}

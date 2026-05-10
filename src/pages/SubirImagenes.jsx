@@ -41,7 +41,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-5 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-bold text-base flex items-center gap-2"><Globe size={18} className="text-blue-600" /> Buscar imagen en internet</h3>
+            <h3 className="font-bold text-base flex items-center gap-2"><Globe size={18} className="text-[#00913f]" /> Buscar imagen en internet</h3>
             {codigo && <p className="text-xs text-gray-400 mt-0.5">Código: {codigo}</p>}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X size={16} /></button>
@@ -50,7 +50,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
           <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && buscar(query)}
             placeholder="Nombre del producto..." className="flex-1 border rounded-xl px-4 py-2 text-sm" autoFocus />
           <button onClick={() => buscar(query)} disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
+            className="px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] disabled:opacity-60 flex items-center gap-2">
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Buscar
           </button>
         </div>
@@ -81,7 +81,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
                   setTimeout(() => setClipboardMsg(""), 4000);
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#edf7f2] border border-[#b3dfc4] text-[#007a34] rounded-lg text-xs font-semibold hover:bg-[#d9f0e4] transition-colors"
               title="Copia la dirección de una imagen en Google Images y pulsa este botón"
             >
               📋 Pegar imagen del portapapeles
@@ -94,7 +94,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
             >
               <Globe size={12} /> Buscar en Google Images
             </a>
-            {clipboardMsg && <span className="text-xs font-semibold text-blue-600">{clipboardMsg}</span>}
+            {clipboardMsg && <span className="text-xs font-semibold text-[#00913f]">{clipboardMsg}</span>}
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
             💡 <strong>Truco:</strong> Abre Google Images → clic derecho en la imagen → "Copiar dirección de imagen" → vuelve aquí y pulsa "Pegar imagen del portapapeles"
@@ -109,16 +109,16 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
             </a>
           </div>
         )}
-        {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-blue-500" /></div>}
+        {loading && <div className="flex items-center justify-center py-10"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>}
         {!loading && results.length > 0 && (
           <div className="overflow-y-auto" style={{ maxHeight: "420px", minHeight: "200px" }}>
             <p className="text-xs text-gray-400 mb-2">{results.length} resultados — haz clic para seleccionar</p>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {results.map((img, i) => (
                 <button key={i} onClick={() => onSelect(img.url)}
-                  className="group relative rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-500 bg-gray-50 aspect-square flex items-center justify-center transition-all" title={img.name}>
+                  className="group relative rounded-xl overflow-hidden border-2 border-transparent hover:border-[#00a847] bg-gray-50 aspect-square flex items-center justify-center transition-all" title={img.name}>
                   <img src={img.url} alt={img.name} className="w-full h-full object-contain p-1" onError={e => { e.target.style.display = "none"; }} />
-                  <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/10 transition-colors rounded-xl" />
+                  <div className="absolute inset-0 bg-[#00a847]/0 group-hover:bg-[#00a847]/10 transition-colors rounded-xl" />
                 </button>
               ))}
             </div>
@@ -129,7 +129,7 @@ function BuscarImagenPanel({ nombre, codigo, onSelect, onClose }) {
             <Package size={36} className="mb-2 opacity-30" />
             <p className="text-sm mb-3">Escribe el nombre y pulsa Buscar</p>
             <a href={`https://www.google.com/search?q=${encodeURIComponent(query + ' imagen producto')}&tbm=isch`} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 font-semibold hover:bg-blue-100">
+              className="flex items-center gap-2 px-4 py-2 bg-[#edf7f2] border border-[#b3dfc4] rounded-xl text-sm text-[#007a34] font-semibold hover:bg-[#d9f0e4]">
               <Globe size={14} /> Buscar en Google Images
             </a>
           </div>
@@ -173,7 +173,7 @@ function TarjetaProducto({ prod, imagenActual, estaGuardando, recienGuardado, bu
   const [hovered, setHovered] = useState(false);
   return (
     <div
-      className={`bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${recienGuardado ? "border-green-400" : hovered ? "border-blue-200" : "border-gray-100"}`}
+      className={`bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${recienGuardado ? "border-green-400" : hovered ? "border-[#b3dfc4]" : "border-gray-100"}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -208,7 +208,7 @@ function TarjetaProducto({ prod, imagenActual, estaGuardando, recienGuardado, bu
           <button
             onClick={onBuscar}
             disabled={estaGuardando || bulkActivo}
-            className="w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-40"
+            className="w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all bg-[#edf7f2] text-[#007a34] border border-[#b3dfc4] hover:bg-[#d9f0e4] disabled:opacity-40"
           >
             {estaGuardando ? (
               <><Loader2 size={12} className="animate-spin" /> Guardando...</>
@@ -569,10 +569,10 @@ export default function SubirImagenes() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
-        <button onClick={() => setTab("archivo")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "archivo" ? "bg-white text-blue-700 shadow" : "text-gray-500 hover:text-gray-700"}`}>
+        <button onClick={() => setTab("archivo")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "archivo" ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"}`}>
           <FolderOpen size={16} /> Subir desde carpeta
         </button>
-        <button onClick={() => setTab("internet")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "internet" ? "bg-white text-blue-700 shadow" : "text-gray-500 hover:text-gray-700"}`}>
+        <button onClick={() => setTab("internet")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "internet" ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"}`}>
           <Globe size={16} /> Buscar en internet
         </button>
         <button onClick={() => setTab("eliminar")} className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${tab === "eliminar" ? "bg-white text-red-700 shadow" : "text-gray-500 hover:text-gray-700"}`}>
@@ -584,13 +584,13 @@ export default function SubirImagenes() {
       {tab === "archivo" && (
         <div>
           {fase === "inicio" && (
-            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-16 text-center hover:border-blue-400 transition-colors cursor-pointer bg-white" onClick={() => inputRef.current?.click()}>
+            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-16 text-center hover:border-[#00c254] transition-colors cursor-pointer bg-white" onClick={() => inputRef.current?.click()}>
               <FolderOpen size={56} className="mx-auto mb-4 text-gray-300" />
               <h2 className="text-lg font-bold text-gray-700 mb-2">Seleccionar carpeta de imágenes</h2>
               <p className="text-gray-400 text-sm mb-4">El nombre de cada archivo debe ser el <strong>código del producto</strong> (ej: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">856607.jpg</code>)</p>
-              <div className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors"><FolderOpen size={18} /> Elegir carpeta</div>
+              <div className="inline-flex items-center gap-2 px-6 py-3 bg-[#00913f] text-white rounded-xl font-bold hover:bg-[#007a34] transition-colors"><FolderOpen size={18} /> Elegir carpeta</div>
               <input ref={inputRef} type="file" multiple accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.avif" webkitdirectory="" directory="" className="hidden" onChange={handleSeleccionCarpeta} />
-              {cargandoProds && (<div className="mt-4 flex items-center justify-center gap-2 text-blue-600"><Loader2 size={16} className="animate-spin" /><span className="text-sm">Cargando productos...</span></div>)}
+              {cargandoProds && (<div className="mt-4 flex items-center justify-center gap-2 text-[#00913f]"><Loader2 size={16} className="animate-spin" /><span className="text-sm">Cargando productos...</span></div>)}
             </div>
           )}
           {fase === "preview" && archivos.length > 0 && (
@@ -614,16 +614,16 @@ export default function SubirImagenes() {
               </div>
               <div className="flex gap-3">
                 <button onClick={resetear} className="flex-1 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">Cancelar</button>
-                <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={18} /> Subir {listos.length} imágenes</button>
+                <button onClick={handleSubir} disabled={listos.length === 0} className="flex-1 py-3 bg-[#00913f] text-white rounded-xl font-bold hover:bg-[#007a34] disabled:opacity-50 flex items-center justify-center gap-2"><Upload size={18} /> Subir {listos.length} imágenes</button>
               </div>
             </div>
           )}
           {fase === "subiendo" && (
             <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
-              <Loader2 size={48} className="animate-spin mx-auto mb-4 text-blue-600" />
+              <Loader2 size={48} className="animate-spin mx-auto mb-4 text-[#00913f]" />
               <h2 className="text-lg font-bold text-gray-800 mb-2">Subiendo imágenes...</h2>
               <p className="text-gray-500 text-sm mb-6">{progreso}% completado</p>
-              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className="bg-blue-600 h-3 rounded-full transition-all duration-300" style={{ width: progreso + "%" }} /></div>
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className="bg-[#00913f] h-3 rounded-full transition-all duration-300" style={{ width: progreso + "%" }} /></div>
             </div>
           )}
           {fase === "hecho" && (
@@ -645,7 +645,7 @@ export default function SubirImagenes() {
                   </div>
                 </div>
               )}
-              <button onClick={resetear} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2"><FolderOpen size={18} /> Subir más imágenes</button>
+              <button onClick={resetear} className="w-full py-3 bg-[#00913f] text-white rounded-xl font-bold hover:bg-[#007a34] flex items-center justify-center gap-2"><FolderOpen size={18} /> Subir más imágenes</button>
             </div>
           )}
         </div>
@@ -656,12 +656,12 @@ export default function SubirImagenes() {
         <div>
           {/* Banner búsqueda masiva activa */}
           {bulkActivo && (
-            <div className="mb-5 bg-blue-50 border border-blue-200 rounded-2xl p-4">
+            <div className="mb-5 bg-[#edf7f2] border border-[#b3dfc4] rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Zap size={18} className="text-blue-600" />
+                  <Zap size={18} className="text-[#00913f]" />
                   <span className="font-bold text-blue-800 text-sm">Búsqueda masiva en curso</span>
-                  {bulkScopeCategoria !== "todas" && <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">{categorias.find(c => c.id === bulkScopeCategoria)?.nombre || "Categoría"}</span>}
+                  {bulkScopeCategoria !== "todas" && <span className="text-xs bg-[#b3dfc4] text-blue-800 px-2 py-0.5 rounded-full">{categorias.find(c => c.id === bulkScopeCategoria)?.nombre || "Categoría"}</span>}
                   {bulkPausado && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">PAUSADO</span>}
                 </div>
                 <div className="flex gap-2">
@@ -674,15 +674,15 @@ export default function SubirImagenes() {
                 </div>
               </div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="flex-1 bg-blue-100 rounded-full h-2.5 overflow-hidden">
-                  <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: bulkTotal > 0 ? (bulkProgreso / bulkTotal * 100) + "%" : "0%" }} />
+                <div className="flex-1 bg-[#d9f0e4] rounded-full h-2.5 overflow-hidden">
+                  <div className="bg-[#00913f] h-2.5 rounded-full transition-all duration-300" style={{ width: bulkTotal > 0 ? (bulkProgreso / bulkTotal * 100) + "%" : "0%" }} />
                 </div>
-                <span className="text-xs font-bold text-blue-700 flex-shrink-0">{bulkProgreso}/{bulkTotal}</span>
+                <span className="text-xs font-bold text-[#007a34] flex-shrink-0">{bulkProgreso}/{bulkTotal}</span>
               </div>
               <div className="flex gap-4 text-xs mb-2">
                 <span className="text-green-700 font-semibold">✓ {bulkOk} con imagen</span>
                 <span className="text-red-600 font-semibold">✗ {bulkFail} sin resultado</span>
-                {bulkActual && <span className="text-blue-600 truncate">⟳ {bulkActual}</span>}
+                {bulkActual && <span className="text-[#00913f] truncate">⟳ {bulkActual}</span>}
               </div>
               {bulkLog.length > 0 && (
                 <div className="mt-2 max-h-24 overflow-y-auto space-y-0.5">
@@ -706,7 +706,7 @@ export default function SubirImagenes() {
             </div>
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => setFiltroBuscar("sin_imagen")} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filtroBuscar === "sin_imagen" ? "bg-amber-500 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>Sin imagen</button>
-              <button onClick={() => setFiltroBuscar("todos")} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filtroBuscar === "todos" ? "bg-blue-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>Todos</button>
+              <button onClick={() => setFiltroBuscar("todos")} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filtroBuscar === "todos" ? "bg-[#00913f] text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>Todos</button>
               <button onClick={cargarProductosInternet} disabled={loadingProds || bulkActivo} className="px-3 py-2 border rounded-xl text-gray-600 hover:bg-gray-50 disabled:opacity-50" title="Recargar">
                 {loadingProds ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
               </button>
@@ -746,12 +746,12 @@ export default function SubirImagenes() {
               <span className="text-gray-500">{productosFiltrados.length} productos mostrados</span>
               <span className="text-green-600 font-semibold">• {conImagenEnCategoria} con imagen</span>
               <span className="text-amber-600 font-semibold">• {sinImagenEnCategoria} sin imagen</span>
-              {Object.keys(guardados).length > 0 && <span className="text-blue-600 font-semibold">• {Object.keys(guardados).length} actualizados esta sesión</span>}
+              {Object.keys(guardados).length > 0 && <span className="text-[#00913f] font-semibold">• {Object.keys(guardados).length} actualizados esta sesión</span>}
             </div>
           )}
 
           {loadingProds ? (
-            <div className="flex items-center justify-center py-16"><Loader2 size={40} className="animate-spin text-blue-500" /></div>
+            <div className="flex items-center justify-center py-16"><Loader2 size={40} className="animate-spin text-[#00a847]" /></div>
           ) : (
             productosFiltrados.length === 0 ? (
               <div className="text-center py-16 text-gray-400">
@@ -821,7 +821,7 @@ export default function SubirImagenes() {
 
           {/* Eliminar por producto */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2"><Package size={18} className="text-blue-500" /> Eliminar imagen de un producto</h2>
+            <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2"><Package size={18} className="text-[#00a847]" /> Eliminar imagen de un producto</h2>
             <p className="text-sm text-gray-500 mb-4">Busca un producto específico y elimina su imagen.</p>
             <BuscarProductoEliminar
               productos={productos}

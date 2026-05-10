@@ -2660,7 +2660,7 @@ export default function ImportarProductos() {
         </div>
 
         {progress && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-xl text-blue-700 text-sm font-medium flex items-center gap-2">
+          <div className="mb-4 p-3 bg-[#edf7f2] rounded-xl text-[#007a34] text-sm font-medium flex items-center gap-2">
             <Loader2 size={16} className="animate-spin" />
             {progress}
           </div>

@@ -71,7 +71,7 @@ export default function Sesiones() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users size={24} className="text-blue-600" /> Sesiones activas
+            <Users size={24} className="text-[#00913f]" /> Sesiones activas
           </h1>
           <p className="text-gray-500 text-sm mt-1">
             Tiendas conectadas en los últimos 5 minutos · se actualiza cada 30s
@@ -132,7 +132,7 @@ export default function Sesiones() {
 
       {/* Lista de sesiones */}
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-blue-500" /></div>
+        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>
       ) : sesiones.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <WifiOff size={48} className="mx-auto mb-3 opacity-30" />

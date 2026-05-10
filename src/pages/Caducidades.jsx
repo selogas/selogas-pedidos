@@ -81,7 +81,7 @@ export default function Caducidades() {
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
-        <Loader2 size={40} className="animate-spin mx-auto mb-3 text-blue-600" />
+        <Loader2 size={40} className="animate-spin mx-auto mb-3 text-[#00913f]" />
         <p className="text-gray-500">Cargando caducidades del calendario...</p>
       </div>
     </div>
@@ -123,7 +123,7 @@ export default function Caducidades() {
               <p>Comparte el Google Calendar de esta tienda con <strong>caducidades@gmail.com</strong> con permisos de lectura.</p>
             </div>
           )}
-          <button onClick={cargar} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 mx-auto text-sm">
+          <button onClick={cargar} className="px-5 py-2.5 bg-[#00913f] text-white rounded-xl font-bold hover:bg-[#007a34] flex items-center gap-2 mx-auto text-sm">
             <RefreshCw size={15} /> Reintentar
           </button>
         </div>
@@ -137,7 +137,7 @@ export default function Caducidades() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Calendar size={24} className="text-blue-600" /> Mis Caducidades
+            <Calendar size={24} className="text-[#00913f]" /> Mis Caducidades
           </h1>
           <p className="text-gray-500 text-sm mt-1">
             {tienda && <span className="font-semibold">{tienda} · </span>}
