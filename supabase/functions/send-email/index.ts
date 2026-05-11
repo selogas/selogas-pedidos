@@ -31,10 +31,31 @@ Deno.serve(async (req) => {
                            observaciones,
                            lineas,
                            todos_productos,
+                           html_override,
+                           es_palet,
                    } = await req.json();
 
       const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
                    if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not set');
+
+      // Si es un email de palet con HTML directo, enviarlo sin PDF
+      if (es_palet && html_override) {
+        const paletResp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SELOGAS Pedidos <onboarding@resend.dev>',
+            to: [to],
+            subject: subject || 'Solicitud de Palet - SELOGAS',
+            html: html_override,
+          }),
+        });
+        const paletData = await paletResp.json();
+        if (!paletResp.ok) throw new Error('Resend palet error: ' + JSON.stringify(paletData));
+        return new Response(JSON.stringify({ success: true, emailId: paletData.id }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       const fechaStr = fecha ? new Date(fecha).toLocaleDateString('es-ES') : new Date().toLocaleDateString('es-ES');
 

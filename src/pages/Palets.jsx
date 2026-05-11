@@ -317,54 +317,41 @@ export default function Palets() {
         const nombreTienda = tienda?.nombre || perfil?.tienda_nombre || "";
         const nombreUsuario = perfil?.nombre_completo || perfil?.nombre || "";
         const emailTienda = tienda?.email || perfil?.email || "";
-        const fechaStr = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+        const fechaStr = new Date().toLocaleDateString("es-ES");
 
-        const htmlBody = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-          <div style="background:#00913f;color:white;padding:20px 24px;border-radius:8px 8px 0 0;">
-            <h1 style="margin:0;font-size:20px;">Solicitud de Palet - SELOGAS</h1>
-            <p style="margin:6px 0 0;opacity:0.85;font-size:14px;">${fechaStr}</p>
-          </div>
-          <div style="background:#f8f9fa;padding:24px;border:1px solid #dee2e6;border-top:none;border-radius:0 0 8px 8px;">
-            <table style="width:100%;border-collapse:collapse;border-spacing:0 8px;">
-              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;width:150px;">Producto</td>
-              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-size:15px;font-weight:600;color:#00913f;">${producto.nombre}</td></tr>
-              <tr><td colspan="2" style="padding:3px;"></td></tr>
-              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Tienda</td>
-              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${nombreTienda}</td></tr>
-              <tr><td colspan="2" style="padding:3px;"></td></tr>
-              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Usuario</td>
-              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${nombreUsuario || "-"}</td></tr>
-              <tr><td colspan="2" style="padding:3px;"></td></tr>
-              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Email tienda</td>
-              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${emailTienda || "-"}</td></tr>
-              ${observaciones ? `<tr><td colspan="2" style="padding:3px;"></td></tr>
-              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Observaciones</td>
-              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${observaciones}</td></tr>` : ""}
-            </table>
-            <p style="margin-top:20px;color:#888;font-size:12px;">Solicitud enviada desde SELOGAS Pedidos.</p>
-          </div>
-        </div>`;
+        const htmlBody =
+          '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+          '<div style="background:#00913f;color:white;padding:20px 24px;border-radius:8px 8px 0 0;">' +
+          '<h1 style="margin:0;font-size:20px;">Solicitud de Palet - SELOGAS</h1>' +
+          '<p style="margin:6px 0 0;opacity:0.85;font-size:14px;">' + fechaStr + '</p>' +
+          '</div><div style="background:#f8f9fa;padding:24px;border:1px solid #dee2e6;border-radius:0 0 8px 8px;">' +
+          '<p><strong>Producto:</strong> <span style="color:#00913f;font-size:15px;">' + producto.nombre + '</span></p>' +
+          '<p><strong>Tienda:</strong> ' + nombreTienda + '</p>' +
+          '<p><strong>Usuario:</strong> ' + (nombreUsuario || '-') + '</p>' +
+          '<p><strong>Email tienda:</strong> ' + (emailTienda || '-') + '</p>' +
+          (observaciones ? '<p><strong>Observaciones:</strong> ' + observaciones + '</p>' : '') +
+          '<p style="margin-top:20px;color:#888;font-size:12px;">Solicitud enviada desde SELOGAS Pedidos.</p>' +
+          '</div></div>';
 
-        const resendResp = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Authorization": "Bearer re_4rosYhyz_6EsyN4w7x9wnVepGQ2gPdthK",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "SELOGAS Pedidos <onboarding@resend.dev>",
-            to: [emailPalets],
-            subject: `Solicitud de Palet: ${producto.nombre} - ${nombreTienda}`,
-            html: htmlBody,
-          }),
+        await supabase.functions.invoke("send-email", {
+          body: {
+            to: emailPalets,
+            subject: "Solicitud de Palet: " + producto.nombre + " - " + nombreTienda,
+            tienda_nombre: nombreTienda,
+            numero_pedido: "PALET-" + Date.now(),
+            fecha: new Date().toISOString(),
+            lineas: [{
+              producto_codigo: "",
+              producto_nombre: producto.nombre,
+              cantidad: 1,
+            }],
+            todos_productos: [],
+            es_palet: true,
+            html_override: htmlBody,
+          }
         });
-        const resendData = await resendResp.json();
-        if (!resendResp.ok) {
-          alert("Error Resend: " + JSON.stringify(resendData));
-        }
       }
     } catch (e) {
-      alert("Error enviando email: " + e.message);
       console.error("Error enviando email palet:", e);
     }
   };
