@@ -310,49 +310,42 @@ export default function Palets() {
       observaciones: observaciones || "",
     }]);
 
-    try {
-      const { data: config } = await supabase.from("configuracion").select("valor").eq("clave", "email_palets").single();
-      const emailPalets = config?.valor?.trim();
-      if (emailPalets) {
-        const nombreTienda = tienda?.nombre || perfil?.tienda_nombre || "";
-        const nombreUsuario = perfil?.nombre_completo || perfil?.nombre || "";
-        const emailTienda = tienda?.email || perfil?.email || "";
-        const fechaStr = new Date().toLocaleDateString("es-ES");
+    // Enviar email de palet via Edge Function (igual que pedidos normales)
+    const { data: configPalet } = await supabase.from("configuracion").select("valor").eq("clave", "email_palets").single();
+    const emailPalets = configPalet?.valor?.trim();
+    if (emailPalets) {
+      const nombreTienda = tienda?.nombre || perfil?.tienda_nombre || "";
+      const nombreUsuario = perfil?.nombre_completo || perfil?.nombre || "";
+      const emailTienda = tienda?.email || perfil?.email || "";
+      const fechaStr = new Date().toLocaleDateString("es-ES");
 
-        const htmlBody =
-          '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
-          '<div style="background:#00913f;color:white;padding:20px 24px;border-radius:8px 8px 0 0;">' +
-          '<h1 style="margin:0;font-size:20px;">Solicitud de Palet - SELOGAS</h1>' +
-          '<p style="margin:6px 0 0;opacity:0.85;font-size:14px;">' + fechaStr + '</p>' +
-          '</div><div style="background:#f8f9fa;padding:24px;border:1px solid #dee2e6;border-radius:0 0 8px 8px;">' +
-          '<p><strong>Producto:</strong> <span style="color:#00913f;font-size:15px;">' + producto.nombre + '</span></p>' +
-          '<p><strong>Tienda:</strong> ' + nombreTienda + '</p>' +
-          '<p><strong>Usuario:</strong> ' + (nombreUsuario || '-') + '</p>' +
-          '<p><strong>Email tienda:</strong> ' + (emailTienda || '-') + '</p>' +
-          (observaciones ? '<p><strong>Observaciones:</strong> ' + observaciones + '</p>' : '') +
-          '<p style="margin-top:20px;color:#888;font-size:12px;">Solicitud enviada desde SELOGAS Pedidos.</p>' +
-          '</div></div>';
+      const htmlBody =
+        '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+        '<div style="background:#00913f;color:white;padding:20px 24px;border-radius:8px 8px 0 0;">' +
+        '<h1 style="margin:0;font-size:20px;">Solicitud de Palet - SELOGAS</h1>' +
+        '<p style="margin:6px 0 0;opacity:0.85;font-size:14px;">' + fechaStr + '</p>' +
+        '</div><div style="background:#f8f9fa;padding:24px;border:1px solid #dee2e6;border-radius:0 0 8px 8px;">' +
+        '<p><strong>Producto:</strong> <span style="color:#00913f;font-size:15px;">' + producto.nombre + '</span></p>' +
+        '<p><strong>Tienda:</strong> ' + nombreTienda + '</p>' +
+        '<p><strong>Usuario:</strong> ' + (nombreUsuario || '-') + '</p>' +
+        '<p><strong>Email tienda:</strong> ' + (emailTienda || '-') + '</p>' +
+        (observaciones ? '<p><strong>Observaciones:</strong> ' + observaciones + '</p>' : '') +
+        '<p style="margin-top:20px;color:#888;font-size:12px;">Solicitud enviada desde SELOGAS Pedidos.</p>' +
+        '</div></div>';
 
-        await supabase.functions.invoke("send-email", {
-          body: {
-            to: emailPalets,
-            subject: "Solicitud de Palet: " + producto.nombre + " - " + nombreTienda,
-            tienda_nombre: nombreTienda,
-            numero_pedido: "PALET-" + Date.now(),
-            fecha: new Date().toISOString(),
-            lineas: [{
-              producto_codigo: "",
-              producto_nombre: producto.nombre,
-              cantidad: 1,
-            }],
-            todos_productos: [],
-            es_palet: true,
-            html_override: htmlBody,
-          }
-        });
-      }
-    } catch (e) {
-      console.error("Error enviando email palet:", e);
+      supabase.functions.invoke("send-email", {
+        body: {
+          to: emailPalets,
+          subject: "Solicitud de Palet: " + producto.nombre + " - " + nombreTienda,
+          tienda_nombre: nombreTienda,
+          numero_pedido: "PALET-" + Date.now(),
+          fecha: new Date().toISOString(),
+          lineas: [],
+          todos_productos: [],
+          es_palet: true,
+          html_override: htmlBody,
+        }
+      });
     }
   };
 
