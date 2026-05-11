@@ -239,6 +239,8 @@ export default function Palets() {
   const tiendaId = perfil?.tienda_id;
 
   const cargar = async () => {
+    // Esperar a que el perfil esté cargado
+    if (!isAdmin && !tiendaId) return;
     setLoading(true);
 
     if (isAdmin) {
@@ -278,14 +280,14 @@ export default function Palets() {
   };
 
   useEffect(() => {
-    if (perfil !== null) {
-      cargar();
-      if (isAdmin) {
-        supabase.from("tiendas").select("id, nombre, grupo, email").eq("activa", true).order("nombre")
-          .then(({ data }) => setTiendas(data || []));
-      }
+    if (perfil === null) return;
+    if (!isAdmin && !tiendaId) return;
+    cargar();
+    if (isAdmin) {
+      supabase.from("tiendas").select("id, nombre, grupo, email").eq("activa", true).order("nombre")
+        .then(({ data }) => setTiendas(data || []));
     }
-  }, [perfil?.id, isAdmin]);
+  }, [perfil?.id, tiendaId, isAdmin]);
 
   const eliminar = async (id) => {
     if (!confirm("¿Eliminar este producto de palet?")) return;
