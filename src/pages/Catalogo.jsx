@@ -434,7 +434,7 @@ export default function Catalogo() {
     // Obtener todos los productos para el PDF del catálogo
     const { data: todosProds } = await supabase
       .from("productos")
-      .select("id,codigo,referencia,nombre,hoja_excel,seccion_excel,orden_excel")
+      .select("id,codigo,referencia,nombre,hoja_excel,seccion_excel,orden_excel,columna_excel")
       .eq("activo", true)
       .order("orden_excel", { ascending: true })
       .limit(2000);
