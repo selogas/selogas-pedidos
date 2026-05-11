@@ -352,7 +352,7 @@ export default function Palets() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "SELOGAS Pedidos <pedidos@megino.com>",
+            from: "SELOGAS Pedidos <onboarding@resend.dev>",
             to: [emailPalets],
             subject: `Solicitud de Palet: ${producto.nombre} - ${nombreTienda}`,
             html: htmlBody,
