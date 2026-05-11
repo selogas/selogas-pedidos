@@ -314,15 +314,25 @@ export default function Palets() {
       const { data: config } = await supabase.from("configuracion").select("valor").eq("clave", "email_palets").single();
       const emailPalets = config?.valor?.trim();
       if (emailPalets) {
-        await supabase.functions.invoke("send-palet", {
-          body: {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://pasllyqgczegpvquaxvb.supabase.co";
+        const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhc2xseXFnY3plZ3B2cXVheHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MzE3MzIsImV4cCI6MjA5MzAwNzczMn0.XEz01HOL7g0ziWtMullK1TU7tdFGWFiNDZA8H041p_w";
+        await fetch(`${SUPABASE_URL}/functions/v1/send-palet`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token || SUPABASE_ANON}`,
+            "apikey": SUPABASE_ANON,
+          },
+          body: JSON.stringify({
             to: emailPalets,
             nombre_producto: producto.nombre,
             nombre_tienda: tienda?.nombre || perfil?.tienda_nombre || "",
             nombre_usuario: perfil?.nombre_completo || perfil?.nombre || "",
             email_tienda: tienda?.email || perfil?.email || "",
             observaciones: observaciones || "",
-          }
+          })
         });
       }
     } catch (e) {
