@@ -431,18 +431,10 @@ export default function Catalogo() {
     const asunto = (getConf("asunto_email") || "Pedido - {Tienda} - {Fecha}")
       .replace("{Tienda}", tiendaNombre).replace("{Fecha}", fechaStr);
 
-    const todosProductos = productos.map(p => ({
-      id: p.id, codigo: p.codigo || "", nombre: p.nombre || "",
-      categoria_nombre: p.categorias?.nombre || "",
-      orden_excel: p.orden_excel || 0, columna_excel: p.columna_excel || 0,
-      hoja_excel: p.hoja_excel || "", seccion_excel: p.seccion_excel || "",
-      multiplo: p.multiplo || 1, minimo: p.minimo || 1,
-    }));
-
     await supabase.functions.invoke("send-email", {
       body: { to: emailAlmacen, subject: asunto, tienda_nombre: tiendaNombre,
               numero_pedido: numeroPedido, fecha, observaciones,
-              lineas: lineasData, todos_productos: todosProductos }
+              lineas: lineasData }
     });
     await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedidoId);
   }
