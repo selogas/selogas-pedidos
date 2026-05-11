@@ -431,10 +431,18 @@ export default function Catalogo() {
     const asunto = (getConf("asunto_email") || "Pedido - {Tienda} - {Fecha}")
       .replace("{Tienda}", tiendaNombre).replace("{Fecha}", fechaStr);
 
+    // Obtener todos los productos para el PDF del catálogo
+    const { data: todosProds } = await supabase
+      .from("productos")
+      .select("id,codigo,referencia,nombre,hoja_excel,seccion_excel,orden_excel")
+      .eq("activo", true)
+      .order("orden_excel", { ascending: true })
+      .limit(2000);
+
     await supabase.functions.invoke("send-email", {
       body: { to: emailAlmacen, subject: asunto, tienda_nombre: tiendaNombre,
               numero_pedido: numeroPedido, fecha, observaciones,
-              lineas: lineasData }
+              lineas: lineasData, todos_productos: todosProds || [] }
     });
     await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedidoId);
   }
