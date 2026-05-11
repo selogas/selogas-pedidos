@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
-import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2, Radio, SlidersHorizontal } from 'lucide-react';
+import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2, Radio, SlidersHorizontal, Package2, Table2 } from 'lucide-react';
 
 export default function Layout({ children }) {
   const { user, perfil, isAdmin, signOut } = useAuth();
@@ -14,34 +14,36 @@ export default function Layout({ children }) {
   const nombreUsuario = (perfil?.nombre_completo || perfil?.nombre)?.split(' ')[0]
     || user?.email?.split('@')[0] || '';
 
-  // Banner: solo se muestra a tiendas con mensaje activo
   const mensajeBanner = !isAdmin && tienda?.nombre !== 'PRINCIPAL' && tienda?.mensaje_banner?.trim()
     ? tienda.mensaje_banner.trim()
     : null;
 
   const navItemsTienda = [
-    { path: '/Inicio',     label: 'Inicio',      icon: Home },
-    { path: '/Catalogo',   label: 'Catálogo',    icon: ShoppingCart },
-    { path: '/MisPedidos',   label: 'Mis Pedidos', icon: ClipboardList },
-    { path: '/Caducidades',  label: 'Caducidades', icon: AlertTriangle },
-    { path: '/Comunicados',   label: 'Avisos',        icon: Bell },
-    { path: '/Preferencias',  label: 'Preferencias',  icon: SlidersHorizontal },
+    { path: '/Inicio',       label: 'Inicio',       icon: Home },
+    { path: '/Catalogo',     label: 'Catálogo',     icon: ShoppingCart },
+    { path: '/MisPedidos',   label: 'Mis Pedidos',  icon: ClipboardList },
+    { path: '/Palets',       label: 'Palets',        icon: Package2 },
+    { path: '/Caducidades',  label: 'Caducidades',  icon: AlertTriangle },
+    { path: '/Comunicados',  label: 'Avisos',        icon: Bell },
+    { path: '/Preferencias', label: 'Preferencias', icon: SlidersHorizontal },
   ];
 
   const navItemsAdmin = [
-    { path: '/Inicio',            label: 'Inicio',    icon: Home },
-    { path: '/Catalogo',          label: 'Catálogo',  icon: ShoppingCart },
-    { path: '/MisPedidos',        label: 'Pedidos',     icon: ClipboardList },
-    { path: '/Caducidades',        label: 'Caducidades', icon: AlertTriangle },
-    { path: '/Comunicados',        label: 'Comunicados',   icon: Bell },
-    { path: '/Preferencias',       label: 'Preferencias',  icon: SlidersHorizontal },
-    { path: '/Dashboard',          label: 'Dashboard',    icon: BarChart2 },
-    { path: '/Sesiones',           label: 'Sesiones',     icon: Radio },
-    { path: '/Tiendas',           label: 'Tiendas',   icon: Store },
-    { path: '/Productos',         label: 'Productos', icon: Package },
-    { path: '/ImportarProductos', label: 'Importar',  icon: Upload },
-    { path: '/SubirImagenes',     label: 'Imágenes',  icon: Image },
-    { path: '/Configuracion',     label: 'Config',    icon: Settings },
+    { path: '/Inicio',            label: 'Inicio',       icon: Home },
+    { path: '/Catalogo',          label: 'Catálogo',     icon: ShoppingCart },
+    { path: '/MisPedidos',        label: 'Pedidos',      icon: ClipboardList },
+    { path: '/Palets',            label: 'Palets',       icon: Package2 },
+    { path: '/Caducidades',       label: 'Caducidades',  icon: AlertTriangle },
+    { path: '/Comunicados',       label: 'Comunicados',  icon: Bell },
+    { path: '/Preferencias',      label: 'Preferencias', icon: SlidersHorizontal },
+    { path: '/Dashboard',         label: 'Dashboard',    icon: BarChart2 },
+    { path: '/Sesiones',          label: 'Sesiones',     icon: Radio },
+    { path: '/Tiendas',           label: 'Tiendas',      icon: Store },
+    { path: '/Productos',         label: 'Productos',    icon: Package },
+    { path: '/ExcelSelogas',      label: 'Excel',        icon: Table2 },
+    { path: '/ImportarProductos', label: 'Importar',     icon: Upload },
+    { path: '/SubirImagenes',     label: 'Imágenes',     icon: Image },
+    { path: '/Configuracion',     label: 'Config',       icon: Settings },
   ];
 
   const navItems = isAdmin ? navItemsAdmin : navItemsTienda;
@@ -102,7 +104,7 @@ export default function Layout({ children }) {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
-          <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center">
+          <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center flex-wrap">
             {navItems.map(item => <NavLink key={item.path} item={item} />)}
           </nav>
 

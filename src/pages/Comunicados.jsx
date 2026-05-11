@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
-import { Bell, Plus, Trash2, X, Check, Loader2, AlertTriangle, Info, Megaphone } from "lucide-react";
+import { Bell, Plus, Trash2, X, Check, Loader2, AlertTriangle, Info, Megaphone, ImageIcon, Upload } from "lucide-react";
 
 const TIPO_CONFIG = {
   info:    { color: "bg-[#edf7f2] border-[#b3dfc4] text-blue-800",   icon: Info,         dot: "bg-[#00a847]",   label: "Información" },
@@ -13,29 +13,76 @@ function ComunicadoCard({ c }) {
   const cfg = TIPO_CONFIG[c.tipo] || TIPO_CONFIG.info;
   const Icon = cfg.icon;
   const fecha = new Date(c.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  const tieneTexto = c.titulo || c.mensaje;
+  const tieneImagen = c.imagen_url;
+
   return (
-    <div className={`border-2 rounded-2xl p-4 flex gap-3 ${cfg.color}`}>
-      <Icon size={20} className="flex-shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="font-bold text-sm">{c.titulo}</span>
-          <span className="text-xs opacity-60">{fecha}</span>
+    <div className={`border-2 rounded-2xl overflow-hidden ${cfg.color}`}>
+      {tieneImagen && (
+        <div className="w-full">
+          <img
+            src={c.imagen_url}
+            alt={c.titulo || "Comunicado"}
+            className="w-full max-h-72 object-contain bg-white"
+            onError={e => { e.target.style.display = "none"; }}
+          />
         </div>
-        <p className="text-sm leading-snug">{c.mensaje}</p>
-      </div>
+      )}
+      {tieneTexto && (
+        <div className="flex gap-3 p-4">
+          <Icon size={20} className="flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              {c.titulo && <span className="font-bold text-sm">{c.titulo}</span>}
+              <span className="text-xs opacity-60">{fecha}</span>
+            </div>
+            {c.mensaje && <p className="text-sm leading-snug">{c.mensaje}</p>}
+          </div>
+        </div>
+      )}
+      {!tieneTexto && tieneImagen && (
+        <div className="px-4 py-2 text-xs opacity-60">{fecha}</div>
+      )}
     </div>
   );
 }
 
 function ModalComunicado({ tiendas, onSave, onClose }) {
   const [form, setForm] = useState({ titulo: "", mensaje: "", tipo: "info", destinatario: "todas", tienda_id: null, expires_at: "" });
+  const [imagenFile, setImagenFile] = useState(null);
+  const [imagenPreview, setImagenPreview] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const fileRef = useRef();
+
+  const handleImagenChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImagenFile(file);
+    setImagenPreview(URL.createObjectURL(file));
+  };
+
+  const uploadImagen = async () => {
+    if (!imagenFile) return null;
+    setUploadingImg(true);
+    const ext = imagenFile.name.split(".").pop();
+    const fileName = `comunicados/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("imagenes").upload(fileName, imagenFile, { contentType: imagenFile.type });
+    setUploadingImg(false);
+    if (error) { alert("Error subiendo imagen: " + error.message); return null; }
+    const { data: { publicUrl } } = supabase.storage.from("imagenes").getPublicUrl(fileName);
+    return publicUrl;
+  };
 
   const handleSave = async () => {
-    if (!form.titulo.trim() || !form.mensaje.trim()) return;
+    const tieneTexto = form.titulo.trim() || form.mensaje.trim();
+    if (!tieneTexto && !imagenFile) return;
     setSaving(true);
+    let imagen_url = null;
+    if (imagenFile) imagen_url = await uploadImagen();
     await supabase.from("comunicados").insert([{
       ...form,
+      imagen_url,
       tienda_id: form.destinatario === "tienda" ? form.tienda_id : null,
       expires_at: form.expires_at || null,
       activo: true,
@@ -44,25 +91,50 @@ function ModalComunicado({ tiendas, onSave, onClose }) {
     onSave();
   };
 
+  const puedeGuardar = (form.titulo.trim() || form.mensaje.trim() || imagenFile) && !saving && !uploadingImg;
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-bold text-lg flex items-center gap-2"><Bell size={18} className="text-[#00913f]" /> Nuevo comunicado</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Título *</label>
+            <label className="block text-sm font-medium mb-1">Título <span className="text-gray-400 font-normal">(opcional si hay imagen)</span></label>
             <input type="text" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
               placeholder="Ej: Cambio de horario de reparto" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Mensaje *</label>
+            <label className="block text-sm font-medium mb-1">Mensaje <span className="text-gray-400 font-normal">(opcional si hay imagen)</span></label>
             <textarea value={form.mensaje} onChange={e => setForm(f => ({ ...f, mensaje: e.target.value }))}
               placeholder="Escribe el mensaje completo..." rows={3}
               className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none" />
           </div>
+
+          {/* Imagen */}
+          <div>
+            <label className="block text-sm font-medium mb-1 flex items-center gap-1.5"><ImageIcon size={14} /> Imagen <span className="text-gray-400 font-normal">(opcional)</span></label>
+            {imagenPreview ? (
+              <div className="relative">
+                <img src={imagenPreview} alt="preview" className="w-full max-h-48 object-contain rounded-xl border bg-gray-50" />
+                <button onClick={() => { setImagenFile(null); setImagenPreview(null); fileRef.current.value = ""; }}
+                  className="absolute top-2 right-2 bg-white border rounded-lg p-1 hover:bg-red-50 text-red-500">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => fileRef.current.click()}
+                className="w-full border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center gap-2 text-gray-400 hover:border-[#00913f] hover:text-[#00913f] transition-colors">
+                <Upload size={22} />
+                <span className="text-sm">Haz clic para subir imagen</span>
+                <span className="text-xs">JPG, PNG, WebP, GIF</span>
+              </button>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImagenChange} />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Tipo</label>
@@ -102,9 +174,10 @@ function ModalComunicado({ tiendas, onSave, onClose }) {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm">Cancelar</button>
-          <button onClick={handleSave} disabled={saving || !form.titulo || !form.mensaje}
+          <button onClick={handleSave} disabled={!puedeGuardar}
             className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50">
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Publicar
+            {saving || uploadingImg ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+            {uploadingImg ? "Subiendo imagen..." : saving ? "Publicando..." : "Publicar"}
           </button>
         </div>
       </div>

@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
 import { configuracionApi } from '../api';
-import { Save, CheckCircle, Loader2, Mail, MessageSquare, FileText } from 'lucide-react';
+import { Save, CheckCircle, Loader2, Mail, MessageSquare, FileText, Package2 } from 'lucide-react';
 
 const CAMPOS = [
   {
     clave: 'email_almacen',
-    label: 'Email del Almac\u00E9n',
-    descripcion: 'Direcci\u00F3n(es) donde se recibir\u00E1n los pedidos (separadas por coma)',
+    label: 'Email del Almacén',
+    descripcion: 'Dirección(es) donde se recibirán los pedidos y el catálogo PDF (separadas por coma)',
     icon: Mail,
     placeholder: 'almacen@empresa.com, almacen2@empresa.com',
+    type: 'email'
+  },
+  {
+    clave: 'email_palets',
+    label: 'Email de Palets',
+    descripcion: 'Dirección exclusiva para recibir solicitudes de palets (separada del correo de pedidos normal)',
+    icon: Package2,
+    placeholder: 'palets@empresa.com',
     type: 'email'
   },
   {
@@ -62,7 +70,7 @@ export default function Configuracion() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Configuraci&oacute;n</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
         <p className="text-gray-500 text-sm mt-1">Ajustes generales del sistema de pedidos</p>
       </div>
 
@@ -88,7 +96,7 @@ export default function Configuracion() {
                 />
               ) : (
                 <input
-                  type={type}
+                  type="text"
                   className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
                   placeholder={placeholder}
                   value={valores[clave] || ''}

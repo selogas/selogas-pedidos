@@ -1,0 +1,427 @@
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
+import {
+  Package2, Plus, Trash2, X, Check, Loader2, Send, ImageIcon, Upload,
+  Store, ChevronDown, AlertCircle, Settings
+} from "lucide-react";
+
+// ─── Modal Admin: crear/editar producto de palet ───────────────────────────
+function ModalProductoPalet({ producto, tiendas, onSave, onClose }) {
+  const [form, setForm] = useState({
+    nombre: producto?.nombre || "",
+    descripcion: producto?.descripcion || "",
+    imagen_url: producto?.imagen_url || "",
+    activo: producto?.activo ?? true,
+  });
+  const [tiendaIds, setTiendaIds] = useState([]);
+  const [imagenFile, setImagenFile] = useState(null);
+  const [imagenPreview, setImagenPreview] = useState(producto?.imagen_url || null);
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef();
+
+  useEffect(() => {
+    if (producto?.id) {
+      supabase.from("palet_tiendas").select("tienda_id").eq("palet_producto_id", producto.id)
+        .then(({ data }) => setTiendaIds((data || []).map(r => r.tienda_id)));
+    }
+  }, [producto?.id]);
+
+  const handleImagenChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImagenFile(file);
+    setImagenPreview(URL.createObjectURL(file));
+  };
+
+  const uploadImagen = async () => {
+    if (!imagenFile) return form.imagen_url || null;
+    const ext = imagenFile.name.split(".").pop();
+    const fileName = `palets/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("imagenes").upload(fileName, imagenFile, { contentType: imagenFile.type });
+    if (error) { alert("Error subiendo imagen: " + error.message); return null; }
+    const { data: { publicUrl } } = supabase.storage.from("imagenes").getPublicUrl(fileName);
+    return publicUrl;
+  };
+
+  const handleSave = async () => {
+    if (!form.nombre.trim()) return;
+    setSaving(true);
+    const imagen_url = await uploadImagen();
+    const datos = { ...form, imagen_url };
+
+    let id = producto?.id;
+    if (id) {
+      await supabase.from("palet_productos").update(datos).eq("id", id);
+    } else {
+      const { data } = await supabase.from("palet_productos").insert([datos]).select().single();
+      id = data?.id;
+    }
+
+    if (id) {
+      // Sincronizar tiendas asignadas
+      await supabase.from("palet_tiendas").delete().eq("palet_producto_id", id);
+      if (tiendaIds.length > 0) {
+        await supabase.from("palet_tiendas").insert(tiendaIds.map(tid => ({ palet_producto_id: id, tienda_id: tid })));
+      }
+    }
+
+    setSaving(false);
+    onSave();
+  };
+
+  const toggleTienda = (tid) => {
+    setTiendaIds(prev => prev.includes(tid) ? prev.filter(x => x !== tid) : [...prev, tid]);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-bold text-lg flex items-center gap-2">
+            <Package2 size={18} className="text-[#00913f]" />
+            {producto ? "Editar producto palet" : "Nuevo producto palet"}
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Nombre *</label>
+            <input type="text" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+              placeholder="Ej: Palet de refrescos" className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Descripción</label>
+            <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+              placeholder="Descripción del palet..." rows={2}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none" />
+          </div>
+
+          {/* Imagen */}
+          <div>
+            <label className="block text-sm font-medium mb-1 flex items-center gap-1.5"><ImageIcon size={14} /> Imagen</label>
+            {imagenPreview ? (
+              <div className="relative">
+                <img src={imagenPreview} alt="preview" className="w-full max-h-48 object-contain rounded-xl border bg-gray-50" />
+                <button onClick={() => { setImagenFile(null); setImagenPreview(null); setForm(f => ({ ...f, imagen_url: "" })); fileRef.current.value = ""; }}
+                  className="absolute top-2 right-2 bg-white border rounded-lg p-1 hover:bg-red-50 text-red-500">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => fileRef.current.click()}
+                className="w-full border-2 border-dashed border-gray-200 rounded-xl p-5 flex flex-col items-center gap-2 text-gray-400 hover:border-[#00913f] hover:text-[#00913f] transition-colors">
+                <Upload size={20} />
+                <span className="text-sm">Subir imagen</span>
+              </button>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImagenChange} />
+          </div>
+
+          {/* Estaciones */}
+          <div>
+            <label className="block text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Store size={14} /> Estaciones autorizadas
+            </label>
+            <p className="text-xs text-gray-400 mb-2">Si no seleccionas ninguna, el producto es visible para todas.</p>
+            <div className="border rounded-xl max-h-48 overflow-y-auto divide-y divide-gray-50">
+              {tiendas.filter(t => t.nombre !== "PRINCIPAL").map(t => (
+                <label key={t.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                  <input type="checkbox" checked={tiendaIds.includes(t.id)} onChange={() => toggleTienda(t.id)}
+                    className="w-4 h-4 accent-[#00913f]" />
+                  <span className="text-sm">{t.nombre}</span>
+                  <span className="text-xs text-gray-400 ml-auto">{t.grupo}</span>
+                </label>
+              ))}
+            </div>
+            {tiendaIds.length > 0 && (
+              <p className="text-xs text-[#00913f] mt-1 font-medium">{tiendaIds.length} estación(es) seleccionada(s)</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium">Activo</label>
+            <button onClick={() => setForm(f => ({ ...f, activo: !f.activo }))}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.activo ? "bg-[#00913f]" : "bg-gray-200"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.activo ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm">Cancelar</button>
+          <button onClick={handleSave} disabled={saving || !form.nombre.trim()}
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Card de producto de palet (vista tienda) ──────────────────────────────
+function PaletProductoCard({ producto, onSolicitar }) {
+  const [confirm, setConfirm] = useState(false);
+  const [obs, setObs] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+
+  const handleSolicitar = async () => {
+    setEnviando(true);
+    await onSolicitar(producto, obs);
+    setEnviando(false);
+    setEnviado(true);
+    setConfirm(false);
+    setTimeout(() => setEnviado(false), 3000);
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      {producto.imagen_url && (
+        <div className="w-full h-40 bg-gray-50 flex items-center justify-center overflow-hidden">
+          <img src={producto.imagen_url} alt={producto.nombre} className="w-full h-full object-contain p-2"
+            onError={e => { e.target.parentElement.style.display = "none"; }} />
+        </div>
+      )}
+      <div className="p-4">
+        <h3 className="font-bold text-gray-900 text-sm leading-snug">{producto.nombre}</h3>
+        {producto.descripcion && <p className="text-xs text-gray-500 mt-1 leading-snug">{producto.descripcion}</p>}
+
+        {enviado ? (
+          <div className="mt-3 flex items-center gap-2 text-green-700 bg-green-50 rounded-xl px-3 py-2 text-sm font-medium">
+            <Check size={16} /> Solicitud enviada
+          </div>
+        ) : !confirm ? (
+          <button onClick={() => setConfirm(true)}
+            className="mt-3 w-full py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34]">
+            <Send size={15} /> Solicitar palet
+          </button>
+        ) : (
+          <div className="mt-3 space-y-2">
+            <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-xl text-amber-800 text-xs">
+              <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+              <span>¿Confirmas la solicitud de este palet?</span>
+            </div>
+            <textarea value={obs} onChange={e => setObs(e.target.value)}
+              placeholder="Observaciones (opcional)..." rows={2}
+              className="w-full border rounded-xl px-3 py-2 text-xs resize-none focus:outline-none focus:border-[#00913f]" />
+            <div className="flex gap-2">
+              <button onClick={() => setConfirm(false)} className="flex-1 py-2 border rounded-xl text-xs font-medium hover:bg-gray-100">Cancelar</button>
+              <button onClick={handleSolicitar} disabled={enviando}
+                className="flex-1 py-2 bg-[#00913f] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 hover:bg-[#007a34] disabled:opacity-60">
+                {enviando ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Confirmar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Vista Admin: lista de productos + gestión ────────────────────────────
+function AdminPalets({ tiendas }) {
+  const [productos, setProductos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editando, setEditando] = useState(null);
+
+  const cargar = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("palet_productos").select("*").order("created_at", { ascending: false });
+    setProductos(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const eliminar = async (id) => {
+    if (!confirm("¿Eliminar este producto de palet?")) return;
+    await supabase.from("palet_tiendas").delete().eq("palet_producto_id", id);
+    await supabase.from("palet_solicitudes").delete().eq("palet_producto_id", id);
+    await supabase.from("palet_productos").delete().eq("id", id);
+    cargar();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-sm text-gray-500">{productos.length} producto(s) de palet</div>
+        <button onClick={() => { setEditando(null); setModal(true); }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]">
+          <Plus size={16} /> Nuevo producto palet
+        </button>
+      </div>
+
+      {modal && (
+        <ModalProductoPalet
+          producto={editando}
+          tiendas={tiendas}
+          onSave={() => { setModal(false); setEditando(null); cargar(); }}
+          onClose={() => { setModal(false); setEditando(null); }}
+        />
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>
+      ) : productos.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Package2 size={48} className="mx-auto mb-3 opacity-30" />
+          <p>No hay productos de palet creados</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+          {productos.map(p => (
+            <div key={p.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {p.imagen_url ? (
+                  <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-contain p-1"
+                    onError={e => { e.target.style.display = "none"; }} />
+                ) : <Package2 size={18} className="text-gray-300" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">{p.nombre}</div>
+                {p.descripcion && <div className="text-xs text-gray-400 truncate">{p.descripcion}</div>}
+                <div className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${p.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                  {p.activo ? "Activo" : "Inactivo"}
+                </div>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button onClick={() => { setEditando(p); setModal(true); }}
+                  className="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-100 font-medium">Editar</button>
+                <button onClick={() => eliminar(p.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Vista Tienda: catálogo de palets ──────────────────────────────────────
+function TiendaPalets({ tiendaId, perfil }) {
+  const [productos, setProductos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const cargar = async () => {
+      setLoading(true);
+      // Primero obtenemos los IDs a los que esta tienda tiene acceso específico
+      const { data: asignados } = await supabase.from("palet_tiendas").select("palet_producto_id").eq("tienda_id", tiendaId);
+      const idsAsignados = (asignados || []).map(r => r.palet_producto_id);
+
+      // Obtenemos todos los productos de palets activos
+      const { data: todos } = await supabase.from("palet_productos").select("*, palet_tiendas(tienda_id)").eq("activo", true);
+
+      // Filtrar: si el producto tiene tiendas asignadas, solo lo ve si está en esa lista
+      const visibles = (todos || []).filter(p => {
+        if (!p.palet_tiendas || p.palet_tiendas.length === 0) return true; // visible para todas
+        return p.palet_tiendas.some(pt => pt.tienda_id === tiendaId);
+      });
+
+      setProductos(visibles);
+      setLoading(false);
+    };
+    if (tiendaId) cargar();
+  }, [tiendaId]);
+
+  const solicitar = async (producto, observaciones) => {
+    const tienda = perfil?.tiendas;
+    await supabase.from("palet_solicitudes").insert([{
+      palet_producto_id: producto.id,
+      tienda_id: tiendaId,
+      perfil_id: perfil?.id || null,
+      nombre_producto: producto.nombre,
+      nombre_tienda: tienda?.nombre || perfil?.tienda_nombre || "",
+      nombre_usuario: perfil?.nombre_completo || perfil?.nombre || "",
+      email_tienda: tienda?.email || perfil?.email || "",
+      observaciones: observaciones || "",
+    }]);
+
+    // Enviar email a dirección de palets
+    try {
+      const { data: config } = await supabase.from("configuracion").select("valor").eq("clave", "email_palets").single();
+      const emailPalets = config?.valor?.trim();
+      if (emailPalets) {
+        await supabase.functions.invoke("send-palet", {
+          body: {
+            to: emailPalets,
+            nombre_producto: producto.nombre,
+            nombre_tienda: tienda?.nombre || perfil?.tienda_nombre || "",
+            nombre_usuario: perfil?.nombre_completo || perfil?.nombre || "",
+            email_tienda: tienda?.email || perfil?.email || "",
+            observaciones: observaciones || "",
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Error enviando email palet:", e);
+    }
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>;
+
+  if (productos.length === 0) return (
+    <div className="text-center py-16 text-gray-400">
+      <Package2 size={48} className="mx-auto mb-3 opacity-30" />
+      <p>No hay productos de palet disponibles</p>
+    </div>
+  );
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {productos.map(p => (
+        <PaletProductoCard key={p.id} producto={p} onSolicitar={solicitar} />
+      ))}
+    </div>
+  );
+}
+
+// ─── Página principal Palets ───────────────────────────────────────────────
+export default function Palets() {
+  const { isAdmin, perfil } = useAuth();
+  const [tiendas, setTiendas] = useState([]);
+  const [tab, setTab] = useState("catalogo"); // "catalogo" | "admin"
+
+  useEffect(() => {
+    if (isAdmin) {
+      supabase.from("tiendas").select("id, nombre, grupo, email").eq("activa", true).order("nombre")
+        .then(({ data }) => setTiendas(data || []));
+    }
+  }, [isAdmin]);
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Package2 size={24} className="text-[#00913f]" /> Palets
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Solicita palets de productos</p>
+        </div>
+        {isAdmin && (
+          <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
+            <button onClick={() => setTab("catalogo")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "catalogo" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+              Catálogo
+            </button>
+            <button onClick={() => setTab("admin")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${tab === "admin" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+              <Settings size={14} /> Gestión
+            </button>
+          </div>
+        )}
+      </div>
+
+      {isAdmin && tab === "admin" ? (
+        <AdminPalets tiendas={tiendas} />
+      ) : (
+        <TiendaPalets tiendaId={perfil?.tienda_id} perfil={perfil} />
+      )}
+    </div>
+  );
+}
