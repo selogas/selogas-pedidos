@@ -46,6 +46,7 @@ export default function Catalogo() {
   const [pedidoEstaSemanaPorProducto, setPedidoEstaSemanaPorProducto] = useState({}); // {producto_id: [fecha1, fecha2]}
   const [mediasPorProducto, setMediasPorProducto] = useState({}); // {producto_id: { media, numPedidos }}
   const [favoritos, setFavoritos]       = useState(new Set()); // Set de producto_id
+  const [topProductos, setTopProductos] = useState(new Set()); // Set de producto_id más pedidos globalmente
   const [plantillaActiva, setPlantilla] = useState(null); // { id, nombre, activa, items }
   const [plantillaOn, setPlantillaOn]   = useState(false);
 
@@ -134,12 +135,14 @@ export default function Catalogo() {
           (tienda?.id && tienda?.doble_pedido && prefDoblePedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
           (tienda?.id && prefAvisosCantidad) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
+          cargarTopProductos(),
           tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
         ]);
 
         if (Object.keys(pedidosRecientes).length > 0) setPedidoEstaSemanaPorProducto(pedidosRecientes);
         if (Object.keys(mediasHistoricas).length > 0) setMediasPorProducto(mediasHistoricas);
         if (favSet.size > 0) setFavoritos(favSet);
+        if (topSet.size > 0) setTopProductos(topSet);
         if (plantilla) setPlantilla(plantilla);
 
         if (sugsData.length > 0 && listaProductos.length > 0) {
@@ -159,6 +162,29 @@ export default function Catalogo() {
   }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]);
 
   // ── Favoritos ─────────────────────────────────────────────────────
+  async function cargarTopProductos() {
+    try {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - 90);
+      const { data: pedidos } = await supabase.from('pedidos').select('id').gte('fecha_pedido', desde.toISOString());
+      if (!pedidos?.length) return new Set();
+      const { data: items } = await supabase.from('pedido_items')
+        .select('producto_id, cantidad')
+        .in('pedido_id', pedidos.map(p => p.id));
+      if (!items?.length) return new Set();
+      const mapa = {};
+      for (const item of items) {
+        if (!item.producto_id) continue;
+        mapa[item.producto_id] = (mapa[item.producto_id] || 0) + (item.cantidad || 0);
+      }
+      const top15 = Object.entries(mapa)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15)
+        .map(([id]) => id);
+      return new Set(top15);
+    } catch { return new Set(); }
+  }
+
   async function cargarFavoritos(tiendaId) {
     try {
       const { data } = await supabase.from("favoritos").select("producto_id").eq("tienda_id", tiendaId);
@@ -658,7 +684,8 @@ export default function Catalogo() {
                       onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
                       fechasPedido={prefDoblePedido ? (pedidoEstaSemanaPorProducto[prod.id] || []) : []}
                       mediaHistorica={prefAvisosCantidad ? (mediasPorProducto[prod.id] || null) : null}
-                      esFavorito={favoritos.has(prod.id)}
+                      esFavorito={favoritos.has(prod.id) || topProductos.has(prod.id)}
+                      esTop={topProductos.has(prod.id)}
                       onToggleFavorito={() => toggleFavorito(prod.id)}
                     />
                   ))}

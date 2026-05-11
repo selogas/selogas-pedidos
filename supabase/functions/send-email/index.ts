@@ -65,7 +65,16 @@ Deno.serve(async (req) => {
       for (const col of h.cols)
         col.sort((a, b) => a.orden - b.orden);
 
-    const hojas = Object.keys(hojaMap).sort((a, b) => hojaMap[a].minOrden - hojaMap[b].minOrden);
+    // Orden fijo de hojas igual que en el Excel original
+    const ORDEN_HOJAS = [
+      'BEBIDAS 1', 'BEBIDAS 2', 'HOJA 3', 'GOLOSINAS', 'CHOCOLATES Y GALLETAS',
+      'SNACK', 'NUTRISPORT', 'VAPES', 'DROGUERIA', 'Consumibles',
+      'CONGELADOS', 'PROMOCIONES y NOVEDADES', 'GENERAL'
+    ];
+    const hojas = [
+      ...ORDEN_HOJAS.filter(h => hojaMap[h]),
+      ...Object.keys(hojaMap).filter(h => !ORDEN_HOJAS.includes(h)).sort()
+    ];
 
     // PDF config
     const pdfDoc = await PDFDocument.create();
@@ -109,9 +118,9 @@ Deno.serve(async (req) => {
       for (let c = 0; c < 3; c++) {
         const x = xC(c);
         page.drawRectangle({ x, y: y - rH, width: colW, height: rH, color: rgb(0.80, 0.80, 0.80) });
-        page.drawText('CODIGO',   { x: x + 2,               y: y - rH + 2.5, size: 5.2, font: fontBold, color: rgb(0,0,0) });
-        page.drawText('ARTICULO', { x: x + cCod + 2,        y: y - rH + 2.5, size: 5.2, font: fontBold, color: rgb(0,0,0) });
-        page.drawText('PED',      { x: x + cCod + cNom + 2, y: y - rH + 2.5, size: 5.2, font: fontBold, color: rgb(0,0,0) });
+        page.drawText('CODIGO',   { x: x + 2,               y: y - rH + 2.5, size: 6, font: fontBold, color: rgb(0,0,0) });
+        page.drawText('ARTICULO', { x: x + cCod + 2,        y: y - rH + 2.5, size: 6, font: fontBold, color: rgb(0,0,0) });
+        page.drawText('PED',      { x: x + cCod + cNom + 2, y: y - rH + 2.5, size: 6, font: fontBold, color: rgb(0,0,0) });
       }
       y -= rH;
     };
@@ -126,8 +135,8 @@ Deno.serve(async (req) => {
       if (qty > 0) page.drawRectangle({ x, y: ry, width: colW, height: rH, color: rgb(0.68, 0.92, 0.68) });
       page.drawLine({ start: {x: x+cCod, y: ry},        end: {x: x+cCod,       y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
       page.drawLine({ start: {x: x+cCod+cNom, y: ry},   end: {x: x+cCod+cNom,  y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
-      page.drawText(codigoKey.substring(0, 10),           { x: x + 1.5,             y: ry + 2.5, size: 5.3, font,            color: rgb(0,0,0) });
-      page.drawText((prod.nombre||'').substring(0, 29),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 5.6 : 5.3, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
+      page.drawText(codigoKey.substring(0, 10),           { x: x + 1.5,             y: ry + 2.5, size: 6, font,            color: rgb(0,0,0) });
+      page.drawText((prod.nombre||'').substring(0, 27),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 6.5 : 6, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
       if (qty > 0) page.drawText(qty.toString(),          { x: x + cCod + cNom + 2, y: ry + 2.5, size: 6.5, font: fontBold, color: rgb(0,0.38,0) });
     };
 

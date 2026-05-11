@@ -37,7 +37,7 @@ function calcularAvisoMedia(cantidad, mediaHistorica) {
   return null;
 }
 
-export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fechasPedido = [], mediaHistorica = null, esFavorito = false, onToggleFavorito }) {
+export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fechasPedido = [], mediaHistorica = null, esFavorito = false, esTop = false, onToggleFavorito }) {
   const multiplo  = producto.multiplo || 1;
   const agotado   = producto.disponible === false;
   const yaPedido  = fechasPedido.length > 0;
@@ -50,13 +50,19 @@ export default function ProductCard({ producto, cantidad, onAdd, onQtyChange, fe
       ${yaPedido ? 'border-orange-300' : 'border-gray-100'}`}>
 
       <div className="relative h-32 bg-gray-50 flex items-center justify-center">
-        <button
-          onClick={e => { e.stopPropagation(); onToggleFavorito?.(); }}
-          className={`absolute top-1.5 right-1.5 transition-colors ${esFavorito ? "text-yellow-400" : "text-gray-200 hover:text-yellow-300"}`}
-          title={esFavorito ? "Quitar de favoritos" : "Añadir a favoritos"}
-        >
-          <Star size={14} fill={esFavorito ? "currentColor" : "none"} />
-        </button>
+        {esTop ? (
+          <span className="absolute top-1 right-1 text-yellow-400 drop-shadow-sm" title="Top ventas">
+            <Star size={17} fill="currentColor" />
+          </span>
+        ) : (
+          <button
+            onClick={e => { e.stopPropagation(); onToggleFavorito?.(); }}
+            className={`absolute top-1.5 right-1.5 transition-colors ${esFavorito ? "text-yellow-400" : "text-gray-200 hover:text-yellow-300"}`}
+            title={esFavorito ? "Quitar de favoritos" : "Añadir a favoritos"}
+          >
+            <Star size={14} fill={esFavorito ? "currentColor" : "none"} />
+          </button>
+        )}
         {agotado && (
           <div className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
             Agotado
