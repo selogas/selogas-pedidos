@@ -80,7 +80,7 @@ export default function Catalogo() {
           // Sin caché válida — descargar (quitar precio que no se usa en UI)
           let query = supabase
             .from("productos")
-            .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, grupo_visualizacion, categorias(id, nombre)")
+            .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, categorias(id, nombre)")
             .eq("disponible", true)
             .order("orden_excel");
 
@@ -115,7 +115,7 @@ export default function Catalogo() {
               if (idsNuevos.length) {
                 const { data: prodsEspecificos } = await supabase
                   .from("productos")
-                  .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, grupo_visualizacion, categorias(id, nombre)")
+                  .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, categorias(id, nombre)")
                   .in("id", idsNuevos)
                   .eq("disponible", true);
                 if (prodsEspecificos?.length) {
@@ -435,7 +435,8 @@ export default function Catalogo() {
       id: p.id, codigo: p.codigo || "", nombre: p.nombre || "",
       categoria_nombre: p.categorias?.nombre || "",
       orden_excel: p.orden_excel || 0, columna_excel: p.columna_excel || 0,
-      hoja_excel: p.hoja_excel || "", multiplo: p.multiplo || 1, minimo: p.minimo || 1,
+      hoja_excel: p.hoja_excel || "", seccion_excel: p.seccion_excel || "",
+      multiplo: p.multiplo || 1, minimo: p.minimo || 1,
     }));
 
     await supabase.functions.invoke("send-email", {
