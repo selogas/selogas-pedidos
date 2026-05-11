@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import {
-  Package2, Plus, Trash2, X, Check, Loader2, Send, ImageIcon, Upload,
-  Store, ChevronDown, AlertCircle, Settings
+  Package2, Plus, Trash2, X, Check, Loader2, Send,
+  ImageIcon, Upload, AlertCircle, Pencil, Store
 } from "lucide-react";
 
 // ─── Modal Admin: crear/editar producto de palet ───────────────────────────
@@ -59,7 +59,6 @@ function ModalProductoPalet({ producto, tiendas, onSave, onClose }) {
     }
 
     if (id) {
-      // Sincronizar tiendas asignadas
       await supabase.from("palet_tiendas").delete().eq("palet_producto_id", id);
       if (tiendaIds.length > 0) {
         await supabase.from("palet_tiendas").insert(tiendaIds.map(tid => ({ palet_producto_id: id, tienda_id: tid })));
@@ -97,7 +96,6 @@ function ModalProductoPalet({ producto, tiendas, onSave, onClose }) {
               className="w-full border rounded-xl px-4 py-2.5 text-sm resize-none" />
           </div>
 
-          {/* Imagen */}
           <div>
             <label className="block text-sm font-medium mb-1 flex items-center gap-1.5"><ImageIcon size={14} /> Imagen</label>
             {imagenPreview ? (
@@ -118,12 +116,11 @@ function ModalProductoPalet({ producto, tiendas, onSave, onClose }) {
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImagenChange} />
           </div>
 
-          {/* Estaciones */}
           <div>
             <label className="block text-sm font-medium mb-2 flex items-center gap-1.5">
               <Store size={14} /> Estaciones autorizadas
             </label>
-            <p className="text-xs text-gray-400 mb-2">Si no seleccionas ninguna, el producto es visible para todas.</p>
+            <p className="text-xs text-gray-400 mb-2">Sin selección = visible para todas las estaciones.</p>
             <div className="border rounded-xl max-h-48 overflow-y-auto divide-y divide-gray-50">
               {tiendas.filter(t => t.nombre !== "PRINCIPAL").map(t => (
                 <label key={t.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
@@ -159,8 +156,8 @@ function ModalProductoPalet({ producto, tiendas, onSave, onClose }) {
   );
 }
 
-// ─── Card de producto de palet (vista tienda) ──────────────────────────────
-function PaletProductoCard({ producto, onSolicitar }) {
+// ─── Card de producto de palet ─────────────────────────────────────────────
+function PaletProductoCard({ producto, isAdmin, onEditar, onEliminar, onSolicitar }) {
   const [confirm, setConfirm] = useState(false);
   const [obs, setObs] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -187,7 +184,18 @@ function PaletProductoCard({ producto, onSolicitar }) {
         <h3 className="font-bold text-gray-900 text-sm leading-snug">{producto.nombre}</h3>
         {producto.descripcion && <p className="text-xs text-gray-500 mt-1 leading-snug">{producto.descripcion}</p>}
 
-        {enviado ? (
+        {isAdmin ? (
+          <div className="mt-3 flex gap-2">
+            <button onClick={() => onEditar(producto)}
+              className="flex-1 py-2 border rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-gray-50">
+              <Pencil size={13} /> Editar
+            </button>
+            <button onClick={() => onEliminar(producto.id)}
+              className="py-2 px-3 border border-red-200 text-red-500 rounded-xl hover:bg-red-50">
+              <Trash2 size={13} />
+            </button>
+          </div>
+        ) : enviado ? (
           <div className="mt-3 flex items-center gap-2 text-green-700 bg-green-50 rounded-xl px-3 py-2 text-sm font-medium">
             <Check size={16} /> Solicitud enviada
           </div>
@@ -219,21 +227,51 @@ function PaletProductoCard({ producto, onSolicitar }) {
   );
 }
 
-// ─── Vista Admin: lista de productos + gestión ────────────────────────────
-function AdminPalets({ tiendas }) {
+// ─── Página principal Palets ───────────────────────────────────────────────
+export default function Palets() {
+  const { isAdmin, perfil } = useAuth();
   const [productos, setProductos] = useState([]);
+  const [tiendas, setTiendas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState(null);
 
+  const tiendaId = perfil?.tienda_id;
+
   const cargar = async () => {
     setLoading(true);
-    const { data } = await supabase.from("palet_productos").select("*").order("created_at", { ascending: false });
-    setProductos(data || []);
+
+    if (isAdmin) {
+      // Admin ve todos los productos activos
+      const { data } = await supabase.from("palet_productos").select("*").eq("activo", true).order("created_at", { ascending: false });
+      setProductos(data || []);
+    } else {
+      // Tienda: solo ve los que le corresponden
+      const { data: todos } = await supabase
+        .from("palet_productos")
+        .select("*, palet_tiendas(tienda_id)")
+        .eq("activo", true);
+
+      const visibles = (todos || []).filter(p => {
+        if (!p.palet_tiendas || p.palet_tiendas.length === 0) return true; // visible para todas
+        return p.palet_tiendas.some(pt => pt.tienda_id === tiendaId);
+      });
+
+      setProductos(visibles);
+    }
+
     setLoading(false);
   };
 
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => {
+    if (perfil !== null) {
+      cargar();
+      if (isAdmin) {
+        supabase.from("tiendas").select("id, nombre, grupo, email").eq("activa", true).order("nombre")
+          .then(({ data }) => setTiendas(data || []));
+      }
+    }
+  }, [perfil?.id, isAdmin]);
 
   const eliminar = async (id) => {
     if (!confirm("¿Eliminar este producto de palet?")) return;
@@ -242,92 +280,6 @@ function AdminPalets({ tiendas }) {
     await supabase.from("palet_productos").delete().eq("id", id);
     cargar();
   };
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-sm text-gray-500">{productos.length} producto(s) de palet</div>
-        <button onClick={() => { setEditando(null); setModal(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]">
-          <Plus size={16} /> Nuevo producto palet
-        </button>
-      </div>
-
-      {modal && (
-        <ModalProductoPalet
-          producto={editando}
-          tiendas={tiendas}
-          onSave={() => { setModal(false); setEditando(null); cargar(); }}
-          onClose={() => { setModal(false); setEditando(null); }}
-        />
-      )}
-
-      {loading ? (
-        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>
-      ) : productos.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Package2 size={48} className="mx-auto mb-3 opacity-30" />
-          <p>No hay productos de palet creados</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
-          {productos.map(p => (
-            <div key={p.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
-              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {p.imagen_url ? (
-                  <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-contain p-1"
-                    onError={e => { e.target.style.display = "none"; }} />
-                ) : <Package2 size={18} className="text-gray-300" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-gray-900">{p.nombre}</div>
-                {p.descripcion && <div className="text-xs text-gray-400 truncate">{p.descripcion}</div>}
-                <div className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${p.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                  {p.activo ? "Activo" : "Inactivo"}
-                </div>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <button onClick={() => { setEditando(p); setModal(true); }}
-                  className="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-100 font-medium">Editar</button>
-                <button onClick={() => eliminar(p.id)}
-                  className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Vista Tienda: catálogo de palets ──────────────────────────────────────
-function TiendaPalets({ tiendaId, perfil }) {
-  const [productos, setProductos] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const cargar = async () => {
-      setLoading(true);
-      // Primero obtenemos los IDs a los que esta tienda tiene acceso específico
-      const { data: asignados } = await supabase.from("palet_tiendas").select("palet_producto_id").eq("tienda_id", tiendaId);
-      const idsAsignados = (asignados || []).map(r => r.palet_producto_id);
-
-      // Obtenemos todos los productos de palets activos
-      const { data: todos } = await supabase.from("palet_productos").select("*, palet_tiendas(tienda_id)").eq("activo", true);
-
-      // Filtrar: si el producto tiene tiendas asignadas, solo lo ve si está en esa lista
-      const visibles = (todos || []).filter(p => {
-        if (!p.palet_tiendas || p.palet_tiendas.length === 0) return true; // visible para todas
-        return p.palet_tiendas.some(pt => pt.tienda_id === tiendaId);
-      });
-
-      setProductos(visibles);
-      setLoading(false);
-    };
-    if (tiendaId) cargar();
-  }, [tiendaId]);
 
   const solicitar = async (producto, observaciones) => {
     const tienda = perfil?.tiendas;
@@ -342,7 +294,6 @@ function TiendaPalets({ tiendaId, perfil }) {
       observaciones: observaciones || "",
     }]);
 
-    // Enviar email a dirección de palets
     try {
       const { data: config } = await supabase.from("configuracion").select("valor").eq("clave", "email_palets").single();
       const emailPalets = config?.valor?.trim();
@@ -363,64 +314,60 @@ function TiendaPalets({ tiendaId, perfil }) {
     }
   };
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>;
-
-  if (productos.length === 0) return (
-    <div className="text-center py-16 text-gray-400">
-      <Package2 size={48} className="mx-auto mb-3 opacity-30" />
-      <p>No hay productos de palet disponibles</p>
-    </div>
-  );
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {productos.map(p => (
-        <PaletProductoCard key={p.id} producto={p} onSolicitar={solicitar} />
-      ))}
-    </div>
-  );
-}
-
-// ─── Página principal Palets ───────────────────────────────────────────────
-export default function Palets() {
-  const { isAdmin, perfil } = useAuth();
-  const [tiendas, setTiendas] = useState([]);
-  const [tab, setTab] = useState("catalogo"); // "catalogo" | "admin"
-
-  useEffect(() => {
-    if (isAdmin) {
-      supabase.from("tiendas").select("id, nombre, grupo, email").eq("activa", true).order("nombre")
-        .then(({ data }) => setTiendas(data || []));
-    }
-  }, [isAdmin]);
-
   return (
     <div className="max-w-5xl mx-auto">
+      {modal && (
+        <ModalProductoPalet
+          producto={editando}
+          tiendas={tiendas}
+          onSave={() => { setModal(false); setEditando(null); cargar(); }}
+          onClose={() => { setModal(false); setEditando(null); }}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Package2 size={24} className="text-[#00913f]" /> Palets
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Solicita palets de productos</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {isAdmin ? `${productos.length} producto(s) disponibles` : "Solicita palets de productos"}
+          </p>
         </div>
         {isAdmin && (
-          <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
-            <button onClick={() => setTab("catalogo")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "catalogo" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
-              Catálogo
-            </button>
-            <button onClick={() => setTab("admin")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${tab === "admin" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
-              <Settings size={14} /> Gestión
-            </button>
-          </div>
+          <button onClick={() => { setEditando(null); setModal(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]">
+            <Plus size={16} /> Nuevo producto palet
+          </button>
         )}
       </div>
 
-      {isAdmin && tab === "admin" ? (
-        <AdminPalets tiendas={tiendas} />
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>
+      ) : productos.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Package2 size={48} className="mx-auto mb-3 opacity-30" />
+          <p>{isAdmin ? "No hay productos de palet creados" : "No hay productos de palet disponibles"}</p>
+          {isAdmin && (
+            <button onClick={() => { setEditando(null); setModal(true); }}
+              className="mt-4 px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-medium hover:bg-[#007a34]">
+              Crear primer producto
+            </button>
+          )}
+        </div>
       ) : (
-        <TiendaPalets tiendaId={perfil?.tienda_id} perfil={perfil} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {productos.map(p => (
+            <PaletProductoCard
+              key={p.id}
+              producto={p}
+              isAdmin={isAdmin}
+              onEditar={(p) => { setEditando(p); setModal(true); }}
+              onEliminar={eliminar}
+              onSolicitar={solicitar}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
