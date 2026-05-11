@@ -314,25 +314,49 @@ export default function Palets() {
       const { data: config } = await supabase.from("configuracion").select("valor").eq("clave", "email_palets").single();
       const emailPalets = config?.valor?.trim();
       if (emailPalets) {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://pasllyqgczegpvquaxvb.supabase.co";
-        const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhc2xseXFnY3plZ3B2cXVheHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MzE3MzIsImV4cCI6MjA5MzAwNzczMn0.XEz01HOL7g0ziWtMullK1TU7tdFGWFiNDZA8H041p_w";
-        await fetch(`${SUPABASE_URL}/functions/v1/send-palet`, {
+        const nombreTienda = tienda?.nombre || perfil?.tienda_nombre || "";
+        const nombreUsuario = perfil?.nombre_completo || perfil?.nombre || "";
+        const emailTienda = tienda?.email || perfil?.email || "";
+        const fechaStr = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+        const htmlBody = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+          <div style="background:#00913f;color:white;padding:20px 24px;border-radius:8px 8px 0 0;">
+            <h1 style="margin:0;font-size:20px;">Solicitud de Palet - SELOGAS</h1>
+            <p style="margin:6px 0 0;opacity:0.85;font-size:14px;">${fechaStr}</p>
+          </div>
+          <div style="background:#f8f9fa;padding:24px;border:1px solid #dee2e6;border-top:none;border-radius:0 0 8px 8px;">
+            <table style="width:100%;border-collapse:collapse;border-spacing:0 8px;">
+              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;width:150px;">Producto</td>
+              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-size:15px;font-weight:600;color:#00913f;">${producto.nombre}</td></tr>
+              <tr><td colspan="2" style="padding:3px;"></td></tr>
+              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Tienda</td>
+              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${nombreTienda}</td></tr>
+              <tr><td colspan="2" style="padding:3px;"></td></tr>
+              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Usuario</td>
+              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${nombreUsuario || "-"}</td></tr>
+              <tr><td colspan="2" style="padding:3px;"></td></tr>
+              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Email tienda</td>
+              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${emailTienda || "-"}</td></tr>
+              ${observaciones ? `<tr><td colspan="2" style="padding:3px;"></td></tr>
+              <tr><td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;font-weight:bold;">Observaciones</td>
+              <td style="padding:10px 12px;background:#fff;border:1px solid #e0e0e0;">${observaciones}</td></tr>` : ""}
+            </table>
+            <p style="margin-top:20px;color:#888;font-size:12px;">Solicitud enviada desde SELOGAS Pedidos.</p>
+          </div>
+        </div>`;
+
+        await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
+            "Authorization": "Bearer re_K9T4B9QE_JJu1cnh6yjXx231zNfVnmYqr",
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token || SUPABASE_ANON}`,
-            "apikey": SUPABASE_ANON,
           },
           body: JSON.stringify({
-            to: emailPalets,
-            nombre_producto: producto.nombre,
-            nombre_tienda: tienda?.nombre || perfil?.tienda_nombre || "",
-            nombre_usuario: perfil?.nombre_completo || perfil?.nombre || "",
-            email_tienda: tienda?.email || perfil?.email || "",
-            observaciones: observaciones || "",
-          })
+            from: "SELOGAS Pedidos <pedidos@megino.com>",
+            to: [emailPalets],
+            subject: `Solicitud de Palet: ${producto.nombre} - ${nombreTienda}`,
+            html: htmlBody,
+          }),
         });
       }
     } catch (e) {
