@@ -345,7 +345,7 @@ export default function Palets() {
           </div>
         </div>`;
 
-        await fetch("https://api.resend.com/emails", {
+        const resendResp = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Authorization": "Bearer re_4rosYhyz_6EsyN4w7x9wnVepGQ2gPdthK",
@@ -358,8 +358,13 @@ export default function Palets() {
             html: htmlBody,
           }),
         });
+        const resendData = await resendResp.json();
+        if (!resendResp.ok) {
+          alert("Error Resend: " + JSON.stringify(resendData));
+        }
       }
     } catch (e) {
+      alert("Error enviando email: " + e.message);
       console.error("Error enviando email palet:", e);
     }
   };
