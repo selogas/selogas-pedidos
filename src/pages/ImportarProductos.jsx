@@ -2633,8 +2633,9 @@ export default function ImportarProductos() {
   };
 
   // ── Opción 2: Importar plantilla SELOGAS ───────────────────────
-  // Formato PDF: 3 bloques (CODIGO, ARTICULO, PED) por fila
-  // Actualiza columna_excel y orden_excel en productos existentes
+  // Formato: 3 bloques (CODIGO, ARTICULO, PED) por fila
+  // Orden: fila × bloque — igual que el PDF adjunto
+  // También guarda la sección/cabecera (MAHOU, SAN MIGUEL...) de cada producto
   const handlePlantillaSelogas = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2642,55 +2643,76 @@ export default function ImportarProductos() {
     try {
       const data = await file.arrayBuffer();
       const wb   = XLSX.read(data);
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-      // Parsear los 3 bloques: cols 0-2, 3-5, 6-8
       const productos = [];
-      let orden = 1;
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        for (let bloque = 0; bloque < 3; bloque++) {
-          const codigo = String(row[bloque * 3] || "").trim();
-          // Solo filas con código numérico real
-          if (codigo && /^\d+$/.test(codigo.replace(/\./g, ""))) {
-            productos.push({
-              codigo,
-              columna_excel: bloque + 1,
-              orden_excel: orden++,
-            });
+      let orden_global = 1;
+
+      // Leer TODAS las pestañas del XLS — cada pestaña = una hoja del PDF
+      for (const sheetName of wb.SheetNames) {
+        const ws   = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        const hoja = sheetName.trim().toUpperCase();
+        const seccionActual = ["", "", ""];
+
+        for (let i = 0; i < rows.length; i++) {
+          if (i < 4) continue; // saltar cabecera
+          const row = rows[i];
+          const numBloques = row.length >= 7 ? 3 : row.length >= 4 ? 2 : 1;
+
+          for (let b = 0; b < numBloques; b++) {
+            const codigo = String(row[b * 3]     || "").trim().replace(/\.0$/, "");
+            const nombre = String(row[b * 3 + 1] || "").trim();
+            if (!nombre || nombre === "nan") continue;
+
+            // Ignorar filas de instrucciones al final del XLS
+            if (/CANTIDAD MINIMA|EJEMPLO:|TODO LO QUE|2026-0/.test(nombre.toUpperCase())) continue;
+
+            const codLimpio = codigo.replace(/\./g, "").replace(/\s/g, "").replace(/,/g, "");
+            const esProducto = codLimpio.length >= 4 && /^\d+$/.test(codLimpio);
+
+            if (esProducto) {
+              productos.push({
+                codigo: codLimpio,          // código limpio sin decimales
+                hoja_excel: hoja,
+                columna_excel: b + 1,
+                orden_excel: orden_global++,
+                seccion_excel: seccionActual[b] || null,
+              });
+            } else {
+              seccionActual[b] = nombre;
+            }
           }
         }
       }
 
       if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
-      setProgress(`Actualizando posición de ${productos.length} productos...`);
+      setProgress(`${productos.length} productos encontrados. Actualizando BD...`);
 
-      // Obtener todos los productos existentes de una sola query
+      // Cargar mapa de códigos de la BD
       const { data: todosProds } = await supabase.from("productos").select("id, codigo");
       const mapaCodigos = {};
-      (todosProds || []).forEach(p => { mapaCodigos[p.codigo] = p.id; });
+      (todosProds || []).forEach(p => {
+        if (p.codigo) mapaCodigos[p.codigo.toString().trim()] = p.id;
+      });
 
-      let actualizados = 0;
-      let noEncontrados = 0;
+      let actualizados = 0, noEncontrados = 0;
 
-      // Actualizar en lotes de 50
-      const loteSize = 50;
-      for (let i = 0; i < productos.length; i += loteSize) {
-        const lote = productos.slice(i, i + loteSize);
+      for (let i = 0; i < productos.length; i += 50) {
+        const lote = productos.slice(i, i + 50);
         for (const p of lote) {
           const prodId = mapaCodigos[p.codigo];
           if (!prodId) { noEncontrados++; continue; }
           await supabase.from("productos").update({
+            hoja_excel:    p.hoja_excel,
             columna_excel: p.columna_excel,
             orden_excel:   p.orden_excel,
+            seccion_excel: p.seccion_excel,
           }).eq("id", prodId);
           actualizados++;
         }
-        setProgress(`Actualizando... ${Math.min(i + loteSize, productos.length)}/${productos.length}`);
+        setProgress(`Actualizando... ${Math.min(i + 50, productos.length)}/${productos.length}`);
       }
 
-      // Invalidar caché
       try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
       setResult({ total: actualizados, noEncontrados, tipo: "plantilla" });
     } catch (err) {
