@@ -246,16 +246,30 @@ export default function Palets() {
       const { data } = await supabase.from("palet_productos").select("*").eq("activo", true).order("created_at", { ascending: false });
       setProductos(data || []);
     } else {
-      // Tienda: solo ve los que le corresponden
+      // Obtener IDs de palets asignados específicamente a esta tienda
+      const { data: asignados } = await supabase
+        .from("palet_tiendas")
+        .select("palet_producto_id")
+        .eq("tienda_id", tiendaId);
+      const idsAsignados = new Set((asignados || []).map(r => r.palet_producto_id));
+
+      // Obtener IDs de palets que tienen alguna restricción de tienda
+      const { data: todosConRestr } = await supabase
+        .from("palet_tiendas")
+        .select("palet_producto_id");
+      const idsConRestr = new Set((todosConRestr || []).map(r => r.palet_producto_id));
+
+      // Obtener todos los productos activos
       const { data: todos } = await supabase
         .from("palet_productos")
-        .select("*, palet_tiendas(tienda_id)")
-        .eq("activo", true);
+        .select("*")
+        .eq("activo", true)
+        .order("created_at", { ascending: false });
 
-      const visibles = (todos || []).filter(p => {
-        if (!p.palet_tiendas || p.palet_tiendas.length === 0) return true; // visible para todas
-        return p.palet_tiendas.some(pt => pt.tienda_id === tiendaId);
-      });
+      // Filtrar: si tiene restricciones, solo lo ve si está en su lista
+      const visibles = (todos || []).filter(p =>
+        !idsConRestr.has(p.id) || idsAsignados.has(p.id)
+      );
 
       setProductos(visibles);
     }
