@@ -348,7 +348,7 @@ export default function Palets() {
         await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
-            "Authorization": "Bearer re_K9T4B9QE_JJu1cnh6yjXx231zNfVnmYqr",
+            "Authorization": "Bearer re_4rosYhyz_6EsyN4w7x9wnVepGQ2gPdthK",
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
