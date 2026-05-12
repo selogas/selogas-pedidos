@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
 import { configuracionApi } from '../api';
-import { Save, CheckCircle, Loader2, Mail, MessageSquare, FileText, Package2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import {
+  Save, CheckCircle, Loader2, Mail, MessageSquare, FileText,
+  Package2, Image, Plus, Trash2, GripVertical, Eye, EyeOff
+} from 'lucide-react';
 
 const CAMPOS = [
   {
@@ -36,6 +41,254 @@ const CAMPOS = [
     type: 'textarea'
   },
 ];
+
+// ─── Gestión de Novedades ──────────────────────────────────────────────────
+
+const FORM_VACIO = { titulo: '', descripcion: '', imagen_url: '', enlace: '', activa: true };
+
+function GestionNovedades() {
+  const [novedades, setNovedades] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(FORM_VACIO);
+  const [editandoId, setEditandoId] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [exito, setExito] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const dragItem = useRef(null);
+  const [draggingIdx, setDraggingIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+
+  const mostrarExito = (msg) => {
+    setExito(msg);
+    setTimeout(() => setExito(''), 2500);
+  };
+
+  const fetchNovedades = async () => {
+    const { data } = await supabase
+      .from('novedades')
+      .select('*')
+      .order('orden', { ascending: true });
+    setNovedades(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchNovedades(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.imagen_url.trim()) { setErrorMsg('La URL de imagen es obligatoria.'); return; }
+    setErrorMsg('');
+    setGuardando(true);
+    if (editandoId) {
+      await supabase.from('novedades').update(form).eq('id', editandoId);
+      mostrarExito('Novedad actualizada.');
+      setEditandoId(null);
+      setForm(FORM_VACIO);
+    } else {
+      await supabase.from('novedades').insert([{ ...form, orden: novedades.length }]);
+      mostrarExito('Novedad añadida.');
+      setForm(FORM_VACIO);
+    }
+    setGuardando(false);
+    fetchNovedades();
+  };
+
+  const iniciarEdicion = (nov) => {
+    setEditandoId(nov.id);
+    setForm({ titulo: nov.titulo || '', descripcion: nov.descripcion || '', imagen_url: nov.imagen_url, enlace: nov.enlace || '', activa: nov.activa });
+  };
+
+  const cancelar = () => { setEditandoId(null); setForm(FORM_VACIO); setErrorMsg(''); };
+
+  const toggleActiva = async (nov) => {
+    await supabase.from('novedades').update({ activa: !nov.activa }).eq('id', nov.id);
+    fetchNovedades();
+  };
+
+  const eliminar = async (id) => {
+    if (!confirm('¿Eliminar esta novedad?')) return;
+    await supabase.from('novedades').delete().eq('id', id);
+    mostrarExito('Novedad eliminada.');
+    fetchNovedades();
+  };
+
+  // Drag & drop
+  const onDragStart = (idx) => { dragItem.current = idx; setDraggingIdx(idx); };
+  const onDragEnter = (idx) => setOverIdx(idx);
+  const onDragEnd = async () => {
+    if (dragItem.current !== null && overIdx !== null && dragItem.current !== overIdx) {
+      const reord = [...novedades];
+      const [mov] = reord.splice(dragItem.current, 1);
+      reord.splice(overIdx, 0, mov);
+      setNovedades(reord);
+      await Promise.all(reord.map(({ id }, i) => supabase.from('novedades').update({ orden: i }).eq('id', id)));
+      mostrarExito('Orden guardado.');
+    }
+    dragItem.current = null;
+    setDraggingIdx(null);
+    setOverIdx(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Formulario */}
+      <form onSubmit={handleSubmit} className="bg-gray-50 rounded-2xl border border-gray-200 p-5 space-y-3">
+        <h3 className="font-semibold text-gray-800 text-sm">
+          {editandoId ? 'Editar novedad' : 'Añadir novedad'}
+        </h3>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1">URL de imagen *</label>
+          <input
+            type="url"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#00c254]"
+            placeholder="https://..."
+            value={form.imagen_url}
+            onChange={e => setForm({ ...form, imagen_url: e.target.value })}
+            required
+          />
+          {form.imagen_url && (
+            <img
+              src={form.imagen_url}
+              alt="Preview"
+              className="mt-2 w-full rounded-xl object-cover"
+              style={{ maxHeight: '120px' }}
+              onError={e => { e.target.style.display = 'none'; }}
+            />
+          )}
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1">Título (opcional)</label>
+          <input
+            type="text"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#00c254]"
+            placeholder="Ej: Nuevos productos de temporada"
+            value={form.titulo}
+            onChange={e => setForm({ ...form, titulo: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1">Descripción corta (opcional)</label>
+          <input
+            type="text"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#00c254]"
+            placeholder="Texto breve visible sobre la imagen"
+            value={form.descripcion}
+            onChange={e => setForm({ ...form, descripcion: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1">Enlace al pulsar (opcional)</label>
+          <input
+            type="url"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#00c254]"
+            placeholder="https://..."
+            value={form.enlace}
+            onChange={e => setForm({ ...form, enlace: e.target.value })}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.activa}
+            onChange={e => setForm({ ...form, activa: e.target.checked })}
+            className="rounded"
+          />
+          Visible en la app
+        </label>
+        {errorMsg && <p className="text-red-600 text-xs">{errorMsg}</p>}
+        {exito && <p className="text-[#00913f] text-xs font-semibold">{exito}</p>}
+        <div className="flex gap-2 pt-1">
+          <button
+            type="submit"
+            disabled={guardando}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-colors flex-shrink-0"
+            style={{ background: '#00913f', opacity: guardando ? 0.7 : 1 }}
+          >
+            {guardando ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            {editandoId ? 'Guardar cambios' : 'Añadir'}
+          </button>
+          {editandoId && (
+            <button type="button" onClick={cancelar} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+              Cancelar
+            </button>
+          )}
+        </div>
+      </form>
+
+      {/* Lista */}
+      <div>
+        <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+          <GripVertical size={13} /> Arrastra para reordenar
+        </p>
+        {loading ? (
+          <div className="flex justify-center py-4"><Loader2 size={22} className="animate-spin text-[#00913f]" /></div>
+        ) : novedades.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No hay novedades todavía.</p>
+        ) : (
+          <div className="space-y-2">
+            {novedades.map((nov, idx) => (
+              <div
+                key={nov.id}
+                draggable
+                onDragStart={() => onDragStart(idx)}
+                onDragEnter={() => onDragEnter(idx)}
+                onDragEnd={onDragEnd}
+                onDragOver={e => e.preventDefault()}
+                className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-3 py-2.5 transition-all"
+                style={{
+                  opacity: draggingIdx === idx ? 0.4 : 1,
+                  borderTop: overIdx === idx && draggingIdx !== idx ? '2px solid #00913f' : undefined,
+                  cursor: 'grab',
+                }}
+              >
+                <GripVertical size={16} className="text-gray-300 flex-shrink-0" />
+                <img
+                  src={nov.imagen_url}
+                  alt=""
+                  className="w-14 h-9 object-cover rounded-lg flex-shrink-0 bg-gray-100"
+                  onError={e => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="36"><rect fill="%23eee" width="56" height="36"/></svg>'; }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">
+                    {nov.titulo || <span className="text-gray-400 font-normal italic">Sin título</span>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => toggleActiva(nov)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+                    title={nov.activa ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {nov.activa
+                      ? <Eye size={15} className="text-[#00913f]" />
+                      : <EyeOff size={15} className="text-gray-400" />
+                    }
+                  </button>
+                  <button
+                    onClick={() => iniciarEdicion(nov)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors text-xs font-bold text-gray-600"
+                    title="Editar"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => eliminar(nov.id)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={14} className="text-red-400" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Página Configuración ──────────────────────────────────────────────────
 
 export default function Configuracion() {
   const [valores, setValores] = useState({});
@@ -74,6 +327,7 @@ export default function Configuracion() {
         <p className="text-gray-500 text-sm mt-1">Ajustes generales del sistema de pedidos</p>
       </div>
 
+      {/* Configuración de emails — sin cambios */}
       <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
         {CAMPOS.map(({ clave, label, descripcion, icon: Icon, placeholder, type }) => (
           <div key={clave} className="p-6">
@@ -118,6 +372,22 @@ export default function Configuracion() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── SECCIÓN NOVEDADES (nueva) ── */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+        <div className="flex items-start gap-3 mb-5">
+          <div className="w-9 h-9 rounded-lg bg-[#edf7f2] flex items-center justify-center flex-shrink-0">
+            <Image size={18} className="text-[#00913f]" />
+          </div>
+          <div>
+            <div className="font-semibold text-gray-900">Novedades</div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              Imágenes del carrusel que aparecen en la página de Inicio
+            </div>
+          </div>
+        </div>
+        <GestionNovedades />
       </div>
     </div>
   );
