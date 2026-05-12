@@ -166,21 +166,51 @@ export default function Catalogo() {
     try {
       const desde = new Date();
       desde.setDate(desde.getDate() - 90);
-      const { data: pedidos } = await supabase.from('pedidos').select('id').gte('fecha_pedido', desde.toISOString());
+      // Traemos tienda_id y fecha_pedido del pedido para poder aplicar los desempates
+      const { data: pedidos } = await supabase
+        .from('pedidos')
+        .select('id, tienda_id, fecha_pedido')
+        .gte('fecha_pedido', desde.toISOString());
       if (!pedidos?.length) return new Set();
-      const { data: items } = await supabase.from('pedido_items')
-        .select('producto_id, cantidad')
+
+      // Mapa rápido pedido_id → { tienda_id, fecha_pedido }
+      const mapaPedidos = {};
+      for (const ped of pedidos) mapaPedidos[ped.id] = ped;
+
+      const { data: items } = await supabase
+        .from('pedido_items')
+        .select('producto_id, cantidad, pedido_id')
         .in('pedido_id', pedidos.map(p => p.id));
       if (!items?.length) return new Set();
+
+      // Acumula: unidades totales, tiendas distintas, fecha más reciente
       const mapa = {};
       for (const item of items) {
         if (!item.producto_id) continue;
-        mapa[item.producto_id] = (mapa[item.producto_id] || 0) + (item.cantidad || 0);
+        const ped = mapaPedidos[item.pedido_id];
+        if (!mapa[item.producto_id]) {
+          mapa[item.producto_id] = { unidades: 0, tiendas: new Set(), ultimaVenta: null };
+        }
+        mapa[item.producto_id].unidades += (item.cantidad || 0);
+        if (ped?.tienda_id) mapa[item.producto_id].tiendas.add(ped.tienda_id);
+        if (ped?.fecha_pedido) {
+          const f = new Date(ped.fecha_pedido);
+          if (!mapa[item.producto_id].ultimaVenta || f > mapa[item.producto_id].ultimaVenta) {
+            mapa[item.producto_id].ultimaVenta = f;
+          }
+        }
       }
+
+      // Ordenar: 1) más unidades, 2) más tiendas distintas, 3) venta más reciente
       const top15 = Object.entries(mapa)
-        .sort((a, b) => b[1] - a[1])
+        .sort(([, a], [, b]) => {
+          if (b.unidades !== a.unidades) return b.unidades - a.unidades;
+          if (b.tiendas.size !== a.tiendas.size) return b.tiendas.size - a.tiendas.size;
+          return (b.ultimaVenta || 0) - (a.ultimaVenta || 0);
+        })
         .slice(0, 15)
         .map(([id]) => id);
+
       return new Set(top15);
     } catch { return new Set(); }
   }
