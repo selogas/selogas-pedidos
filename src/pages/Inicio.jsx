@@ -70,10 +70,10 @@ function NovedadesSlider() {
         {/* Imagen */}
         {nov.enlace ? (
           <a href={nov.enlace} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-            <img src={nov.imagen_url} alt={nov.titulo || 'Novedad'} className="w-full h-full object-cover" />
+            <img src={nov.imagen_url} alt={nov.titulo || 'Novedad'} className="w-full h-full object-contain" />
           </a>
         ) : (
-          <img src={nov.imagen_url} alt={nov.titulo || 'Novedad'} className="w-full h-full object-cover" />
+          <img src={nov.imagen_url} alt={nov.titulo || 'Novedad'} className="w-full h-full object-contain" />
         )}
 
         {/* Overlay texto */}
