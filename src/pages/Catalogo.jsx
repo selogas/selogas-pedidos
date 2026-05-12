@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { ShoppingCart, Search, Package, Loader2, CheckCircle } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
+import { useTopProductos, invalidateTopProductosCache } from "@/lib/useTopProductos";
 
 const CAT_COLORS = [
   "#00a847","#10b981","#f59e0b","#ef4444","#8b5cf6",
@@ -20,41 +21,42 @@ export default function Catalogo() {
   // ── Usar contexto auth — NO volvemos a pedir el perfil ──────────
   const { user, perfil, isAdmin, loading: authLoading } = useAuth();
 
-  const tienda = perfil?.tiendas || null;
-  const grupoTienda = tienda?.grupo || "estacion";
+  const tienda      = perfil?.tiendas || null;
+  const grupoTienda = tienda?.grupo   || "estacion";
 
   // Preferencias de la tienda (configuradas por el admin)
-  const prefPlantilla      = tienda?.pref_plantilla           !== false;
-  const prefAvisosCantidad = tienda?.pref_avisos_cantidad      !== false;
-  const prefDoblePedido    = tienda?.pref_doble_pedido_aviso   !== false;
+  const prefPlantilla      = tienda?.pref_plantilla       !== false;
+  const prefAvisosCantidad = tienda?.pref_avisos_cantidad !== false;
+  const prefDoblePedido    = tienda?.pref_doble_pedido_aviso !== false;
 
-  const [productos, setProductos]         = useState([]);
-  const [carrito, setCarrito] = useState(() => {
+  const [productos, setProductos]   = useState([]);
+  const [carrito, setCarrito]       = useState(() => {
     try {
       const saved = localStorage.getItem('selogas_carrito');
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
   const [categoriaActiva, setCategoriaActiva] = useState("__todas__");
-  const [busqueda, setBusqueda]           = useState("");
-  const [cartOpen, setCartOpen]           = useState(false);
-  const [loading, setLoading]             = useState(true);
-  const [enviando, setEnviando]           = useState(false);
-  const [exito, setExito]                 = useState(null);
-  const [sugerencias, setSugerencias]     = useState([]);
+  const [busqueda, setBusqueda]               = useState("");
+  const [cartOpen, setCartOpen]               = useState(false);
+  const [loading, setLoading]                 = useState(true);
+  const [enviando, setEnviando]               = useState(false);
+  const [exito, setExito]                     = useState(null);
+  const [sugerencias, setSugerencias]         = useState([]);
   const scrollCatRef = useRef(null);
-  const [pedidoEstaSemanaPorProducto, setPedidoEstaSemanaPorProducto] = useState({}); // {producto_id: [fecha1, fecha2]}
-  const [mediasPorProducto, setMediasPorProducto] = useState({}); // {producto_id: { media, numPedidos }}
-  const [favoritos, setFavoritos]       = useState(new Set()); // Set de producto_id
-  const [topProductos, setTopProductos] = useState(new Set()); // Set de producto_id más pedidos globalmente
-  const [plantillaActiva, setPlantilla] = useState(null); // { id, nombre, activa, items }
+
+  const [pedidoEstaSemanaPorProducto, setPedidoEstaSemanaPorProducto] = useState({});
+  const [mediasPorProducto, setMediasPorProducto] = useState({});
+  const [favoritos, setFavoritos]     = useState(new Set());
+  const [plantillaActiva, setPlantilla] = useState(null);
   const [plantillaOn, setPlantillaOn]   = useState(false);
+
+  // ── Hook de top ventas (caché multicapa) ─────────────────────────
+  const { topSet: topProductos } = useTopProductos();
 
   // ── Persistir carrito en localStorage ───────────────────────────
   useEffect(() => {
-    try {
-      localStorage.setItem('selogas_carrito', JSON.stringify(carrito));
-    } catch {}
+    try { localStorage.setItem('selogas_carrito', JSON.stringify(carrito)); } catch {}
   }, [carrito]);
 
   // ── Carga de productos con caché 30 min ─────────────────────────
@@ -78,7 +80,6 @@ export default function Catalogo() {
         } catch {}
 
         if (!listaProductos) {
-          // Sin caché válida — descargar (quitar precio que no se usa en UI)
           let query = supabase
             .from("productos")
             .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, categorias(id, nombre)")
@@ -86,13 +87,11 @@ export default function Catalogo() {
             .order("orden_excel");
 
           if (!isAdmin) {
-            // Productos generales por grupo
             if (grupoTienda === "ambos") {
               query = query.in("grupo_visualizacion", ["ambos", "estacion", "cafeteria"]);
             } else {
               query = query.in("grupo_visualizacion", ["ambos", grupoTienda]);
             }
-            // Los productos 'especifico' se añaden después (ver más abajo)
           }
 
           const { data: prods } = await query;
@@ -109,19 +108,16 @@ export default function Catalogo() {
               .eq("tienda_id", tienda.id);
 
             if (asignados?.length) {
-              const idsAsignados = asignados.map(a => a.producto_id);
-              // Descargar los productos específicos que no estén ya en la lista
+              const idsAsignados  = asignados.map(a => a.producto_id);
               const idsYaCargados = new Set(listaProductos.map(p => p.id));
-              const idsNuevos = idsAsignados.filter(id => !idsYaCargados.has(id));
+              const idsNuevos     = idsAsignados.filter(id => !idsYaCargados.has(id));
               if (idsNuevos.length) {
                 const { data: prodsEspecificos } = await supabase
                   .from("productos")
                   .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, categorias(id, nombre)")
                   .in("id", idsNuevos)
                   .eq("disponible", true);
-                if (prodsEspecificos?.length) {
-                  listaProductos = [...listaProductos, ...prodsEspecificos];
-                }
+                if (prodsEspecificos?.length) listaProductos = [...listaProductos, ...prodsEspecificos];
               }
             }
           } catch {}
@@ -135,14 +131,12 @@ export default function Catalogo() {
           (tienda?.id && tienda?.doble_pedido && prefDoblePedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
           (tienda?.id && prefAvisosCantidad) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
-          cargarTopProductos(),
           tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
         ]);
 
         if (Object.keys(pedidosRecientes).length > 0) setPedidoEstaSemanaPorProducto(pedidosRecientes);
         if (Object.keys(mediasHistoricas).length > 0) setMediasPorProducto(mediasHistoricas);
         if (favSet.size > 0) setFavoritos(favSet);
-        if (topSet.size > 0) setTopProductos(topSet);
         if (plantilla) setPlantilla(plantilla);
 
         if (sugsData.length > 0 && listaProductos.length > 0) {
@@ -162,59 +156,6 @@ export default function Catalogo() {
   }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]);
 
   // ── Favoritos ─────────────────────────────────────────────────────
-  async function cargarTopProductos() {
-    try {
-      const desde = new Date();
-      desde.setDate(desde.getDate() - 90);
-      // Traemos tienda_id y fecha_pedido del pedido para poder aplicar los desempates
-      const { data: pedidos } = await supabase
-        .from('pedidos')
-        .select('id, tienda_id, fecha_pedido')
-        .gte('fecha_pedido', desde.toISOString());
-      if (!pedidos?.length) return new Set();
-
-      // Mapa rápido pedido_id → { tienda_id, fecha_pedido }
-      const mapaPedidos = {};
-      for (const ped of pedidos) mapaPedidos[ped.id] = ped;
-
-      const { data: items } = await supabase
-        .from('pedido_items')
-        .select('producto_id, cantidad, pedido_id')
-        .in('pedido_id', pedidos.map(p => p.id));
-      if (!items?.length) return new Set();
-
-      // Acumula: unidades totales, tiendas distintas, fecha más reciente
-      const mapa = {};
-      for (const item of items) {
-        if (!item.producto_id) continue;
-        const ped = mapaPedidos[item.pedido_id];
-        if (!mapa[item.producto_id]) {
-          mapa[item.producto_id] = { unidades: 0, tiendas: new Set(), ultimaVenta: null };
-        }
-        mapa[item.producto_id].unidades += (item.cantidad || 0);
-        if (ped?.tienda_id) mapa[item.producto_id].tiendas.add(ped.tienda_id);
-        if (ped?.fecha_pedido) {
-          const f = new Date(ped.fecha_pedido);
-          if (!mapa[item.producto_id].ultimaVenta || f > mapa[item.producto_id].ultimaVenta) {
-            mapa[item.producto_id].ultimaVenta = f;
-          }
-        }
-      }
-
-      // Ordenar: 1) más unidades, 2) más tiendas distintas, 3) venta más reciente
-      const top15 = Object.entries(mapa)
-        .sort(([, a], [, b]) => {
-          if (b.unidades !== a.unidades) return b.unidades - a.unidades;
-          if (b.tiendas.size !== a.tiendas.size) return b.tiendas.size - a.tiendas.size;
-          return (b.ultimaVenta || 0) - (a.ultimaVenta || 0);
-        })
-        .slice(0, 15)
-        .map(([id]) => id);
-
-      return new Set(top15);
-    } catch { return new Set(); }
-  }
-
   async function cargarFavoritos(tiendaId) {
     try {
       const { data } = await supabase.from("favoritos").select("producto_id").eq("tienda_id", tiendaId);
@@ -261,7 +202,7 @@ export default function Catalogo() {
     alert("✅ Plantilla guardada");
   };
 
-  const cargarDesdeBlantilla = () => {
+  const cargarDesdePlantilla = () => {
     if (!plantillaActiva?.items?.length) return;
     const nuevoCarrito = {};
     for (const item of plantillaActiva.items) {
@@ -274,7 +215,7 @@ export default function Catalogo() {
   const togglePlantilla = async () => {
     const newVal = !plantillaOn;
     setPlantillaOn(newVal);
-    if (newVal && plantillaActiva) cargarDesdeBlantilla();
+    if (newVal && plantillaActiva) cargarDesdePlantilla();
     if (!newVal) setCarrito({});
   };
 
@@ -283,7 +224,6 @@ export default function Catalogo() {
     try {
       const hace7dias = new Date();
       hace7dias.setDate(hace7dias.getDate() - 7);
-
       const { data: pedidos } = await supabase
         .from("pedidos")
         .select("id, fecha_pedido")
@@ -291,15 +231,11 @@ export default function Catalogo() {
         .gte("fecha_pedido", hace7dias.toISOString())
         .order("fecha_pedido", { ascending: false })
         .limit(10);
-
       if (!pedidos?.length) return {};
-
       const { data: items } = await supabase
         .from("pedido_items")
         .select("producto_id, pedidos(fecha_pedido)")
         .in("pedido_id", pedidos.map(p => p.id));
-
-      // Agrupar por producto_id → array de fechas
       const mapa = {};
       for (const item of items || []) {
         const fecha = item.pedidos?.fecha_pedido;
@@ -308,9 +244,7 @@ export default function Catalogo() {
         mapa[item.producto_id].push(fecha);
       }
       return mapa;
-    } catch {
-      return {};
-    }
+    } catch { return {}; }
   }
 
   // ── Historial de cantidades: media por producto últimos 90 días ─
@@ -318,31 +252,23 @@ export default function Catalogo() {
     try {
       const hace90dias = new Date();
       hace90dias.setDate(hace90dias.getDate() - 90);
-
       const { data: pedidos } = await supabase
         .from("pedidos")
         .select("id")
         .eq("tienda_id", tiendaId)
         .gte("fecha_pedido", hace90dias.toISOString())
         .limit(100);
-
       if (!pedidos?.length) return {};
-
       const { data: items } = await supabase
         .from("pedido_items")
         .select("producto_id, cantidad")
         .in("pedido_id", pedidos.map(p => p.id));
-
       if (!items?.length) return {};
-
-      // Agrupar: { producto_id: [qty1, qty2, ...] }
       const grupos = {};
       for (const item of items) {
         if (!grupos[item.producto_id]) grupos[item.producto_id] = [];
         grupos[item.producto_id].push(item.cantidad);
       }
-
-      // Calcular media solo si ≥ 3 pedidos del producto
       const medias = {};
       for (const [prodId, cantidades] of Object.entries(grupos)) {
         if (cantidades.length < 3) continue;
@@ -350,9 +276,7 @@ export default function Catalogo() {
         medias[prodId] = { media: Math.round(media), numPedidos: cantidades.length, cantidades };
       }
       return medias;
-    } catch {
-      return {};
-    }
+    } catch { return {}; }
   }
 
   // ── Sugerencias: IDs de productos pedidos últimas 2 semanas ─────
@@ -360,25 +284,19 @@ export default function Catalogo() {
     try {
       const hace14dias = new Date();
       hace14dias.setDate(hace14dias.getDate() - 14);
-
       const { data: pedidos } = await supabase
         .from("pedidos")
         .select("id")
         .eq("tienda_id", tiendaId)
         .gte("fecha_pedido", hace14dias.toISOString())
         .limit(50);
-
       if (!pedidos?.length) return [];
-
       const { data: items } = await supabase
         .from("pedido_items")
         .select("producto_id")
         .in("pedido_id", pedidos.map(p => p.id));
-
       return items?.map(i => i.producto_id) || [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
 
   // ── Derivados memoizados ─────────────────────────────────────────
@@ -429,38 +347,41 @@ export default function Catalogo() {
     if (!lineas.length) return;
     setEnviando(true);
     try {
-      const tiendaNombre = tienda?.nombre || perfil?.nombre_completo || perfil?.nombre || user?.email || "Sin tienda";
-      const numeroPedido = "PED-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2,6).toUpperCase();
-      const fecha = new Date().toISOString();
+      const tiendaNombre  = tienda?.nombre || perfil?.nombre_completo || perfil?.nombre || user?.email || "Sin tienda";
+      const numeroPedido  = "PED-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2,6).toUpperCase();
+      const fecha         = new Date().toISOString();
 
       const { data: pedido, error: pedidoError } = await supabase.from("pedidos").insert([{
         numero_pedido: numeroPedido,
-        tienda_id: tienda?.id || null,
+        tienda_id:     tienda?.id || null,
         tienda_nombre: tiendaNombre,
-        usuario_id: user.id,
+        usuario_id:    user.id,
         usuario_email: user.email,
         usuario_nombre: perfil?.nombre_completo || perfil?.nombre || user.email,
-        fecha_pedido: fecha,
-        estado: "enviado",
+        fecha_pedido:  fecha,
+        estado:        "enviado",
         observaciones,
-        total_lineas: lineas.length,
+        total_lineas:  lineas.length,
         email_enviado: false,
       }]).select().single();
       if (pedidoError) throw pedidoError;
 
       const lineasData = lineas.map(({ prod, qty }) => ({
-        pedido_id: pedido.id,
-        producto_id: prod.id,
-        producto_codigo: prod.codigo || "",
-        producto_nombre: prod.nombre,
+        pedido_id:          pedido.id,
+        producto_id:        prod.id,
+        producto_codigo:    prod.codigo || "",
+        producto_nombre:    prod.nombre,
         producto_categoria: prod.categorias?.nombre || "",
-        producto_formato: prod.formato || "",
-        cantidad: qty,
-        orden_excel: prod.orden_excel || 0,
+        producto_formato:   prod.formato || "",
+        cantidad:           qty,
+        orden_excel:        prod.orden_excel || 0,
       }));
 
       const { error: lineasError } = await supabase.from("pedido_items").insert(lineasData);
       if (lineasError) throw lineasError;
+
+      // Invalidar caché de top ventas para que el próximo acceso recalcule
+      invalidateTopProductosCache();
 
       // Email en background — no bloquea el UI
       enviarEmail(pedido.id, numeroPedido, fecha, tiendaNombre, observaciones, lineasData).catch(() => {});
@@ -482,19 +403,15 @@ export default function Catalogo() {
     const getConf = (clave) => (config || []).find(c => c.clave === clave)?.valor || "";
     const emailAlmacen = getConf("email_almacen");
     if (!emailAlmacen) return;
-
     const fechaStr = new Date().toLocaleDateString("es-ES");
-    const asunto = (getConf("asunto_email") || "Pedido - {Tienda} - {Fecha}")
+    const asunto   = (getConf("asunto_email") || "Pedido - {Tienda} - {Fecha}")
       .replace("{Tienda}", tiendaNombre).replace("{Fecha}", fechaStr);
-
-    // Obtener todos los productos para el PDF del catálogo
     const { data: todosProds } = await supabase
       .from("productos")
       .select("id,codigo,referencia,nombre,hoja_excel,seccion_excel,orden_excel,columna_excel")
       .eq("activo", true)
       .order("orden_excel", { ascending: true })
       .limit(2000);
-
     await supabase.functions.invoke("send-email", {
       body: { to: emailAlmacen, subject: asunto, tienda_nombre: tiendaNombre,
               numero_pedido: numeroPedido, fecha, observaciones,
@@ -605,28 +522,21 @@ export default function Catalogo() {
         </button>
       </div>
 
-      {/* Filtros de categoría — píldoras elegantes con scroll */}
+      {/* Filtros de categoría */}
       {categorias.length > 0 && (
         <div className="mb-6 relative flex items-center gap-1.5">
-
-          {/* Flecha izquierda */}
           <button
             onClick={() => scrollCatRef.current?.scrollBy({ left: -220, behavior: "smooth" })}
             className="flex-shrink-0 w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-all text-base leading-none shadow-sm"
             aria-label="Scroll izquierda"
           >‹</button>
-
-          {/* Degradado izquierdo */}
           <div className="absolute left-9 top-0 bottom-0 w-5 pointer-events-none z-10"
             style={{ background: "linear-gradient(to right, white, transparent)" }} />
-
-          {/* Área de scroll */}
           <div
             ref={scrollCatRef}
             className="flex gap-2 overflow-x-auto flex-1 py-1"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            {/* Píldora "Todas" */}
             <button
               onClick={() => setCategoriaActiva("__todas__")}
               className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border"
@@ -634,15 +544,12 @@ export default function Catalogo() {
                 ? { background: "#1a3d2b", color: "#fff", borderColor: "#1a3d2b" }
                 : { background: "#fff", color: "#64748b", borderColor: "#e2e8f0" }}
             >
-              <span style={{
-                width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
-                background: categoriaActiva === "__todas__" ? "#94a3b8" : "#cbd5e1"
-              }} />
+              <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                background: categoriaActiva === "__todas__" ? "#94a3b8" : "#cbd5e1" }} />
               Todas
             </button>
-
             {categorias.map((cat, idx) => {
-              const color = getCatColor(cat.nombre, idx);
+              const color  = getCatColor(cat.nombre, idx);
               const activa = categoriaActiva === cat.id;
               return (
                 <button
@@ -653,27 +560,20 @@ export default function Catalogo() {
                     ? { background: "#1a3d2b", color: "#fff", borderColor: "#1a3d2b" }
                     : { background: "#fff", color: "#64748b", borderColor: "#e2e8f0" }}
                 >
-                  <span style={{
-                    width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
-                    background: color, opacity: activa ? 0.9 : 0.7
-                  }} />
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                    background: color, opacity: activa ? 0.9 : 0.7 }} />
                   {cat.nombre}
                 </button>
               );
             })}
           </div>
-
-          {/* Degradado derecho */}
           <div className="absolute right-9 top-0 bottom-0 w-5 pointer-events-none z-10"
             style={{ background: "linear-gradient(to left, white, transparent)" }} />
-
-          {/* Flecha derecha */}
           <button
             onClick={() => scrollCatRef.current?.scrollBy({ left: 220, behavior: "smooth" })}
             className="flex-shrink-0 w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-all text-base leading-none shadow-sm"
             aria-label="Scroll derecha"
           >›</button>
-
         </div>
       )}
 
@@ -690,6 +590,11 @@ export default function Catalogo() {
               cantidad={carrito[prod.id] || 0}
               onAdd={() => handleAdd(prod)}
               onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
+              fechasPedido={prefDoblePedido ? (pedidoEstaSemanaPorProducto[prod.id] || []) : []}
+              mediaHistorica={prefAvisosCantidad ? (mediasPorProducto[prod.id] || null) : null}
+              esFavorito={favoritos.has(prod.id)}
+              esTop={topProductos.has(prod.id)}
+              onToggleFavorito={() => toggleFavorito(prod.id)}
             />
           ))}
         </div>
@@ -714,7 +619,7 @@ export default function Catalogo() {
                       onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
                       fechasPedido={prefDoblePedido ? (pedidoEstaSemanaPorProducto[prod.id] || []) : []}
                       mediaHistorica={prefAvisosCantidad ? (mediasPorProducto[prod.id] || null) : null}
-                      esFavorito={favoritos.has(prod.id) || topProductos.has(prod.id)}
+                      esFavorito={favoritos.has(prod.id)}
                       esTop={topProductos.has(prod.id)}
                       onToggleFavorito={() => toggleFavorito(prod.id)}
                     />
