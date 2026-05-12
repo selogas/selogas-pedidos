@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Loader2, Megaphone, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // ─── Slider de Novedades ───────────────────────────────────────────────────
-
 function NovedadesSlider() {
   const [novedades, setNovedades] = useState([]);
   const [actual, setActual] = useState(0);
@@ -127,7 +125,6 @@ function NovedadesSlider() {
 }
 
 // ─── Página Inicio ─────────────────────────────────────────────────────────
-
 export default function Inicio() {
   const { isAdmin, perfil } = useAuth();
   const [comunicados, setComunicados] = useState([]);
@@ -136,7 +133,6 @@ export default function Inicio() {
   useEffect(() => {
     const cargar = async () => {
       const ahora = new Date().toISOString();
-
       let query = supabase.from('comunicados')
         .select('*')
         .eq('activo', true)
@@ -150,12 +146,10 @@ export default function Inicio() {
           `destinatario.eq.todas,destinatario.eq.${grupo}${tiendaId ? `,and(destinatario.eq.tienda,tienda_id.eq.${tiendaId})` : ''}`
         );
       }
-
       const { data } = await query;
       setComunicados(data || []);
       setLoading(false);
     };
-
     if (perfil !== null) cargar();
   }, [perfil?.id]);
 
@@ -164,7 +158,6 @@ export default function Inicio() {
     aviso: 'bg-amber-50 border-amber-200 text-amber-800',
     urgente: 'bg-red-50 border-red-200 text-red-800',
   };
-
   const TIPO_ICON = { info: 'ℹ️', aviso: '⚠️', urgente: '🔴' };
 
   return (
@@ -214,3 +207,4 @@ export default function Inicio() {
     </div>
   );
 }
+
