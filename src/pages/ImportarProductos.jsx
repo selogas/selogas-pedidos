@@ -5,6 +5,52 @@ import { Upload, CheckCircle, AlertCircle, Loader2, Trash2, Database, FileSpread
 
 // Catalogo importado de tutienda.repsol.es/centralizado/all
 // Total: 2556 productos en 29 categorias
+// ── Mapa canónico de nombres de hoja ─────────────────────────────────────
+// Clave: nombre normalizado (UPPER + trim + espacios colapsados)
+// Valor: nombre canónico que se guarda en BD y aparece en el PDF
+const HOJA_CANONICO = {
+  'BEBIDAS 1':                   'BEBIDAS 1',
+  'BEBIDAS 2':                   'BEBIDAS 2',
+  'GOLOSINAS':                   'GOLOSINAS',
+  'CHOCOLATES Y GALLETAS':       'CHOCOLATES Y GALLETAS',
+  'CHOCOLATES':                  'CHOCOLATES Y GALLETAS',
+  'SNACK':                       'SNACK',
+  'NUTRISPORT':                  'NUTRISPORT',
+  'VAPER':                       'VAPER',
+  'ARTICH Y GAFAS DE LECTURA':   'ARTICH Y GAFAS DE LECTURA',
+  'ARTICH Y GAFAS LECTURA':      'ARTICH Y GAFAS DE LECTURA',
+  'ASTRICH Y GAFAS LECTURA':     'ARTICH Y GAFAS DE LECTURA',
+  'ARTICH':                      'ARTICH Y GAFAS DE LECTURA',
+  'GAFAS DE LECTURA':            'ARTICH Y GAFAS DE LECTURA',
+  'GAFAS LECTURA':               'ARTICH Y GAFAS DE LECTURA',
+  'DROGUERIA':                   'DROGUERIA',
+  'DROGUERÍA':                   'DROGUERIA',
+  'CONSUMIBLES':                 'CONSUMIBLES',
+  'CONGELADOS':                  'CONGELADOS',
+  'PROMOCIONES Y NOVEDADES':     'PROMOCIONES Y NOVEDADES',
+  'PROMOCIONES':                 'PROMOCIONES Y NOVEDADES',
+  'ABONO':                       'ABONO',
+  'DESCATALOGADOS':              'DESCATALOGADOS',
+  'HOJA 3':                      'HOJA 3',
+  'GENERAL':                     'GENERAL',
+};
+
+function normNombre(s) {
+  return s.trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+function nombreCanonico(raw) {
+  const norm = normNombre(raw);
+  return HOJA_CANONICO[norm] || raw.trim();
+}
+
+const ORDEN_PDF = [
+  'BEBIDAS 1', 'BEBIDAS 2', 'GOLOSINAS', 'CHOCOLATES Y GALLETAS',
+  'SNACK', 'NUTRISPORT', 'VAPER', 'ARTICH Y GAFAS DE LECTURA',
+  'DROGUERIA', 'CONSUMIBLES', 'CONGELADOS', 'PROMOCIONES Y NOVEDADES',
+  'ABONO', 'DESCATALOGADOS',
+];
+
 const PRODUCTOS_SELOGAS = [
   {"codigo":"856607","nombre":"ADAPTADOR CAMPING","categoria":"Butano","imagen_url":"https://repsol-tutienda-es.s3.eu-west-1.amazonaws.com/856607.png"},
   {"codigo":"866978","nombre":"BLISTER BUTANO(REGULADOR+TUBO+ABRAZADERA","categoria":"Butano","imagen_url":"https://repsol-tutienda-es.s3.eu-west-1.amazonaws.com/866978.png"},
@@ -2633,132 +2679,121 @@ export default function ImportarProductos() {
   // Orden: fila × bloque — igual que el PDF adjunto
   // También guarda la sección/cabecera (MAHOU, SAN MIGUEL...) de cada producto
   const handlePlantillaSelogas = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLoading(true); setError(null); setResult(null); setProgress("Leyendo plantilla...");
-    try {
-      const data = await file.arrayBuffer();
-      const wb   = XLSX.read(data);
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setLoading(true); setError(null); setResult(null); setProgress("Leyendo plantilla...");
+  try {
+    const data = await file.arrayBuffer();
+    const wb   = XLSX.read(data);
 
-      // Pestañas a ignorar
-      const SKIP = new Set(["ABONO", "DESCATALOGADOS"]);
+    // Pestañas a ignorar completamente
+    const SKIP = new Set(['ABONO', 'DESCATALOGADOS', 'RESUMEN', 'HOJA RESUMEN']);
 
-      const productos = [];
+    const productos = [];
 
-      for (const sheetName of wb.SheetNames) {
-        if (SKIP.has(sheetName.trim())) continue;
+    for (const sheetName of wb.SheetNames) {
+      const rawHoja = sheetName.trim();
+      const normHoja = normNombre(rawHoja);
 
-        const ws   = wb.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (SKIP.has(normHoja)) continue;
+      if (!rawHoja) continue;
 
-        // Nombre de hoja tal cual (sin forzar mayúsculas) — igual que el Excel
-        const hoja = sheetName.trim();
+      const ws   = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-        // Sección actual por columna (1, 2, 3)
-        const seccionActual = { 1: null, 2: null, 3: null };
+      // Nombre canónico para guardar en BD
+      const hojaCanonica = nombreCanonico(rawHoja);
 
-        // Orden dentro de esta pestaña (reinicia en cada hoja)
-        let orden = 0;
+      const seccionActual = { 1: null, 2: null, 3: null };
+      let orden = 0;
 
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
 
-          // Leer los 3 bloques: cols 0-2, 3-5, 6-8
-          for (let b = 0; b < 3; b++) {
-            const colCod = b * 3;
-            const colArt = b * 3 + 1;
+        for (let b = 0; b < 3; b++) {
+          const colCod = b * 3;
+          const colArt = b * 3 + 1;
 
-            const raw_cod = String(row[colCod] ?? "").trim();
-            const raw_art = String(row[colArt] ?? "").trim();
+          const raw_cod = String(row[colCod] ?? "").trim();
+          const raw_art = String(row[colArt] ?? "").trim();
 
-            // Ignorar vacíos y "nan"
-            if (!raw_cod && !raw_art) continue;
-            if (raw_art.toLowerCase() === "nan") continue;
+          if (!raw_cod && !raw_art) continue;
+          if (raw_art.toLowerCase() === "nan") continue;
+          if (raw_cod.toUpperCase() === "CODIGO" || raw_cod.toUpperCase() === "CÓDIGO") continue;
 
-            // Ignorar cabeceras fijas
-            if (raw_cod.toUpperCase() === "CODIGO" || raw_cod.toUpperCase() === "CÓDIGO") continue;
+          let codLimpio = raw_cod
+            .replace(/\.0+$/, "")
+            .replace(/[\s,]/g, "");
 
-            // Limpiar código: quitar .0 de floats, espacios, comas
-            let codLimpio = raw_cod
-              .replace(/\.0+$/, "")           // "2210020.0" → "2210020"
-              .replace(/[\s,]/g, "");          // quitar espacios y comas
+          const esProducto = codLimpio.length >= 4 &&
+            /^[0-9]+[A-Za-z]?$/.test(codLimpio);
 
-            // ¿Es un código de producto? Solo dígitos, longitud >= 4
-            // También acepta alfanuméricos tipo "3227135B"
-            const esProducto = codLimpio.length >= 4 &&
-              /^[0-9]+[A-Za-z]?$/.test(codLimpio);
-
-            if (esProducto) {
-              orden++;
-              productos.push({
-                codigo:        codLimpio,
-                hoja_excel:    hoja,
-                columna_excel: b + 1,
-                orden_excel:   orden,
-                seccion_excel: seccionActual[b + 1] ?? null,
-              });
-            } else if (raw_art && !esProducto) {
-              // Es una cabecera/sección para esa columna
-              seccionActual[b + 1] = raw_art;
-            }
+          if (esProducto) {
+            orden++;
+            productos.push({
+              codigo:        codLimpio,
+              hoja_excel:    hojaCanonica,   // nombre canónico
+              columna_excel: b + 1,
+              orden_excel:   orden,
+              seccion_excel: seccionActual[b + 1] ?? null,
+            });
+          } else if (raw_art && !esProducto) {
+            seccionActual[b + 1] = raw_art;
           }
         }
       }
+    }
 
-      if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
-      setProgress(`${productos.length} productos encontrados. Actualizando BD...`);
+    if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
+    setProgress(`${productos.length} productos encontrados. Actualizando BD...`);
 
-      // Actualizar en lotes usando upsert por código
-      let actualizados = 0;
-      let noEncontrados = 0;
-      const BATCH = 50;
+    let actualizados = 0;
+    let noEncontrados = 0;
+    const BATCH = 50;
 
-      for (let i = 0; i < productos.length; i += BATCH) {
-        const lote = productos.slice(i, i + BATCH);
+    for (let i = 0; i < productos.length; i += BATCH) {
+      const lote = productos.slice(i, i + BATCH);
+      const codigos = lote.map(p => p.codigo);
+      const { data: found, error: fetchErr } = await supabase
+        .from("productos")
+        .select("id, codigo")
+        .in("codigo", codigos);
 
-        // Buscar IDs de los códigos de este lote
-        const codigos = lote.map(p => p.codigo);
-        const { data: found, error: fetchErr } = await supabase
+      if (fetchErr) throw new Error(fetchErr.message);
+
+      const mapaId = {};
+      (found || []).forEach(p => { mapaId[p.codigo] = p.id; });
+
+      for (const p of lote) {
+        const id = mapaId[p.codigo];
+        if (!id) { noEncontrados++; continue; }
+
+        const { error: updErr } = await supabase
           .from("productos")
-          .select("id, codigo")
-          .in("codigo", codigos);
+          .update({
+            hoja_excel:    p.hoja_excel,
+            columna_excel: p.columna_excel,
+            orden_excel:   p.orden_excel,
+            seccion_excel: p.seccion_excel,
+          })
+          .eq("id", id);
 
-        if (fetchErr) throw new Error(fetchErr.message);
-
-        const mapaId = {};
-        (found || []).forEach(p => { mapaId[p.codigo] = p.id; });
-
-        // Actualizar cada uno
-        for (const p of lote) {
-          const id = mapaId[p.codigo];
-          if (!id) { noEncontrados++; continue; }
-
-          const { error: updErr } = await supabase
-            .from("productos")
-            .update({
-              hoja_excel:    p.hoja_excel,
-              columna_excel: p.columna_excel,
-              orden_excel:   p.orden_excel,
-              seccion_excel: p.seccion_excel,
-            })
-            .eq("id", id);
-
-          if (updErr) throw new Error(`Error actualizando ${p.codigo}: ${updErr.message}`);
-          actualizados++;
-        }
-
-        setProgress(`Actualizando... ${Math.min(i + BATCH, productos.length)}/${productos.length}`);
+        if (updErr) throw new Error(`Error actualizando ${p.codigo}: ${updErr.message}`);
+        actualizados++;
       }
 
-      try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
-      setResult({ total: actualizados, noEncontrados, tipo: "plantilla" });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false); setProgress("");
-      if (fileRefPlantilla.current) fileRefPlantilla.current.value = "";
+      setProgress(`Actualizando... ${Math.min(i + BATCH, productos.length)}/${productos.length}`);
     }
-  };
+
+    try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
+    setResult({ total: actualizados, noEncontrados, tipo: "plantilla" });
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false); setProgress("");
+    if (fileRefPlantilla.current) fileRefPlantilla.current.value = "";
+  }
+};
 
   const handleImportar = async () => {
     if (!confirm("\u00BFImportar " + PRODUCTOS_SELOGAS.length + " productos del cat\u00E1logo Repsol? Si ya tienes productos, c\u00E1mbialos o b\u00F3rralos primero.")) return;
@@ -2894,58 +2929,69 @@ export default function ImportarProductos() {
 
       {/* ── TAB: Plantilla SELOGAS ── */}
       {tab === "plantilla" && (
-        <div className="bg-white rounded-2xl border p-6 shadow-sm">
-          <h2 className="font-bold text-lg mb-1 flex items-center gap-2">
-            <LayoutGrid size={20} className="text-[#00913f]" /> Plantilla SELOGAS
-          </h2>
-          <p className="text-gray-500 text-sm mb-2">
-            Importa el Excel con el formato de la hoja de pedido (3 bloques: CODIGO · ARTICULO · PED).
-            Actualiza el <strong>orden y columna</strong> de cada producto en el PDF para los productos que ya existen en la BD.
-          </p>
-          <div className="bg-gray-50 border rounded-xl p-3 mb-4 text-xs text-gray-500 font-mono">
-            <div className="grid grid-cols-9 gap-0.5 text-center font-bold text-gray-700 mb-1">
-              <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
-              <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
-              <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
-              <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
-              <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
-              <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
-              <span className="col-span-1 bg-gray-200 rounded p-1">...</span>
-            </div>
-            <p className="text-center text-gray-400 mt-1">Mismo formato que el PDF del pedido</p>
+  <div className="bg-white rounded-2xl border p-6 shadow-sm">
+    <h2 className="font-bold text-lg mb-1 flex items-center gap-2">
+      <LayoutGrid size={20} className="text-[#00913f]" /> Plantilla SELOGAS
+    </h2>
+    <p className="text-gray-500 text-sm mb-2">
+      Importa el Excel de la hoja de pedido SELOGAS. Cada pestaña = una sección del PDF (una página por sección).
+    </p>
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+      <p className="text-xs font-semibold text-amber-800 mb-2">Secciones del PDF (14 páginas):</p>
+      <div className="grid grid-cols-2 gap-1 text-xs text-amber-700">
+        {ORDEN_PDF.map((s, i) => (
+          <div key={s} className="flex items-center gap-1.5">
+            <span className="w-4 h-4 bg-amber-200 rounded text-center font-bold text-amber-900 text-xs leading-4 flex-shrink-0">{i+1}</span>
+            <span>{s}</span>
           </div>
-          <div
-            onClick={() => !loading && fileRefPlantilla.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-              loading ? "opacity-50 cursor-not-allowed" : "border-gray-200 hover:border-[#00913f] hover:bg-[#edf7f2]"
-            }`}
-          >
-            <LayoutGrid size={36} className="mx-auto mb-3 text-gray-300" />
-            <p className="font-semibold text-gray-600">Haz clic para seleccionar la plantilla</p>
-            <p className="text-xs text-gray-400 mt-1">.xlsx · .xls · .ods</p>
-          </div>
-          <input ref={fileRefPlantilla} type="file" accept=".xlsx,.xls,.ods" className="hidden"
-            onChange={handlePlantillaSelogas} />
-
-          {progress && (
-            <div className="mt-4 p-3 bg-[#edf7f2] rounded-xl text-[#007a34] text-sm flex items-center gap-2">
-              <Loader2 size={15} className="animate-spin" /> {progress}
-            </div>
-          )}
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 rounded-xl text-red-700 text-sm flex items-center gap-2">
-              <AlertCircle size={15} /> {error}
-            </div>
-          )}
-          {result?.tipo === "plantilla" && (
-            <div className="mt-4 p-3 bg-green-50 rounded-xl text-green-700 text-sm flex items-center gap-2">
-              <CheckCircle size={15} />
-              <span>✅ <strong>{result.total} productos</strong> actualizados con orden y columna del PDF.
-              {result.noEncontrados > 0 && ` ${result.noEncontrados} no encontrados (código no existe en BD).`}</span>
-            </div>
-          )}
-        </div>
-      )}
+        ))}
+      </div>
+    </div>
+    <div className="bg-gray-50 border rounded-xl p-3 mb-4 text-xs text-gray-500 font-mono">
+      <div className="grid grid-cols-9 gap-0.5 text-center font-bold text-gray-700 mb-1">
+        <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
+        <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
+        <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
+        <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
+        <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
+        <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
+        <span className="col-span-1 bg-gray-200 rounded p-1">...</span>
+      </div>
+      <p className="text-center text-gray-400 mt-1">Formato 3 columnas idéntico al PDF</p>
+    </div>
+    <div
+      onClick={() => !loading && fileRefPlantilla.current?.click()}
+      className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+        loading ? "opacity-50 cursor-not-allowed" : "border-gray-200 hover:border-[#00913f] hover:bg-[#edf7f2]"
+      }`}
+    >
+      <LayoutGrid size={36} className="mx-auto mb-3 text-gray-300" />
+      <p className="font-semibold text-gray-600">Haz clic para seleccionar la plantilla</p>
+      <p className="text-xs text-gray-400 mt-1">.xlsx · .xls · .ods</p>
+    </div>
+    <input ref={fileRefPlantilla} type="file" accept=".xlsx,.xls,.ods" className="hidden"
+      onChange={handlePlantillaSelogas} />
+    {progress && (
+      <div className="mt-4 p-3 bg-[#edf7f2] rounded-xl text-[#007a34] text-sm flex items-center gap-2">
+        <Loader2 size={15} className="animate-spin" /> {progress}
+      </div>
+    )}
+    {error && (
+      <div className="mt-4 p-3 bg-red-50 rounded-xl text-red-700 text-sm flex items-center gap-2">
+        <AlertCircle size={15} /> {error}
+      </div>
+    )}
+    {result?.tipo === "plantilla" && (
+      <div className="mt-4 p-3 bg-green-50 rounded-xl text-green-700 text-sm flex items-center gap-2">
+        <CheckCircle size={15} />
+        <span>
+          ✅ <strong>{result.total} productos</strong> actualizados con orden y sección del PDF.
+          {result.noEncontrados > 0 && ` ${result.noEncontrados} códigos no encontrados en BD.`}
+        </span>
+      </div>
+    )}
+  </div>
+)}
 
       {/* ── TAB: Catálogo Repsol (el existente) ── */}
       {tab === "repsol" && (
