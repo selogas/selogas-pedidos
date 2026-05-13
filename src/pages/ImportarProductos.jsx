@@ -194,54 +194,45 @@ export default function ImportarProductos() {
 
       if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
 
-      // ── FASE 2: DETECCIÓN DE DUPLICADOS — BLOQUEO ESTRICTO ────
-      // Aunque el contador es por columna, pueden existir duplicados si el mismo
-      // código aparece dos veces en la misma columna/hoja
-      const claves = new Map(); // "hoja|columna|orden" → codigo
-      for (const p of productos) {
-        const clave = `${p.hoja_excel}|${p.columna_excel}|${p.orden_excel}`;
-        if (claves.has(clave)) {
-          errores.push(
-            `Duplicado en ${p.hoja_excel} col.${p.columna_excel} orden ${p.orden_excel}: ` +
-            `"${claves.get(clave)}" y "${p.codigo}"`
-          );
-        } else {
-          claves.set(clave, p.codigo);
-        }
-      }
+      // ── FASE 2: DETECCIÓN DE DUPLICADOS — EXCLUSIÓN POR HOJA ──
+      // Si una hoja tiene duplicados, se excluye completa del import.
+      // Las hojas limpias se importan normalmente.
+      const hojasConError = new Set();
+      const avisosPorHoja = {}; // hoja → [mensajes]
 
-      // También detectar mismo código dos veces en la misma hoja
-      const codigosEnHoja = new Map(); // "hoja|codigo" → index
+      // Detectar mismo código dos veces en la misma hoja
+      const codigosEnHoja = new Map(); // "hoja|codigo" → columna
       for (const p of productos) {
         const clave = `${p.hoja_excel}|${p.codigo}`;
         if (codigosEnHoja.has(clave)) {
-          errores.push(
-            `Código "${p.codigo}" aparece dos veces en hoja "${p.hoja_excel}" ` +
-            `(col.${codigosEnHoja.get(clave)} y col.${p.columna_excel})`
+          hojasConError.add(p.hoja_excel);
+          if (!avisosPorHoja[p.hoja_excel]) avisosPorHoja[p.hoja_excel] = new Set();
+          avisosPorHoja[p.hoja_excel].add(
+            `Código "${p.codigo}" aparece más de una vez`
           );
         } else {
           codigosEnHoja.set(clave, p.columna_excel);
         }
       }
 
-      if (errores.length > 0) {
-        // BLOQUEO: no se escribe nada en BD
-        setResult({ tipo: "bloqueado", errores, correcciones, total: productos.length });
-        return;
-      }
+      // Filtrar: solo productos de hojas limpias
+      const productosLimpios = productos.filter(p => !hojasConError.has(p.hoja_excel));
+      const hojasExcluidas = Object.entries(avisosPorHoja).map(([hoja, msgs]) =>
+        `${hoja}: ${[...msgs].join(', ')}`
+      );
+
+      if (!productosLimpios.length) throw new Error("Todas las hojas tienen duplicados. Corrige el Excel.");
 
       // ── FASE 3: REINDEXACIÓN LOCAL POR HOJA+COLUMNA ───────────
-      // En este punto no hay duplicados, pero reindexamos para garantizar
-      // secuencias limpias 1..N sin huecos antes de escribir en BD
       const contadores = {};
-      for (const p of productos) {
+      for (const p of productosLimpios) {
         const key = `${p.hoja_excel}|${p.columna_excel}`;
         contadores[key] = (contadores[key] || 0) + 1;
         p.orden_excel = contadores[key];
       }
 
       // ── FASE 4: ESCRIBIR EN BD ─────────────────────────────────
-      setProgress(`${productos.length} productos válidos. Actualizando BD...`);
+      setProgress(`${productosLimpios.length} productos válidos. Actualizando BD...`);
 
       let actualizados  = 0;
       let noEncontrados = 0;
@@ -249,7 +240,7 @@ export default function ImportarProductos() {
       const BATCH = 50;
 
       for (let i = 0; i < productos.length; i += BATCH) {
-        const lote   = productos.slice(i, i + BATCH);
+        const lote   = productosLimpios.slice(i, i + BATCH);
         const codigos = lote.map(p => p.codigo);
 
         const { data: found, error: fetchErr } = await supabase
@@ -287,17 +278,18 @@ export default function ImportarProductos() {
           resumenHojas[hoja].actualizados++;
         }
 
-        setProgress(`Actualizando... ${Math.min(i + BATCH, productos.length)}/${productos.length}`);
+        setProgress(`Actualizando... ${Math.min(i + BATCH, productosLimpios.length)}/${productosLimpios.length}`);
       }
 
       try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
 
       setResult({
-        tipo:          "plantilla",
-        total:         actualizados,
+        tipo:           "plantilla",
+        total:          actualizados,
         noEncontrados,
         correcciones,
         resumenHojas,
+        hojasExcluidas,
       });
 
     } catch (err) {
@@ -485,7 +477,19 @@ export default function ImportarProductos() {
           </div>
         )}
 
-        {/* Correcciones automáticas aplicadas */}
+        {/* Hojas excluidas por duplicados */}
+        {result.hojasExcluidas?.length > 0 && (
+          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+            <p className="text-xs font-semibold text-amber-800 mb-1">
+              ⚠ {result.hojasExcluidas.length} hoja(s) excluida(s) por duplicados (no se modificaron):
+            </p>
+            <ul className="space-y-0.5">
+              {result.hojasExcluidas.map((msg, i) => (
+                <li key={i} className="text-xs text-amber-700 font-mono">• {msg}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {result.correcciones?.length > 0 && (
           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
             <p className="text-xs font-semibold text-amber-800 mb-1">Correcciones automáticas aplicadas ({result.correcciones.length}):</p>
