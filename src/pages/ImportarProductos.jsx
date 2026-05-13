@@ -2640,42 +2640,66 @@ export default function ImportarProductos() {
       const data = await file.arrayBuffer();
       const wb   = XLSX.read(data);
 
-      const productos = [];
-      let orden_global = 1;
+      // Pestañas a ignorar
+      const SKIP = new Set(["ABONO", "DESCATALOGADOS"]);
 
-      // Leer TODAS las pestañas del XLS — cada pestaña = una hoja del PDF
+      const productos = [];
+
       for (const sheetName of wb.SheetNames) {
+        if (SKIP.has(sheetName.trim())) continue;
+
         const ws   = wb.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-        const hoja = sheetName.trim().toUpperCase();
-        const seccionActual = ["", "", ""];
+
+        // Nombre de hoja tal cual (sin forzar mayúsculas) — igual que el Excel
+        const hoja = sheetName.trim();
+
+        // Sección actual por columna (1, 2, 3)
+        const seccionActual = { 1: null, 2: null, 3: null };
+
+        // Orden dentro de esta pestaña (reinicia en cada hoja)
+        let orden = 0;
 
         for (let i = 0; i < rows.length; i++) {
-          if (i < 4) continue; // saltar cabecera
           const row = rows[i];
-          const numBloques = row.length >= 7 ? 3 : row.length >= 4 ? 2 : 1;
 
-          for (let b = 0; b < numBloques; b++) {
-            const codigo = String(row[b * 3]     || "").trim().replace(/\.0$/, "");
-            const nombre = String(row[b * 3 + 1] || "").trim();
-            if (!nombre || nombre === "nan") continue;
+          // Leer los 3 bloques: cols 0-2, 3-5, 6-8
+          for (let b = 0; b < 3; b++) {
+            const colCod = b * 3;
+            const colArt = b * 3 + 1;
 
-            // Ignorar filas de instrucciones al final del XLS
-            if (/CANTIDAD MINIMA|EJEMPLO:|TODO LO QUE|2026-0/.test(nombre.toUpperCase())) continue;
+            const raw_cod = String(row[colCod] ?? "").trim();
+            const raw_art = String(row[colArt] ?? "").trim();
 
-            const codLimpio = codigo.replace(/\./g, "").replace(/\s/g, "").replace(/,/g, "");
-            const esProducto = codLimpio.length >= 4 && /^\d+$/.test(codLimpio);
+            // Ignorar vacíos y "nan"
+            if (!raw_cod && !raw_art) continue;
+            if (raw_art.toLowerCase() === "nan") continue;
+
+            // Ignorar cabeceras fijas
+            if (raw_cod.toUpperCase() === "CODIGO" || raw_cod.toUpperCase() === "CÓDIGO") continue;
+
+            // Limpiar código: quitar .0 de floats, espacios, comas
+            let codLimpio = raw_cod
+              .replace(/\.0+$/, "")           // "2210020.0" → "2210020"
+              .replace(/[\s,]/g, "");          // quitar espacios y comas
+
+            // ¿Es un código de producto? Solo dígitos, longitud >= 4
+            // También acepta alfanuméricos tipo "3227135B"
+            const esProducto = codLimpio.length >= 4 &&
+              /^[0-9]+[A-Za-z]?$/.test(codLimpio);
 
             if (esProducto) {
+              orden++;
               productos.push({
-                codigo: codLimpio,          // código limpio sin decimales
-                hoja_excel: hoja,
+                codigo:        codLimpio,
+                hoja_excel:    hoja,
                 columna_excel: b + 1,
-                orden_excel: orden_global++,
-                seccion_excel: seccionActual[b] || null,
+                orden_excel:   orden,
+                seccion_excel: seccionActual[b + 1] ?? null,
               });
-            } else {
-              seccionActual[b] = nombre;
+            } else if (raw_art && !esProducto) {
+              // Es una cabecera/sección para esa columna
+              seccionActual[b + 1] = raw_art;
             }
           }
         }
@@ -2684,29 +2708,46 @@ export default function ImportarProductos() {
       if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
       setProgress(`${productos.length} productos encontrados. Actualizando BD...`);
 
-      // Cargar mapa de códigos de la BD
-      const { data: todosProds } = await supabase.from("productos").select("id, codigo");
-      const mapaCodigos = {};
-      (todosProds || []).forEach(p => {
-        if (p.codigo) mapaCodigos[p.codigo.toString().trim()] = p.id;
-      });
+      // Actualizar en lotes usando upsert por código
+      let actualizados = 0;
+      let noEncontrados = 0;
+      const BATCH = 50;
 
-      let actualizados = 0, noEncontrados = 0;
+      for (let i = 0; i < productos.length; i += BATCH) {
+        const lote = productos.slice(i, i + BATCH);
 
-      for (let i = 0; i < productos.length; i += 50) {
-        const lote = productos.slice(i, i + 50);
+        // Buscar IDs de los códigos de este lote
+        const codigos = lote.map(p => p.codigo);
+        const { data: found, error: fetchErr } = await supabase
+          .from("productos")
+          .select("id, codigo")
+          .in("codigo", codigos);
+
+        if (fetchErr) throw new Error(fetchErr.message);
+
+        const mapaId = {};
+        (found || []).forEach(p => { mapaId[p.codigo] = p.id; });
+
+        // Actualizar cada uno
         for (const p of lote) {
-          const prodId = mapaCodigos[p.codigo];
-          if (!prodId) { noEncontrados++; continue; }
-          await supabase.from("productos").update({
-            hoja_excel:    p.hoja_excel,
-            columna_excel: p.columna_excel,
-            orden_excel:   p.orden_excel,
-            seccion_excel: p.seccion_excel,
-          }).eq("id", prodId);
+          const id = mapaId[p.codigo];
+          if (!id) { noEncontrados++; continue; }
+
+          const { error: updErr } = await supabase
+            .from("productos")
+            .update({
+              hoja_excel:    p.hoja_excel,
+              columna_excel: p.columna_excel,
+              orden_excel:   p.orden_excel,
+              seccion_excel: p.seccion_excel,
+            })
+            .eq("id", id);
+
+          if (updErr) throw new Error(`Error actualizando ${p.codigo}: ${updErr.message}`);
           actualizados++;
         }
-        setProgress(`Actualizando... ${Math.min(i + 50, productos.length)}/${productos.length}`);
+
+        setProgress(`Actualizando... ${Math.min(i + BATCH, productos.length)}/${productos.length}`);
       }
 
       try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
