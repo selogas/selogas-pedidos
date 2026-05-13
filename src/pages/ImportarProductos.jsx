@@ -118,73 +118,127 @@ export default function ImportarProductos() {
   //   - Bloqueo estricto: duplicados de orden dentro de hoja+columna
   //   - Reindexación local por hoja+columna antes de escribir en BD
   //   - Output completo: correcciones, errores, resumen por hoja
-  const handlePlantillaSelogas = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLoading(true); setError(null); setResult(null); setProgress("Leyendo plantilla...");
-    try {
-      const data = await file.arrayBuffer();
-      const wb   = XLSX.read(data);
+const handlePlantillaSelogas = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setLoading(true); setError(null); setResult(null); setProgress("Leyendo plantilla...");
+  try {
+    const data = await file.arrayBuffer();
+    const wb   = XLSX.read(data);
 
-      const SKIP = new Set(['ABONO', 'DESCATALOGADOS', 'RESUMEN', 'HOJA RESUMEN']);
+    // Hojas que no son secciones del pedido
+    const SKIP = new Set(['ABONO', 'DESCATALOGADOS', 'RESUMEN', 'HOJA RESUMEN']);
 
-      const productos   = [];   // productos parseados y ya corregidos
-      const correcciones = [];  // log de correcciones automáticas aplicadas
-      const errores     = [];   // errores bloqueantes detectados
+    const productos = [];
 
-      // ── FASE 1: PARSE + CORRECCIONES AUTOMÁTICAS ──────────────
-      for (const sheetName of wb.SheetNames) {
-        const rawHoja  = sheetName.trim();
-        const normHoja = normNombre(rawHoja);
-        if (SKIP.has(normHoja) || !rawHoja) continue;
+    for (let sheetIndex = 0; sheetIndex < wb.SheetNames.length; sheetIndex++) {
+      const sheetName = wb.SheetNames[sheetIndex];
+      const rawHoja   = sheetName.trim();
+      if (!rawHoja) continue;
 
-        // Corrección automática: normalizar nombre de hoja
-        const hojaCanonica = nombreCanonico(rawHoja);
-        if (hojaCanonica !== rawHoja) {
-          correcciones.push(`Hoja "${rawHoja}" → normalizada a "${hojaCanonica}"`);
+      const normHoja = rawHoja.trim().toUpperCase().replace(/\s+/g, ' ');
+      if (SKIP.has(normHoja)) continue;
+
+      const ws   = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+      // orden_excel = sheetIndex*100000 + rowIndex (fila física en el Excel)
+      // Esto garantiza:
+      //   - dentro de cada columna, los productos están en orden de fila (1,2,3...)
+      //   - entre hojas, el orden respeta la posición de la pestaña en el Excel
+      // columna_excel 1, 2 o 3 distingue en qué columna cae el producto
+
+      const seccionActual = { 1: null, 2: null, 3: null };
+
+      for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+        const row = rows[rowIndex];
+
+        // 3 bloques: cols 0-2, cols 3-5, cols 6-8
+        for (let b = 0; b < 3; b++) {
+          const colCod = b * 3;
+          const colArt = b * 3 + 1;
+
+          const raw_cod = String(row[colCod] ?? "").trim();
+          const raw_art = String(row[colArt] ?? "").trim();
+
+          if (!raw_cod && !raw_art) continue;
+          if (raw_art.toLowerCase() === "nan") continue;
+          if (raw_cod.toUpperCase() === "CODIGO" || raw_cod.toUpperCase() === "CÓDIGO") continue;
+
+          // Limpiar código: quitar decimales (.0), espacios y comas
+          const codLimpio = raw_cod.replace(/\.0+$/, "").replace(/[\s,]/g, "");
+
+          // Un código de producto es solo dígitos (con sufijo letra opcional), mínimo 4 chars
+          const esProducto = codLimpio.length >= 4 && /^[0-9]+[A-Za-z]?$/.test(codLimpio);
+
+          if (esProducto) {
+            productos.push({
+              codigo:        codLimpio,
+              hoja_excel:    rawHoja,                          // nombre tal cual del Excel
+              columna_excel: b + 1,                            // 1, 2 o 3
+              orden_excel:   sheetIndex * 100000 + rowIndex,   // fila física por hoja
+              seccion_excel: seccionActual[b + 1] ?? null,
+            });
+          } else if (raw_art && !esProducto) {
+            // Cabecera/sección de esa columna
+            seccionActual[b + 1] = raw_art;
+          }
         }
+      }
+    }
 
-        const ws   = wb.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-        const seccionActual = { 1: null, 2: null, 3: null };
+    if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
+    setProgress(`${productos.length} productos encontrados. Actualizando BD...`);
 
-        // Contador independiente por columna para detectar duplicados limpiamente
-        const ordenPorColumna = { 1: 0, 2: 0, 3: 0 };
+    let actualizados = 0;
+    let noEncontrados = 0;
+    const BATCH = 50;
 
-        for (const row of rows) {
-          for (let b = 0; b < 3; b++) {
-            const raw_cod = String(row[b * 3]     ?? "").trim();
-            const raw_art = String(row[b * 3 + 1] ?? "").trim();
+    for (let i = 0; i < productos.length; i += BATCH) {
+      const lote   = productos.slice(i, i + BATCH);
+      const codigos = lote.map(p => p.codigo);
 
-            if (!raw_cod && !raw_art) continue;
-            if (raw_art.toLowerCase() === "nan") continue;
-            if (raw_cod.toUpperCase() === "CODIGO" || raw_cod.toUpperCase() === "CÓDIGO") continue;
+      const { data: found, error: fetchErr } = await supabase
+        .from("productos")
+        .select("id, codigo")
+        .in("codigo", codigos);
 
-            // Corrección automática: limpiar código
-            let codLimpio = raw_cod.replace(/\.0+$/, "").replace(/[\s,]/g, "");
-            if (codLimpio !== raw_cod && codLimpio.length > 0) {
-              correcciones.push(`Código "${raw_cod}" (hoja ${hojaCanonica}) → limpiado a "${codLimpio}"`);
-            }
+      if (fetchErr) throw new Error(fetchErr.message);
 
-            const esProducto = codLimpio.length >= 4 && /^[0-9]+[A-Za-z]?$/.test(codLimpio);
+      const mapaId = {};
+      (found || []).forEach(p => { mapaId[p.codigo] = p.id; });
 
-            if (esProducto) {
-              // columna_excel es siempre b+1 (1, 2 o 3) — nunca puede ser fuera de rango
-              // en la plantilla SELOGAS, pero lo validamos por si acaso
-              let columna = b + 1;
-              if (columna < 1 || columna > 3) {
-                correcciones.push(`Columna ${columna} inválida para "${codLimpio}" → corregida a 1`);
-                columna = 1;
-              }
+      for (const p of lote) {
+        const id = mapaId[p.codigo];
+        if (!id) { noEncontrados++; continue; }
 
-              ordenPorColumna[columna]++;
-              productos.push({
-                codigo:        codLimpio,
-                hoja_excel:    hojaCanonica,
-                columna_excel: columna,
-                orden_excel:   ordenPorColumna[columna], // orden local por columna
-                seccion_excel: seccionActual[columna] ?? null,
-              });
+        const { error: updErr } = await supabase
+          .from("productos")
+          .update({
+            hoja_excel:    p.hoja_excel,
+            columna_excel: p.columna_excel,
+            orden_excel:   p.orden_excel,
+            seccion_excel: p.seccion_excel,
+          })
+          .eq("id", id);
+
+        if (updErr) throw new Error(`Error actualizando ${p.codigo}: ${updErr.message}`);
+        actualizados++;
+      }
+
+      setProgress(`Actualizando... ${Math.min(i + BATCH, productos.length)}/${productos.length}`);
+    }
+
+    try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
+    setResult({ total: actualizados, noEncontrados, tipo: "plantilla" });
+
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false); setProgress("");
+    if (fileRefPlantilla.current) fileRefPlantilla.current.value = "";
+  }
+};
             } else if (raw_art && !esProducto) {
               seccionActual[b + 1] = raw_art;
             }
