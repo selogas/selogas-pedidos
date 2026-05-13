@@ -759,8 +759,12 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
     const file = e.target.files[0]; if (!file) return;
     setUploading(true);
     const ext = file.name.split('.').pop();
-    const { error } = await supabase.storage.from('imagenes').upload(`productos/${Date.now()}.${ext}`, file, { upsert: true });
-    if (!error) { const { data: url } = supabase.storage.from('imagenes').getPublicUrl(`productos/${Date.now()}.${ext}`); setForm(f => ({ ...f, imagen_url: url.publicUrl })); }
+    const path = `productos/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('imagenes').upload(path, file, { upsert: true });
+    if (!error) {
+      const { data: url } = supabase.storage.from('imagenes').getPublicUrl(path);
+      setForm(f => ({ ...f, imagen_url: url.publicUrl }));
+    }
     setUploading(false);
   };
 
@@ -770,18 +774,23 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
       alert('Selecciona al menos una tienda específica.'); return;
     }
     setSaving(true);
-    const payload = { ...form, categoria_id: form.categoria_id || null };
+    const payload = {
+      ...form,
+      activo: true,
+      categoria_id: form.categoria_id || null,
+      grupo_visualizacion: form.grupo_visualizacion === 'ambos' ? 'ambas' : form.grupo_visualizacion,
+    };
     let prodId = producto?.id;
     if (modo === 'crear') {
       const { data, error } = await supabase.from('productos').insert([payload]).select().single();
-      if (error) { setSaving(false); alert('Error: ' + error.message); return; }
+      if (error) { setSaving(false); alert('Error al crear: ' + error.message + ' (código: ' + error.code + ')'); console.error(error); return; }
       prodId = data.id;
       await guardarTiendasEspecificas(prodId);
       setSaving(false);
       onSave(data, 'crear');
     } else {
       const { error } = await supabase.from('productos').update(payload).eq('id', prodId);
-      if (error) { setSaving(false); alert('Error: ' + error.message); return; }
+      if (error) { setSaving(false); alert('Error al guardar: ' + error.message + ' (código: ' + error.code + ')'); console.error(error); return; }
       await guardarTiendasEspecificas(prodId);
       setSaving(false);
       onSave({ ...producto, ...payload }, 'editar');
