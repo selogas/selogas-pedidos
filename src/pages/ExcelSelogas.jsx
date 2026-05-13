@@ -1,401 +1,233 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  Table2, Save, Plus, Trash2, Loader2, Check, Download, Send,
-  FileText, RefreshCw, Search, ChevronUp, ChevronDown, Mail
-} from "lucide-react";
+import { Table2, Loader2, RefreshCw, Search, ChevronDown, ChevronUp } from "lucide-react";
 
-const COLUMNAS = [
-  { key: "codigo",      label: "Código",      width: 100, editable: true },
-  { key: "referencia",  label: "Referencia",  width: 100, editable: true },
-  { key: "nombre",      label: "Nombre",      width: 260, editable: true },
-  { key: "descripcion", label: "Descripción", width: 180, editable: true },
-  { key: "formato",     label: "Formato",     width: 110, editable: true },
-  { key: "precio",      label: "Precio",      width: 80,  editable: true, type: "number" },
-  { key: "unidad_medida", label: "Unidad",    width: 80,  editable: true },
-  { key: "hoja_excel",  label: "Hoja",        width: 120, editable: true },
-  { key: "seccion_excel", label: "Sección",   width: 130, editable: true },
-  { key: "orden_excel", label: "Orden",       width: 70,  editable: true, type: "number" },
-];
-
-function celda(prod, key) {
-  const v = prod[key];
-  if (v === null || v === undefined) return "";
-  return v;
-}
-
-function EditCell({ value, type = "text", onCommit, onNav }) {
-  const [val, setVal] = useState(value === null || value === undefined ? "" : String(value));
-  const ref = useRef();
-  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
-
-  const commit = () => onCommit(type === "number" ? (val === "" ? null : Number(val)) : val);
-
-  return (
-    <input
-      ref={ref}
-      type={type === "number" ? "number" : "text"}
-      value={val}
-      onChange={e => setVal(e.target.value)}
-      onBlur={commit}
-      onKeyDown={e => {
-        if (e.key === "Enter") { commit(); onNav("down"); }
-        else if (e.key === "Tab") { e.preventDefault(); commit(); onNav(e.shiftKey ? "left" : "right"); }
-        else if (e.key === "Escape") { onNav("escape"); }
-      }}
-      className="w-full h-full border-0 outline-none bg-blue-50 px-2 text-xs font-mono"
-      style={{ minWidth: 0 }}
-    />
-  );
-}
+// Columnas visuales fijas
+const COL_LABELS = {
+  1: { cod: "A", nom: "B", label: "Columna 1" },
+  2: { cod: "D", nom: "E", label: "Columna 2" },
+  3: { cod: "G", nom: "H", label: "Columna 3" },
+};
 
 export default function ExcelSelogas() {
   const [productos, setProductos] = useState([]);
-  const [modificados, setModificados] = useState({}); // id -> {campo: valor}
-  const [nuevos, setNuevos] = useState([]); // filas temporales con _tempId
   const [loading, setLoading] = useState(true);
-  const [guardando, setGuardando] = useState(false);
-  const [guardado, setGuardado] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  const [celActiva, setCelActiva] = useState(null); // {rowId, col}
   const [busqueda, setBusqueda] = useState("");
-  const [filtrando, setFiltrando] = useState(false);
-  const [sortCol, setSortCol] = useState("orden_excel");
-  const [sortAsc, setSortAsc] = useState(true);
-  const [selectedRows, setSelectedRows] = useState(new Set());
-  const containerRef = useRef();
+  const [hojaAbierta, setHojaAbierta] = useState(null); // null = todas abiertas
 
   const cargar = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from("productos")
-      .select("id,codigo,referencia,nombre,descripcion,formato,precio,unidad_medida,hoja_excel,seccion_excel,orden_excel,activo")
-      .order("orden_excel", { ascending: true })
-      .limit(2000);
+      .select("id,codigo,nombre,hoja_excel,columna_excel,orden_excel,seccion_excel,activo")
+      .order("hoja_excel")
+      .limit(3000);
     setProductos(data || []);
-    setModificados({});
-    setNuevos([]);
-    setSelectedRows(new Set());
     setLoading(false);
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const getValor = (id, key, original) => {
-    if (modificados[id] && modificados[id][key] !== undefined) return modificados[id][key];
-    return original;
-  };
+  // Agrupar por hoja, luego por columna, ordenado por orden_excel
+  const hojas = (() => {
+    const filtrados = busqueda.trim()
+      ? productos.filter(p =>
+          (p.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) ||
+          (p.codigo || "").toLowerCase().includes(busqueda.toLowerCase())
+        )
+      : productos;
 
-  const handleEdit = (id, key, valor) => {
-    setModificados(prev => ({
-      ...prev,
-      [id]: { ...(prev[id] || {}), [key]: valor }
-    }));
-    setCelActiva(null);
-  };
-
-  const handleEditNuevo = (tempId, key, valor) => {
-    setNuevos(prev => prev.map(n => n._tempId === tempId ? { ...n, [key]: valor } : n));
-    setCelActiva(null);
-  };
-
-  const addFila = () => {
-    const tempId = "_new_" + Date.now();
-    setNuevos(prev => [...prev, { _tempId: tempId, nombre: "", codigo: "", precio: 0, orden_excel: 0, activo: true }]);
-    setTimeout(() => setCelActiva({ rowId: tempId, col: 0 }), 50);
-  };
-
-  const eliminarNuevo = (tempId) => {
-    setNuevos(prev => prev.filter(n => n._tempId !== tempId));
-  };
-
-  const eliminarSeleccionados = async () => {
-    if (selectedRows.size === 0) return;
-    if (!confirm(`¿Eliminar ${selectedRows.size} producto(s)? Esta acción no se puede deshacer.`)) return;
-    const ids = [...selectedRows].filter(id => !id.startsWith("_new_"));
-    if (ids.length > 0) {
-      await supabase.from("productos").delete().in("id", ids);
+    const mapaHojas = {};
+    for (const p of filtrados) {
+      const hoja = p.hoja_excel || "SIN HOJA";
+      if (!mapaHojas[hoja]) mapaHojas[hoja] = { 1: [], 2: [], 3: [] };
+      const col = p.columna_excel >= 1 && p.columna_excel <= 3 ? p.columna_excel : 1;
+      mapaHojas[hoja][col].push(p);
     }
-    setNuevos(prev => prev.filter(n => !selectedRows.has(n._tempId)));
-    setSelectedRows(new Set());
-    cargar();
-  };
 
-  const guardarTodo = async () => {
-    setGuardando(true);
-    // Actualizar modificados
-    const updates = Object.entries(modificados);
-    for (const [id, cambios] of updates) {
-      await supabase.from("productos").update(cambios).eq("id", id);
+    // Ordenar cada columna por orden_excel
+    for (const hoja of Object.values(mapaHojas)) {
+      for (const col of [1, 2, 3]) {
+        hoja[col].sort((a, b) => (a.orden_excel || 0) - (b.orden_excel || 0));
+      }
     }
-    // Insertar nuevos (solo los que tienen nombre)
-    const paraInsertar = nuevos.filter(n => n.nombre?.trim()).map(({ _tempId, ...rest }) => rest);
-    if (paraInsertar.length > 0) {
-      await supabase.from("productos").insert(paraInsertar);
-    }
-    setGuardando(false);
-    setGuardado(true);
-    setTimeout(() => setGuardado(false), 2500);
-    cargar();
-  };
 
-  const generarYEnviarPDF = async () => {
-    setEnviando(true);
-    try {
-      // Obtener email almacén
-      const { data: cfg } = await supabase.from("configuracion").select("valor").eq("clave", "email_almacen").single();
-      const emailAlmacen = cfg?.valor?.trim();
-      if (!emailAlmacen) { alert("Configura primero el email del almacén en Configuración."); setEnviando(false); return; }
-
-      // Preparar todos los productos actuales (con cambios guardados)
-      const todosProds = productos.map(p => ({
-        ...p,
-        ...((modificados[p.id]) || {})
-      }));
-
-      await supabase.functions.invoke("send-email", {
-        body: {
-          to: emailAlmacen,
-          subject: "Catálogo SELOGAS — " + new Date().toLocaleDateString("es-ES"),
-          tienda_nombre: "SELOGAS",
-          numero_pedido: "CATALOGO-" + new Date().toISOString().slice(0, 10),
-          fecha: new Date().toISOString(),
-          lineas: [],
-          todos_productos: todosProds,
-          es_catalogo: true,
-        }
-      });
-      alert("✅ PDF del catálogo enviado a " + emailAlmacen);
-    } catch (e) {
-      alert("Error: " + e.message);
-    }
-    setEnviando(false);
-  };
-
-  const navCell = (rowId, colIdx, dir) => {
-    const isNew = String(rowId).startsWith("_new_");
-    const allRows = [
-      ...productos.filter(p => pasaFiltro(p)).sort(sortFn).map(p => p.id),
-      ...nuevos.map(n => n._tempId)
+    // Orden canónico de hojas
+    const ORDEN = [
+      "BEBIDAS 1", "BEBIDAS 2", "HOJA 3", "GOLOSINAS", "CHOCOLATES Y GALLETAS",
+      "SNACK", "NUTRISPORT", "VAPER", "ARTICH Y GAFAS DE LECTURA",
+      "DROGUERIA", "CONSUMIBLES", "CONGELADOS", "PROMOCIONES Y NOVEDADES",
+      "ABONO", "DESCATALOGADOS", "GENERAL",
     ];
-    const rIdx = allRows.indexOf(rowId);
-    if (dir === "down") setCelActiva({ rowId: allRows[Math.min(rIdx + 1, allRows.length - 1)], col: colIdx });
-    else if (dir === "up") setCelActiva({ rowId: allRows[Math.max(rIdx - 1, 0)], col: colIdx });
-    else if (dir === "right") setCelActiva({ rowId, col: Math.min(colIdx + 1, COLUMNAS.length - 1) });
-    else if (dir === "left") setCelActiva({ rowId, col: Math.max(colIdx - 1, 0) });
-    else setCelActiva(null);
-  };
 
-  const pasaFiltro = (p) => {
-    if (!busqueda.trim()) return true;
-    const q = busqueda.toLowerCase();
-    return (p.nombre || "").toLowerCase().includes(q)
-      || (p.codigo || "").toLowerCase().includes(q)
-      || (p.referencia || "").toLowerCase().includes(q)
-      || (p.hoja_excel || "").toLowerCase().includes(q);
-  };
+    const nombresOrdenados = [
+      ...ORDEN.filter(h => mapaHojas[h]),
+      ...Object.keys(mapaHojas).filter(h => !ORDEN.includes(h)).sort(),
+    ];
 
-  const sortFn = (a, b) => {
-    const va = a[sortCol] ?? "";
-    const vb = b[sortCol] ?? "";
-    if (va < vb) return sortAsc ? -1 : 1;
-    if (va > vb) return sortAsc ? 1 : -1;
-    return 0;
-  };
+    return nombresOrdenados.map(nombre => ({
+      nombre,
+      cols: mapaHojas[nombre],
+      total: mapaHojas[nombre][1].length + mapaHojas[nombre][2].length + mapaHojas[nombre][3].length,
+    }));
+  })();
 
-  const toggleSort = (key) => {
-    if (sortCol === key) setSortAsc(a => !a);
-    else { setSortCol(key); setSortAsc(true); }
-  };
-
-  const prodsFiltrados = productos.filter(pasaFiltro).sort(sortFn);
-  const hayModificaciones = Object.keys(modificados).length > 0 || nuevos.some(n => n.nombre?.trim());
+  const totalProductos = productos.length;
 
   return (
-    <div className="max-w-full">
+    <div style={{ maxWidth: "100%", fontFamily: "var(--font-sans)" }}>
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Table2 size={24} className="text-[#00913f]" /> Excel Selogas
+          <h1 style={{ fontSize: "22px", fontWeight: 500, margin: 0, color: "var(--color-text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Table2 size={22} style={{ color: "#00913f" }} />
+            Excel Selogas
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Catálogo maestro de productos · {productos.length} productos</p>
+          <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
+            Vista visual de la plantilla · {totalProductos} productos · {hojas.length} hojas
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={cargar} className="flex items-center gap-1.5 px-3 py-2 border rounded-xl text-sm hover:bg-gray-50" title="Recargar">
-            <RefreshCw size={14} /> Recargar
-          </button>
-          <button onClick={generarYEnviarPDF} disabled={enviando}
-            className="flex items-center gap-1.5 px-3 py-2 border border-[#00913f] text-[#00913f] rounded-xl text-sm hover:bg-[#edf7f2] font-medium disabled:opacity-50">
-            {enviando ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-            {enviando ? "Enviando..." : "Enviar PDF al almacén"}
-          </button>
-          <button onClick={guardarTodo} disabled={!hayModificaciones || guardando}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50 ${guardado ? "bg-green-500" : "bg-[#00913f] hover:bg-[#007a34]"}`}>
-            {guardando ? <Loader2 size={14} className="animate-spin" /> : guardado ? <Check size={14} /> : <Save size={14} />}
-            {guardado ? "Guardado" : guardando ? "Guardando..." : `Guardar${hayModificaciones ? " *" : ""}`}
-          </button>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 mb-3">
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" placeholder="Buscar producto..." value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            className="pl-8 pr-4 py-2 border rounded-xl text-sm w-56 focus:outline-none focus:border-[#00913f]" />
-        </div>
-        <button onClick={addFila}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[#00913f] text-white rounded-xl text-sm font-medium hover:bg-[#007a34]">
-          <Plus size={14} /> Añadir fila
+        <button
+          onClick={cargar}
+          disabled={loading}
+          style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "var(--border-radius-md)", background: "var(--color-background-primary)", color: "var(--color-text-secondary)", fontSize: "13px", cursor: "pointer" }}
+        >
+          {loading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <RefreshCw size={14} />}
+          Recargar
         </button>
-        {selectedRows.size > 0 && (
-          <button onClick={eliminarSeleccionados}
-            className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-medium hover:bg-red-100">
-            <Trash2 size={14} /> Eliminar {selectedRows.size} seleccionado(s)
-          </button>
-        )}
-        {hayModificaciones && (
-          <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded-lg">
-            ⚠ Cambios sin guardar
-          </span>
-        )}
       </div>
 
-      {/* Tabla */}
+      {/* Buscador */}
+      <div style={{ position: "relative", marginBottom: "20px", maxWidth: "340px" }}>
+        <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-tertiary)" }} />
+        <input
+          type="text"
+          placeholder="Buscar producto o código..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          style={{ width: "100%", paddingLeft: "32px", paddingRight: "12px", height: "34px", border: "0.5px solid var(--color-border-secondary)", borderRadius: "var(--border-radius-md)", fontSize: "13px", background: "var(--color-background-primary)", color: "var(--color-text-primary)", boxSizing: "border-box" }}
+        />
+      </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hoja-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 12px; }
+        .hoja-table th { background: #e8f5e9; color: #2e7d32; font-weight: 500; font-size: 11px; padding: 5px 6px; border: 0.5px solid #c8e6c9; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hoja-table td { padding: 3px 6px; border: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+        .hoja-table tr:nth-child(even) td { background: var(--color-background-secondary); }
+        .hoja-table tr:hover td { background: #e8f5e9; }
+        .col-sep { border-left: 2px solid #a5d6a7 !important; }
+        .cod-cell { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 11px; }
+        .nom-cell { color: var(--color-text-primary); }
+        .fila-num { color: var(--color-text-tertiary); font-size: 10px; font-family: var(--font-mono); text-align: right; background: var(--color-background-secondary) !important; border-right: 1px solid var(--color-border-secondary) !important; width: 28px; min-width: 28px; }
+      `}</style>
+
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={32} className="animate-spin text-[#00a847]" /></div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px", color: "var(--color-text-secondary)" }}>
+          <Loader2 size={28} style={{ animation: "spin 1s linear infinite", marginRight: "10px" }} />
+          Cargando productos...
+        </div>
+      ) : hojas.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px", color: "var(--color-text-tertiary)", fontSize: "14px" }}>
+          No hay productos con datos de posición. Importa la plantilla primero.
+        </div>
       ) : (
-        <div ref={containerRef} className="overflow-auto border border-gray-200 rounded-2xl" style={{ maxHeight: "calc(100vh - 260px)" }}>
-          <table className="border-collapse text-xs" style={{ minWidth: COLUMNAS.reduce((s, c) => s + c.width, 0) + 80 }}>
-            <thead className="sticky top-0 z-10 bg-gray-50">
-              <tr>
-                <th className="sticky left-0 z-20 bg-gray-50 border-b border-r border-gray-200 w-8 px-2 py-2">
-                  <input type="checkbox"
-                    checked={selectedRows.size === prodsFiltrados.length + nuevos.length && prodsFiltrados.length + nuevos.length > 0}
-                    onChange={e => {
-                      if (e.target.checked) setSelectedRows(new Set([...prodsFiltrados.map(p => p.id), ...nuevos.map(n => n._tempId)]));
-                      else setSelectedRows(new Set());
-                    }}
-                    className="accent-[#00913f]" />
-                </th>
-                {COLUMNAS.map((col, ci) => (
-                  <th key={col.key}
-                    className="border-b border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:bg-gray-100 select-none"
-                    style={{ minWidth: col.width }}
-                    onClick={() => toggleSort(col.key)}>
-                    <div className="flex items-center gap-1">
-                      {col.label}
-                      {sortCol === col.key ? (sortAsc ? <ChevronUp size={11} /> : <ChevronDown size={11} />) : <span className="w-3" />}
-                    </div>
-                  </th>
-                ))}
-                <th className="border-b border-gray-200 px-2 py-2 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {prodsFiltrados.map((prod, ri) => (
-                <tr key={prod.id}
-                  className={`${selectedRows.has(prod.id) ? "bg-blue-50" : ri % 2 === 0 ? "bg-white" : "bg-gray-50/50"} hover:bg-blue-50/40`}>
-                  <td className="sticky left-0 border-b border-r border-gray-100 px-2 py-0.5"
-                    style={{ background: selectedRows.has(prod.id) ? "#eff6ff" : ri % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                    <input type="checkbox" checked={selectedRows.has(prod.id)}
-                      onChange={e => {
-                        setSelectedRows(prev => { const n = new Set(prev); e.target.checked ? n.add(prod.id) : n.delete(prod.id); return n; });
-                      }}
-                      className="accent-[#00913f]" />
-                  </td>
-                  {COLUMNAS.map((col, ci) => {
-                    const isEditing = celActiva?.rowId === prod.id && celActiva?.col === ci;
-                    const val = getValor(prod.id, col.key, celda(prod, col.key));
-                    const hasChange = modificados[prod.id]?.[col.key] !== undefined;
-                    return (
-                      <td key={col.key}
-                        className={`border-b border-r border-gray-100 p-0 h-7 cursor-text ${isEditing ? "ring-2 ring-inset ring-blue-400" : hasChange ? "bg-yellow-50" : ""}`}
-                        style={{ minWidth: col.width }}
-                        onClick={() => setCelActiva({ rowId: prod.id, col: ci })}>
-                        {isEditing ? (
-                          <EditCell value={val} type={col.type}
-                            onCommit={v => handleEdit(prod.id, col.key, v)}
-                            onNav={dir => navCell(prod.id, ci, dir)} />
-                        ) : (
-                          <div className="px-2 py-0.5 font-mono overflow-hidden whitespace-nowrap text-ellipsis" style={{ maxWidth: col.width }}>
-                            {val === "" || val === null ? <span className="text-gray-300">—</span> : String(val)}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="border-b border-gray-100 px-1 py-0.5 text-center">
-                    <button onClick={() => {
-                      setSelectedRows(prev => { const n = new Set(prev); n.add(prod.id); return n; });
-                      setTimeout(() => eliminarSeleccionados(), 0);
-                    }}
-                      className="text-gray-300 hover:text-red-500 transition-colors" title="Eliminar">
-                      <Trash2 size={12} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {hojas.map(hoja => {
+            const abierta = hojaAbierta === null || hojaAbierta === hoja.nombre;
+            const maxRows = Math.max(hoja.cols[1].length, hoja.cols[2].length, hoja.cols[3].length);
 
-              {/* Filas nuevas */}
-              {nuevos.map((fila, ri) => (
-                <tr key={fila._tempId} className="bg-green-50">
-                  <td className="sticky left-0 border-b border-r border-gray-100 px-2 py-0.5 bg-green-50">
-                    <input type="checkbox" checked={selectedRows.has(fila._tempId)}
-                      onChange={e => {
-                        setSelectedRows(prev => { const n = new Set(prev); e.target.checked ? n.add(fila._tempId) : n.delete(fila._tempId); return n; });
-                      }}
-                      className="accent-[#00913f]" />
-                  </td>
-                  {COLUMNAS.map((col, ci) => {
-                    const isEditing = celActiva?.rowId === fila._tempId && celActiva?.col === ci;
-                    const val = fila[col.key] ?? "";
-                    return (
-                      <td key={col.key}
-                        className={`border-b border-r border-gray-100 p-0 h-7 cursor-text ${isEditing ? "ring-2 ring-inset ring-green-400" : ""}`}
-                        style={{ minWidth: col.width }}
-                        onClick={() => setCelActiva({ rowId: fila._tempId, col: ci })}>
-                        {isEditing ? (
-                          <EditCell value={val} type={col.type}
-                            onCommit={v => handleEditNuevo(fila._tempId, col.key, v)}
-                            onNav={dir => navCell(fila._tempId, ci, dir)} />
-                        ) : (
-                          <div className="px-2 py-0.5 font-mono overflow-hidden whitespace-nowrap text-ellipsis" style={{ maxWidth: col.width }}>
-                            {val === "" || val === null ? <span className="text-gray-200">nueva fila</span> : String(val)}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="border-b border-gray-100 px-1 py-0.5 text-center">
-                    <button onClick={() => eliminarNuevo(fila._tempId)} className="text-gray-300 hover:text-red-500">
-                      <Trash2 size={12} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+            return (
+              <div
+                key={hoja.nombre}
+                style={{ border: "0.5px solid var(--color-border-secondary)", borderRadius: "var(--border-radius-lg)", overflow: "hidden", background: "var(--color-background-primary)" }}
+              >
+                {/* Cabecera de hoja */}
+                <div
+                  onClick={() => setHojaAbierta(prev => prev === hoja.nombre ? null : hoja.nombre)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#00913f", cursor: "pointer", userSelect: "none" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 500, color: "#fff" }}>{hoja.nombre}</span>
+                    <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.2)", color: "#fff", padding: "2px 8px", borderRadius: "10px" }}>
+                      {hoja.total} productos
+                    </span>
+                  </div>
+                  {abierta
+                    ? <ChevronUp size={15} style={{ color: "rgba(255,255,255,0.8)" }} />
+                    : <ChevronDown size={15} style={{ color: "rgba(255,255,255,0.8)" }} />
+                  }
+                </div>
 
-              {/* Fila añadir */}
-              <tr>
-                <td colSpan={COLUMNAS.length + 2} className="py-2 px-3">
-                  <button onClick={addFila}
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#00913f] transition-colors">
-                    <Plus size={13} /> Añadir fila
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                {/* Tabla tipo Excel */}
+                {abierta && (
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="hoja-table">
+                      <colgroup>
+                        <col style={{ width: "28px" }} />
+                        {/* Col 1 */}
+                        <col style={{ width: "90px" }} />
+                        <col style={{ width: "200px" }} />
+                        {/* Col 2 */}
+                        <col style={{ width: "90px" }} />
+                        <col style={{ width: "200px" }} />
+                        {/* Col 3 */}
+                        <col style={{ width: "90px" }} />
+                        <col style={{ width: "200px" }} />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th style={{ background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-secondary)", color: "var(--color-text-tertiary)", textAlign: "center" }}></th>
+                          {/* Col 1 */}
+                          <th>A — Código</th>
+                          <th>B — Nombre</th>
+                          {/* Col 2 */}
+                          <th className="col-sep">D — Código</th>
+                          <th>E — Nombre</th>
+                          {/* Col 3 */}
+                          <th className="col-sep">G — Código</th>
+                          <th>H — Nombre</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {maxRows === 0 ? (
+                          <tr>
+                            <td colSpan={7} style={{ textAlign: "center", color: "var(--color-text-tertiary)", padding: "12px" }}>
+                              Sin productos
+                            </td>
+                          </tr>
+                        ) : (
+                          Array.from({ length: maxRows }, (_, i) => {
+                            const p1 = hoja.cols[1][i];
+                            const p2 = hoja.cols[2][i];
+                            const p3 = hoja.cols[3][i];
+                            // Número de fila real (orden_excel del primer producto no vacío en esa fila)
+                            const filaNum = (p1?.orden_excel ?? p2?.orden_excel ?? p3?.orden_excel ?? i);
+                            return (
+                              <tr key={i}>
+                                <td className="fila-num">{filaNum}</td>
+                                {/* Col 1 */}
+                                <td className="cod-cell">{p1?.codigo || ""}</td>
+                                <td className="nom-cell">{p1?.nombre || ""}</td>
+                                {/* Col 2 */}
+                                <td className="cod-cell col-sep">{p2?.codigo || ""}</td>
+                                <td className="nom-cell">{p2?.nombre || ""}</td>
+                                {/* Col 3 */}
+                                <td className="cod-cell col-sep">{p3?.codigo || ""}</td>
+                                <td className="nom-cell">{p3?.nombre || ""}</td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
-
-      <div className="mt-3 text-xs text-gray-400 flex gap-4">
-        <span>💡 Haz clic en una celda para editar · Enter para bajar · Tab para avanzar</span>
-        <span className="text-yellow-600">■ Amarillo = cambio pendiente de guardar</span>
-        <span className="text-green-600">■ Verde = fila nueva</span>
-      </div>
     </div>
   );
 }
