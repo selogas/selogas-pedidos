@@ -140,7 +140,7 @@ export function AuthProvider({ children }) {
           }
         }
       } catch {}
-    }, 60 * 1000);
+    }, 5 * 60 * 1000); // verificar modo mantenimiento cada 5 min (antes 60 s)
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {

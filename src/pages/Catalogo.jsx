@@ -69,7 +69,7 @@ export default function Catalogo() {
       try {
         // ── CACHÉ: productos en localStorage (30 min TTL) ──────────
         const CACHE_KEY = `selogas_cat_${perfil?.tienda_id || 'admin'}`;
-        const CACHE_TTL = 30 * 60 * 1000;
+        const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 horas (antes 30 min)
         let listaProductos = null;
         try {
           const raw = localStorage.getItem(CACHE_KEY);

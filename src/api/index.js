@@ -8,14 +8,14 @@ export const productosApi = {
   list: async (orderBy = 'orden_excel', limit = 2000) => {
     const { data, error } = await supabase
       .from('productos')
-      .select('*')
+      .select('id,codigo,referencia,nombre,precio,categoria_id,imagen_url,unidad_medida,activo,multiplo,disponible,orden_excel,hoja_excel,columna_excel,seccion_excel,grupo_visualizacion,formato,minimo')
       .order(orderBy, { ascending: true })
       .limit(limit);
     if (error) throw error;
     return data || [];
   },
   filter: async (filters) => {
-    let query = supabase.from('productos').select('*');
+    let query = supabase.from('productos').select('id,codigo,referencia,nombre,precio,categoria_id,imagen_url,unidad_medida,activo,multiplo,disponible,orden_excel,hoja_excel,columna_excel,seccion_excel,grupo_visualizacion,formato,minimo');
     Object.entries(filters).forEach(([key, val]) => { query = query.eq(key, val); });
     const { data, error } = await query;
     if (error) throw error;
