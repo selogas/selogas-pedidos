@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     // Orden fijo de hojas igual que en el Excel original
     const ORDEN_HOJAS = [
       'BEBIDAS 1', 'BEBIDAS 2', 'HOJA 3', 'GOLOSINAS', 'CHOCOLATES Y GALLETAS',
-      'SNACK', 'NUTRISPORT', 'VAPES', 'DROGUERIA', 'Consumibles',
+      'SNACK', 'NUTRISPORT', 'VAPER', 'DROGUERIA', 'CONSUMIBLES',
       'CONGELADOS', 'PROMOCIONES y NOVEDADES', 'GENERAL'
     ];
     const hojas = [
