@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       page.drawLine({ start: {x: x+cCod, y: ry},        end: {x: x+cCod,       y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
       page.drawLine({ start: {x: x+cCod+cNom, y: ry},   end: {x: x+cCod+cNom,  y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
       page.drawText(codigoKey.substring(0, 10),           { x: x + 1.5,             y: ry + 2.5, size: 6, font,            color: rgb(0,0,0) });
-      page.drawText((prod.nombre||'').substring(0, 27),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 6.5 : 6, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
+      page.drawText((prod.nombre||'').substring(0, 33),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 5.5 : 5, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
       if (qty > 0) page.drawText(qty.toString(),          { x: x + cCod + cNom + 2, y: ry + 2.5, size: 6.5, font: fontBold, color: rgb(0,0.38,0) });
     };
 
