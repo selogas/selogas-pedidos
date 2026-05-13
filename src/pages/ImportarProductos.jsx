@@ -2599,31 +2599,27 @@ export default function ImportarProductos() {
 
       setProgress(`Importando ${productos.length} productos...`);
 
-      // Obtener productos existentes (id + codigo) para upsert correcto
-      const { data: existentes } = await supabase.from("productos").select("id, codigo");
-      const mapaExistentes = {};
-      (existentes || []).forEach(p => { mapaExistentes[p.codigo] = p.id; });
-
-      let insertados = 0, actualizados = 0;
-      for (let i = 0; i < productos.length; i += 100) {
-        const lote = productos.slice(i, i + 100);
-        for (const prod of lote) {
-          const existeId = mapaExistentes[prod.codigo];
-          if (existeId) {
-            // Actualizar nombre si el código ya existe
-            await supabase.from("productos").update({ nombre: prod.nombre }).eq("id", existeId);
-            actualizados++;
-          } else {
-            await supabase.from("productos").insert([prod]);
-            insertados++;
+      // Upsert en lote usando codigo como clave de conflicto
+      let insertados = 0;
+      for (let i = 0; i < productos.length; i += 50) {
+        const lote = productos.slice(i, i + 50);
+        const { error: upsertError, data: upserted } = await supabase
+          .from("productos")
+          .upsert(lote, { onConflict: "codigo", ignoreDuplicates: false })
+          .select("id");
+        if (upsertError) {
+          if (upsertError.code === "42501" || upsertError.message?.includes("policy")) {
+            throw new Error("Sin permisos para importar. Asegúrate de estar logueado como admin.");
           }
+          throw new Error(upsertError.message);
         }
-        setProgress(`Procesando... ${insertados + actualizados}/${productos.length}`);
+        insertados += (upserted?.length || lote.length);
+        setProgress(`Procesando... ${Math.min(i + 50, productos.length)}/${productos.length}`);
       }
 
       // Invalidar caché
       try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
-      setResult({ total: insertados, actualizados });
+      setResult({ total: insertados, actualizados: 0 });
     } catch (err) {
       setError(err.message);
     } finally {
