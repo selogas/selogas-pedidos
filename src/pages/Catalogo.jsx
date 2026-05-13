@@ -88,9 +88,9 @@ export default function Catalogo() {
 
           if (!isAdmin) {
             if (grupoTienda === "ambos") {
-              query = query.in("grupo_visualizacion", ["ambos", "estacion", "cafeteria"]);
+              query = query.in("grupo_visualizacion", ["ambos", "ambas", "estacion", "cafeteria"]);
             } else {
-              query = query.in("grupo_visualizacion", ["ambos", grupoTienda]);
+              query = query.in("grupo_visualizacion", ["ambos", "ambas", grupoTienda]);
             }
           }
 
@@ -628,6 +628,34 @@ export default function Catalogo() {
               </div>
             );
           })}
+          {/* Productos sin categoría */}
+          {(() => {
+            const sinCat = productosFiltrados.filter(p => !p.categoria_id);
+            if (!sinCat.length) return null;
+            return (
+              <div className="mb-10">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#94a3b8", flexShrink: 0, display: "inline-block" }} />
+                  <h2 className="text-lg font-bold text-gray-800">Sin categoría</h2>
+                  <span className="text-sm text-gray-400 font-medium">({sinCat.length})</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {sinCat.map(prod => (
+                    <ProductCard key={prod.id} producto={prod}
+                      cantidad={carrito[prod.id] || 0}
+                      onAdd={() => handleAdd(prod)}
+                      onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
+                      fechasPedido={prefDoblePedido ? (pedidoEstaSemanaPorProducto[prod.id] || []) : []}
+                      mediaHistorica={prefAvisosCantidad ? (mediasPorProducto[prod.id] || null) : null}
+                      esFavorito={favoritos.has(prod.id)}
+                      esTop={topProductos.has(prod.id)}
+                      onToggleFavorito={() => toggleFavorito(prod.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
