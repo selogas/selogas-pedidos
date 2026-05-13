@@ -147,7 +147,11 @@ Deno.serve(async (req) => {
       const maxRows = Math.max(cols[0].length, cols[1].length, cols[2].length);
       if (maxRows === 0) continue;
 
-      ensure(hH + rH * 3);
+      // Altura total de esta categoría: título + cabecera + filas + margen inferior
+      const categoriaH = hH + 1 + rH + maxRows * rH + 6;
+      // Si no cabe entera en el espacio restante, forzar nueva página antes de empezar
+      if (page && y - mg < categoriaH) newPage();
+      else ensure(hH + rH * 3);
       page.drawRectangle({ x: mg, y: y - hH, width: totalW, height: hH, color: rgb(1, 0.92, 0) });
       page.drawText(hojaKey, { x: mg + 5, y: y - hH + 3.5, size: 8.5, font: fontBold, color: rgb(0,0,0) });
       y -= hH + 1;
