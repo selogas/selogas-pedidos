@@ -4,8 +4,6 @@ import { supabase } from "@/lib/supabase";
 import { Upload, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, LayoutGrid } from "lucide-react";
 
 // ── Mapa canónico de nombres de hoja ─────────────────────────────────────
-// Clave: nombre normalizado (UPPER + trim + espacios colapsados)
-// Valor: nombre canónico que se guarda en BD y aparece en el PDF
 const HOJA_CANONICO = {
   'BEBIDAS 1':                   'BEBIDAS 1',
   'BEBIDAS 2':                   'BEBIDAS 2',
@@ -33,15 +31,6 @@ const HOJA_CANONICO = {
   'GENERAL':                     'GENERAL',
 };
 
-function normNombre(s) {
-  return s.trim().toUpperCase().replace(/\s+/g, ' ');
-}
-
-function nombreCanonico(raw) {
-  const norm = normNombre(raw);
-  return HOJA_CANONICO[norm] || raw.trim();
-}
-
 const ORDEN_PDF = [
   'BEBIDAS 1', 'BEBIDAS 2', 'GOLOSINAS', 'CHOCOLATES Y GALLETAS',
   'SNACK', 'NUTRISPORT', 'VAPER', 'ARTICH Y GAFAS DE LECTURA',
@@ -59,7 +48,6 @@ export default function ImportarProductos() {
   const fileRefPlantilla = useRef(null);
 
   // ── Opción 1: Importar productos nuevos desde Excel simple ──────
-  // Col A = código, Col B = nombre
   const handleExcelSimple = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -75,7 +63,7 @@ export default function ImportarProductos() {
         const codigo = String(row[0] || "").trim();
         const nombre = String(row[1] || "").trim();
         if (!codigo || !nombre) continue;
-        if (codigo.toLowerCase() === "codigo" || codigo.toLowerCase() === "código") continue; // saltar cabecera
+        if (codigo.toLowerCase() === "codigo" || codigo.toLowerCase() === "código") continue;
         productos.push({ codigo, nombre, disponible: true });
       }
 
@@ -83,7 +71,6 @@ export default function ImportarProductos() {
 
       setProgress(`Importando ${productos.length} productos...`);
 
-      // Upsert en lote usando codigo como clave de conflicto
       let insertados = 0;
       for (let i = 0; i < productos.length; i += 50) {
         const lote = productos.slice(i, i + 50);
@@ -101,7 +88,6 @@ export default function ImportarProductos() {
         setProgress(`Procesando... ${Math.min(i + 50, productos.length)}/${productos.length}`);
       }
 
-      // Invalidar caché
       try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
       setResult({ total: insertados, actualizados: 0 });
     } catch (err) {
@@ -113,194 +99,101 @@ export default function ImportarProductos() {
   };
 
   // ── Opción 2: Importar plantilla SELOGAS ───────────────────────
-  // Modelo híbrido:
-  //   - Corrección automática: hoja no canónica, código sucio, columna fuera de rango
-  //   - Bloqueo estricto: duplicados de orden dentro de hoja+columna
-  //   - Reindexación local por hoja+columna antes de escribir en BD
-  //   - Output completo: correcciones, errores, resumen por hoja
-const handlePlantillaSelogas = async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  setLoading(true); setError(null); setResult(null); setProgress("Leyendo plantilla...");
-  try {
-    const data = await file.arrayBuffer();
-    const wb   = XLSX.read(data);
+  //
+  // Lee la posición FÍSICA del producto en el Excel:
+  //   hoja_excel    = nombre de la pestaña (tal cual)
+  //   columna_excel = 1 (col A/B), 2 (col D/E) o 3 (col G/H)
+  //   orden_excel   = rowIndex (índice de fila — misma fila tiene mismo valor en las 3 cols)
+  //
+  // Si mueves un producto de fila 5 a fila 9 en el Excel y reimportas,
+  // orden_excel pasa de 5 a 9 y el PDF lo coloca en la posición 9.
+  const handlePlantillaSelogas = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true); setError(null); setResult(null); setProgress("Leyendo plantilla...");
+    try {
+      const data = await file.arrayBuffer();
+      const wb   = XLSX.read(data);
 
-    // Hojas que no son secciones del pedido
-    const SKIP = new Set(['ABONO', 'DESCATALOGADOS', 'RESUMEN', 'HOJA RESUMEN']);
+      // Hojas que no son secciones del pedido
+      const SKIP = new Set(['ABONO', 'DESCATALOGADOS', 'RESUMEN', 'HOJA RESUMEN']);
 
-    const productos = [];
+      const productos = [];
 
-    for (let sheetIndex = 0; sheetIndex < wb.SheetNames.length; sheetIndex++) {
-      const sheetName = wb.SheetNames[sheetIndex];
-      const rawHoja   = sheetName.trim();
-      if (!rawHoja) continue;
+      for (let sheetIndex = 0; sheetIndex < wb.SheetNames.length; sheetIndex++) {
+        const sheetName = wb.SheetNames[sheetIndex];
+        const rawHoja   = sheetName.trim();
+        if (!rawHoja) continue;
 
-      const normHoja = rawHoja.trim().toUpperCase().replace(/\s+/g, ' ');
-      if (SKIP.has(normHoja)) continue;
+        const normHoja = rawHoja.trim().toUpperCase().replace(/\s+/g, ' ');
+        if (SKIP.has(normHoja)) continue;
 
-      const ws   = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        const ws   = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-      // orden_excel = sheetIndex*100000 + rowIndex (fila física en el Excel)
-      // Esto garantiza:
-      //   - dentro de cada columna, los productos están en orden de fila (1,2,3...)
-      //   - entre hojas, el orden respeta la posición de la pestaña en el Excel
-      // columna_excel 1, 2 o 3 distingue en qué columna cae el producto
+        // ── Columnas fijas del Excel SELOGAS ──────────────────────────
+        // Todas las hojas tienen exactamente esta estructura:
+        //   A(0) = código, B(1) = nombre  →  columna_excel = 1
+        //   D(3) = código, E(4) = nombre  →  columna_excel = 2
+        //   G(6) = código, H(7) = nombre  →  columna_excel = 3
+        const COLS = [
+          { colCod: 0, colNom: 1, colVisual: 1 },
+          { colCod: 3, colNom: 4, colVisual: 2 },
+          { colCod: 6, colNom: 7, colVisual: 3 },
+        ];
 
-      const seccionActual = { 1: null, 2: null, 3: null };
+        const seccionActual = { 1: null, 2: null, 3: null };
 
-      for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-        const row = rows[rowIndex];
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+          const row = rows[rowIndex];
 
-        // 3 bloques: cols 0-2, cols 3-5, cols 6-8
-        for (let b = 0; b < 3; b++) {
-          const colCod = b * 3;
-          const colArt = b * 3 + 1;
+          for (const { colCod, colNom, colVisual } of COLS) {
+            const raw_cod = String(row[colCod] ?? "").trim();
+            const raw_art = String(row[colNom] ?? "").trim();
 
-          const raw_cod = String(row[colCod] ?? "").trim();
-          const raw_art = String(row[colArt] ?? "").trim();
+            if (!raw_cod && !raw_art) continue;
+            if (raw_art.toLowerCase() === "nan") continue;
+            if (raw_cod.toUpperCase() === "CODIGO" || raw_cod.toUpperCase() === "CÓDIGO") continue;
 
-          if (!raw_cod && !raw_art) continue;
-          if (raw_art.toLowerCase() === "nan") continue;
-          if (raw_cod.toUpperCase() === "CODIGO" || raw_cod.toUpperCase() === "CÓDIGO") continue;
+            // Limpiar código: quitar decimales (.0), espacios y comas
+            const codLimpio = raw_cod.replace(/\.0+$/, "").replace(/[\s,]/g, "");
 
-          // Limpiar código: quitar decimales (.0), espacios y comas
-          const codLimpio = raw_cod.replace(/\.0+$/, "").replace(/[\s,]/g, "");
+            // Código válido: solo dígitos + sufijo letra opcional, mínimo 4 chars
+            const esProducto = codLimpio.length >= 4 && /^[0-9]+[A-Za-z]?$/.test(codLimpio);
 
-          // Un código de producto es solo dígitos (con sufijo letra opcional), mínimo 4 chars
-          const esProducto = codLimpio.length >= 4 && /^[0-9]+[A-Za-z]?$/.test(codLimpio);
-
-          if (esProducto) {
-            productos.push({
-              codigo:        codLimpio,
-              hoja_excel:    rawHoja,                          // nombre tal cual del Excel
-              columna_excel: b + 1,                            // 1, 2 o 3
-              orden_excel:   sheetIndex * 100000 + rowIndex,   // fila física por hoja
-              seccion_excel: seccionActual[b + 1] ?? null,
-            });
-          } else if (raw_art && !esProducto) {
-            // Cabecera/sección de esa columna
-            seccionActual[b + 1] = raw_art;
-          }
-        }
-      }
-    }
-
-    if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
-    setProgress(`${productos.length} productos encontrados. Actualizando BD...`);
-
-    let actualizados = 0;
-    let noEncontrados = 0;
-    const BATCH = 50;
-
-    for (let i = 0; i < productos.length; i += BATCH) {
-      const lote   = productos.slice(i, i + BATCH);
-      const codigos = lote.map(p => p.codigo);
-
-      const { data: found, error: fetchErr } = await supabase
-        .from("productos")
-        .select("id, codigo")
-        .in("codigo", codigos);
-
-      if (fetchErr) throw new Error(fetchErr.message);
-
-      const mapaId = {};
-      (found || []).forEach(p => { mapaId[p.codigo] = p.id; });
-
-      for (const p of lote) {
-        const id = mapaId[p.codigo];
-        if (!id) { noEncontrados++; continue; }
-
-        const { error: updErr } = await supabase
-          .from("productos")
-          .update({
-            hoja_excel:    p.hoja_excel,
-            columna_excel: p.columna_excel,
-            orden_excel:   p.orden_excel,
-            seccion_excel: p.seccion_excel,
-          })
-          .eq("id", id);
-
-        if (updErr) throw new Error(`Error actualizando ${p.codigo}: ${updErr.message}`);
-        actualizados++;
-      }
-
-      setProgress(`Actualizando... ${Math.min(i + BATCH, productos.length)}/${productos.length}`);
-    }
-
-    try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
-    setResult({ total: actualizados, noEncontrados, tipo: "plantilla" });
-
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setLoading(false); setProgress("");
-    if (fileRefPlantilla.current) fileRefPlantilla.current.value = "";
-  }
-};
+            if (esProducto) {
+              productos.push({
+                codigo:        codLimpio,
+                hoja_excel:    rawHoja,       // nombre tal cual de la pestaña
+                columna_excel: colVisual,     // 1, 2 o 3
+                orden_excel:   rowIndex,      // fila física del Excel
+                seccion_excel: seccionActual[colVisual] ?? null,
+              });
             } else if (raw_art && !esProducto) {
-              seccionActual[b + 1] = raw_art;
+              // Cabecera de sección para esa columna
+              seccionActual[colVisual] = raw_art;
             }
           }
         }
       }
 
       if (!productos.length) throw new Error("No se encontraron productos con código en la plantilla.");
+      setProgress(`${productos.length} productos encontrados. Actualizando BD...`);
 
-      // ── FASE 2: DETECCIÓN DE DUPLICADOS — EXCLUSIÓN POR HOJA ──
-      // Si una hoja tiene duplicados, se excluye completa del import.
-      // Las hojas limpias se importan normalmente.
-      const hojasConError = new Set();
-      const avisosPorHoja = {}; // hoja → [mensajes]
-
-      // Detectar mismo código dos veces en la misma hoja
-      const codigosEnHoja = new Map(); // "hoja|codigo" → columna
-      for (const p of productos) {
-        const clave = `${p.hoja_excel}|${p.codigo}`;
-        if (codigosEnHoja.has(clave)) {
-          hojasConError.add(p.hoja_excel);
-          if (!avisosPorHoja[p.hoja_excel]) avisosPorHoja[p.hoja_excel] = new Set();
-          avisosPorHoja[p.hoja_excel].add(
-            `Código "${p.codigo}" aparece más de una vez`
-          );
-        } else {
-          codigosEnHoja.set(clave, p.columna_excel);
-        }
-      }
-
-      // Filtrar: solo productos de hojas limpias
-      const productosLimpios = productos.filter(p => !hojasConError.has(p.hoja_excel));
-      const hojasExcluidas = Object.entries(avisosPorHoja).map(([hoja, msgs]) =>
-        `${hoja}: ${[...msgs].join(', ')}`
-      );
-
-      if (!productosLimpios.length) throw new Error("Todas las hojas tienen duplicados. Corrige el Excel.");
-
-      // ── FASE 3: REINDEXACIÓN LOCAL POR HOJA+COLUMNA ───────────
-      const contadores = {};
-      for (const p of productosLimpios) {
-        const key = `${p.hoja_excel}|${p.columna_excel}`;
-        contadores[key] = (contadores[key] || 0) + 1;
-        p.orden_excel = contadores[key];
-      }
-
-      // ── FASE 4: ESCRIBIR EN BD ─────────────────────────────────
-      setProgress(`${productosLimpios.length} productos válidos. Actualizando BD...`);
-
-      let actualizados  = 0;
+      let actualizados = 0;
       let noEncontrados = 0;
-      const resumenHojas = {}; // hoja → { actualizados, noEncontrados }
+      const resumenHojas = {};
       const BATCH = 50;
 
       for (let i = 0; i < productos.length; i += BATCH) {
-        const lote   = productosLimpios.slice(i, i + BATCH);
+        const lote    = productos.slice(i, i + BATCH);
         const codigos = lote.map(p => p.codigo);
 
         const { data: found, error: fetchErr } = await supabase
           .from("productos")
           .select("id, codigo")
           .in("codigo", codigos);
+
         if (fetchErr) throw new Error(fetchErr.message);
 
         const mapaId = {};
@@ -332,18 +225,18 @@ const handlePlantillaSelogas = async (e) => {
           resumenHojas[hoja].actualizados++;
         }
 
-        setProgress(`Actualizando... ${Math.min(i + BATCH, productosLimpios.length)}/${productosLimpios.length}`);
+        setProgress(`Actualizando... ${Math.min(i + BATCH, productos.length)}/${productos.length}`);
       }
 
       try { Object.keys(localStorage).filter(k => k.startsWith("selogas_cat_")).forEach(k => localStorage.removeItem(k)); } catch {}
 
       setResult({
-        tipo:           "plantilla",
-        total:          actualizados,
+        tipo:          "plantilla",
+        total:         actualizados,
         noEncontrados,
-        correcciones,
         resumenHojas,
-        hojasExcluidas,
+        hojasExcluidas: [],
+        correcciones:   [],
       });
 
     } catch (err) {
@@ -362,8 +255,8 @@ const handlePlantillaSelogas = async (e) => {
       {/* Pestañas */}
       <div className="flex gap-2 mb-5 bg-gray-100 p-1 rounded-2xl">
         {[
-          { id: "excel",    icon: FileSpreadsheet, label: "Excel simple" },
-          { id: "plantilla",icon: LayoutGrid,      label: "Plantilla SELOGAS" },
+          { id: "excel",     icon: FileSpreadsheet, label: "Excel simple" },
+          { id: "plantilla", icon: LayoutGrid,      label: "Plantilla SELOGAS" },
         ].map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); setResult(null); setError(null); }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
@@ -410,8 +303,7 @@ const handlePlantillaSelogas = async (e) => {
           {result && !result.tipo && (
             <div className="mt-4 p-3 bg-green-50 rounded-xl text-green-700 text-sm flex items-center gap-2">
               <CheckCircle size={15} />
-              <span>✅ <strong>{result.total} nuevos</strong> insertados.
-              {result.actualizados > 0 && ` <strong>${result.actualizados}</strong> actualizados (nombre).`}</span>
+              <span>✅ <strong>{result.total} nuevos</strong> insertados.</span>
             </div>
           )}
         </div>
@@ -419,148 +311,84 @@ const handlePlantillaSelogas = async (e) => {
 
       {/* ── TAB: Plantilla SELOGAS ── */}
       {tab === "plantilla" && (
-  <div className="bg-white rounded-2xl border p-6 shadow-sm">
-    <h2 className="font-bold text-lg mb-1 flex items-center gap-2">
-      <LayoutGrid size={20} className="text-[#00913f]" /> Plantilla SELOGAS
-    </h2>
-    <p className="text-gray-500 text-sm mb-2">
-      Importa el Excel de la hoja de pedido SELOGAS. Cada pestaña = una sección del PDF (una página por sección).
-    </p>
-    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-      <p className="text-xs font-semibold text-amber-800 mb-2">Secciones del PDF (14 páginas):</p>
-      <div className="grid grid-cols-2 gap-1 text-xs text-amber-700">
-        {ORDEN_PDF.map((s, i) => (
-          <div key={s} className="flex items-center gap-1.5">
-            <span className="w-4 h-4 bg-amber-200 rounded text-center font-bold text-amber-900 text-xs leading-4 flex-shrink-0">{i+1}</span>
-            <span>{s}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-    <div className="bg-gray-50 border rounded-xl p-3 mb-4 text-xs text-gray-500 font-mono">
-      <div className="grid grid-cols-9 gap-0.5 text-center font-bold text-gray-700 mb-1">
-        <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
-        <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
-        <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
-        <span className="col-span-1 bg-gray-200 rounded p-1">CÓDIGO</span>
-        <span className="col-span-2 bg-gray-200 rounded p-1">ARTÍCULO</span>
-        <span className="col-span-1 bg-gray-200 rounded p-1">PED</span>
-        <span className="col-span-1 bg-gray-200 rounded p-1">...</span>
-      </div>
-      <p className="text-center text-gray-400 mt-1">Formato 3 columnas idéntico al PDF</p>
-    </div>
-    <div
-      onClick={() => !loading && fileRefPlantilla.current?.click()}
-      className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-        loading ? "opacity-50 cursor-not-allowed" : "border-gray-200 hover:border-[#00913f] hover:bg-[#edf7f2]"
-      }`}
-    >
-      <LayoutGrid size={36} className="mx-auto mb-3 text-gray-300" />
-      <p className="font-semibold text-gray-600">Haz clic para seleccionar la plantilla</p>
-      <p className="text-xs text-gray-400 mt-1">.xlsx · .xls · .ods</p>
-    </div>
-    <input ref={fileRefPlantilla} type="file" accept=".xlsx,.xls,.ods" className="hidden"
-      onChange={handlePlantillaSelogas} />
-    {progress && (
-      <div className="mt-4 p-3 bg-[#edf7f2] rounded-xl text-[#007a34] text-sm flex items-center gap-2">
-        <Loader2 size={15} className="animate-spin" /> {progress}
-      </div>
-    )}
-    {error && (
-      <div className="mt-4 p-3 bg-red-50 rounded-xl text-red-700 text-sm flex items-center gap-2">
-        <AlertCircle size={15} /> {error}
-      </div>
-    )}
-    {/* Importación bloqueada por errores */}
-    {result?.tipo === "bloqueado" && (
-      <div className="mt-4 space-y-3">
-        <div className="p-3 bg-red-50 rounded-xl border border-red-200">
-          <div className="flex items-center gap-2 text-red-700 font-semibold text-sm mb-2">
-            <AlertCircle size={15} /> Importación bloqueada — {result.errores.length} error(es) detectado(s)
-          </div>
-          <p className="text-xs text-red-600 mb-2">Ningún dato fue guardado. Corrige el Excel y vuelve a importar.</p>
-          <ul className="space-y-1">
-            {result.errores.map((e, i) => (
-              <li key={i} className="text-xs text-red-700 font-mono bg-red-100 px-2 py-1 rounded">⛔ {e}</li>
-            ))}
-          </ul>
-        </div>
-        {result.correcciones?.length > 0 && (
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
-            <p className="text-xs font-semibold text-amber-800 mb-1">Correcciones automáticas que se habrían aplicado ({result.correcciones.length}):</p>
-            <ul className="space-y-0.5">
-              {result.correcciones.slice(0, 10).map((c, i) => (
-                <li key={i} className="text-xs text-amber-700 font-mono">✏️ {c}</li>
-              ))}
-              {result.correcciones.length > 10 && (
-                <li className="text-xs text-amber-500">… y {result.correcciones.length - 10} más</li>
-              )}
-            </ul>
-          </div>
-        )}
-      </div>
-    )}
-
-    {/* Importación exitosa */}
-    {result?.tipo === "plantilla" && (
-      <div className="mt-4 space-y-3">
-        <div className="p-3 bg-green-50 rounded-xl border border-green-200">
-          <div className="flex items-center gap-2 text-green-700 font-semibold text-sm mb-1">
-            <CheckCircle size={15} /> {result.total} productos actualizados correctamente
-          </div>
-          {result.noEncontrados > 0 && (
-            <p className="text-xs text-amber-600">⚠ {result.noEncontrados} códigos del Excel no existen en BD (no se crearon).</p>
-          )}
-        </div>
-
-        {/* Resumen por hoja */}
-        {result.resumenHojas && Object.keys(result.resumenHojas).length > 0 && (
-          <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-            <p className="text-xs font-semibold text-gray-700 mb-2">Impacto por hoja:</p>
-            <div className="space-y-0.5">
-              {Object.entries(result.resumenHojas).map(([hoja, r]) => (
-                <div key={hoja} className="flex justify-between text-xs">
-                  <span className="text-gray-600 font-mono">{hoja}</span>
-                  <span className="text-gray-500">
-                    {r.actualizados} actualizados
-                    {r.noEncontrados > 0 && <span className="text-amber-600 ml-2">{r.noEncontrados} no encontrados</span>}
-                  </span>
+        <div className="bg-white rounded-2xl border p-6 shadow-sm">
+          <h2 className="font-bold text-lg mb-1 flex items-center gap-2">
+            <LayoutGrid size={20} className="text-[#00913f]" /> Plantilla SELOGAS
+          </h2>
+          <p className="text-gray-500 text-sm mb-2">
+            Importa el Excel de la hoja de pedido SELOGAS. Cada pestaña = una sección del PDF.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+            <p className="text-xs font-semibold text-amber-800 mb-2">Secciones del PDF (14 páginas):</p>
+            <div className="grid grid-cols-2 gap-1 text-xs text-amber-700">
+              {ORDEN_PDF.map((s, i) => (
+                <div key={s} className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 bg-amber-200 rounded text-center font-bold text-amber-900 text-xs leading-4 flex-shrink-0">{i+1}</span>
+                  <span>{s}</span>
                 </div>
               ))}
             </div>
           </div>
-        )}
+          <div className="bg-gray-50 border rounded-xl p-3 mb-4 text-xs text-gray-500">
+            <p className="font-semibold text-gray-600 mb-1">Estructura fija del Excel:</p>
+            <p>Col A/B = columna 1 &nbsp;·&nbsp; Col D/E = columna 2 &nbsp;·&nbsp; Col G/H = columna 3</p>
+            <p className="mt-1 text-gray-400">La posición física (hoja + fila) define el orden en el PDF.</p>
+          </div>
+          <div
+            onClick={() => !loading && fileRefPlantilla.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+              loading ? "opacity-50 cursor-not-allowed" : "border-gray-200 hover:border-[#00913f] hover:bg-[#edf7f2]"
+            }`}
+          >
+            <LayoutGrid size={36} className="mx-auto mb-3 text-gray-300" />
+            <p className="font-semibold text-gray-600">Haz clic para seleccionar la plantilla</p>
+            <p className="text-xs text-gray-400 mt-1">.xlsx · .xls · .ods</p>
+          </div>
+          <input ref={fileRefPlantilla} type="file" accept=".xlsx,.xls,.ods" className="hidden"
+            onChange={handlePlantillaSelogas} />
 
-        {/* Hojas excluidas por duplicados */}
-        {result.hojasExcluidas?.length > 0 && (
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
-            <p className="text-xs font-semibold text-amber-800 mb-1">
-              ⚠ {result.hojasExcluidas.length} hoja(s) excluida(s) por duplicados (no se modificaron):
-            </p>
-            <ul className="space-y-0.5">
-              {result.hojasExcluidas.map((msg, i) => (
-                <li key={i} className="text-xs text-amber-700 font-mono">• {msg}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {result.correcciones?.length > 0 && (
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
-            <p className="text-xs font-semibold text-amber-800 mb-1">Correcciones automáticas aplicadas ({result.correcciones.length}):</p>
-            <ul className="space-y-0.5">
-              {result.correcciones.slice(0, 10).map((c, i) => (
-                <li key={i} className="text-xs text-amber-700 font-mono">✏️ {c}</li>
-              ))}
-              {result.correcciones.length > 10 && (
-                <li className="text-xs text-amber-500">… y {result.correcciones.length - 10} más</li>
+          {progress && (
+            <div className="mt-4 p-3 bg-[#edf7f2] rounded-xl text-[#007a34] text-sm flex items-center gap-2">
+              <Loader2 size={15} className="animate-spin" /> {progress}
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 rounded-xl text-red-700 text-sm flex items-center gap-2">
+              <AlertCircle size={15} /> {error}
+            </div>
+          )}
+
+          {result?.tipo === "plantilla" && (
+            <div className="mt-4 space-y-3">
+              <div className="p-3 bg-green-50 rounded-xl border border-green-200">
+                <div className="flex items-center gap-2 text-green-700 font-semibold text-sm mb-1">
+                  <CheckCircle size={15} /> {result.total} productos actualizados correctamente
+                </div>
+                {result.noEncontrados > 0 && (
+                  <p className="text-xs text-amber-600">⚠ {result.noEncontrados} códigos del Excel no existen en BD (no se crearon).</p>
+                )}
+              </div>
+
+              {result.resumenHojas && Object.keys(result.resumenHojas).length > 0 && (
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-700 mb-2">Impacto por hoja:</p>
+                  <div className="space-y-0.5">
+                    {Object.entries(result.resumenHojas).map(([hoja, r]) => (
+                      <div key={hoja} className="flex justify-between text-xs">
+                        <span className="text-gray-600 font-mono">{hoja}</span>
+                        <span className="text-gray-500">
+                          {r.actualizados} actualizados
+                          {r.noEncontrados > 0 && <span className="text-amber-600 ml-2">{r.noEncontrados} no encontrados</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
-            </ul>
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
