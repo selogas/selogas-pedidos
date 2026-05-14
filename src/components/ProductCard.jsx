@@ -46,7 +46,6 @@ export default function ProductCard({
   esFavorito = false,
   esTop = false,
   onToggleFavorito,
-  diasCaducidad = null,
 }) {
   const multiplo = producto.multiplo || 1;
   const agotado  = producto.disponible === false;
@@ -124,13 +123,6 @@ export default function ProductCard({
           <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-lg ${aviso.color}`}>
             <aviso.icon size={11} />
             {aviso.texto}
-          </div>
-        )}
-
-        {/* Badge caducidad próxima */}
-        {diasCaducidad !== null && (
-          <div className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
-            ⚠ Te caduca en {diasCaducidad === 0 ? 'hoy' : diasCaducidad === 1 ? '1 día' : `${diasCaducidad}d`}
           </div>
         )}
 

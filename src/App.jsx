@@ -15,11 +15,12 @@ import Comunicados from './pages/Comunicados';
 import Dashboard from './pages/Dashboard';
 import Sesiones from './pages/Sesiones';
 import Preferencias from './pages/Preferencias';
+import Palets from './pages/Palets';
+import ExcelSelogas from './pages/ExcelSelogas';
 
 // Protege rutas solo para admin — si eres tienda redirige al catálogo
 function AdminRoute({ children }) {
   const { isAdmin, loading } = useAuth();
-  // Mientras carga no hacer nada — isAdmin ya incluye la guarda de loading
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-white">
       <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
@@ -52,21 +53,23 @@ function AppRoutes() {
         <Route path="/login" element={<Navigate to="/Catalogo" replace />} />
 
         {/* Rutas accesibles para TODOS los usuarios autenticados */}
-        <Route path="/Inicio"     element={<Inicio />} />
-        <Route path="/Catalogo"   element={<Catalogo />} />
+        <Route path="/Inicio"       element={<Inicio />} />
+        <Route path="/Catalogo"     element={<Catalogo />} />
         <Route path="/MisPedidos"   element={<MisPedidos />} />
-        <Route path="/Caducidades"   element={<Caducidades />} />
-        <Route path="/Comunicados"    element={<Comunicados />} />
-        <Route path="/Dashboard"      element={<AdminRoute><Dashboard /></AdminRoute>} />
-        <Route path="/Sesiones"       element={<AdminRoute><Sesiones /></AdminRoute>} />
-        <Route path="/Preferencias"   element={<Preferencias />} />
+        <Route path="/Caducidades"  element={<Caducidades />} />
+        <Route path="/Comunicados"  element={<Comunicados />} />
+        <Route path="/Palets"       element={<Palets />} />
+        <Route path="/Preferencias" element={<Preferencias />} />
+        <Route path="/Dashboard"    element={<AdminRoute><Dashboard /></AdminRoute>} />
+        <Route path="/Sesiones"     element={<AdminRoute><Sesiones /></AdminRoute>} />
 
         {/* Rutas solo para ADMIN */}
-        <Route path="/Productos"        element={<AdminRoute><Productos /></AdminRoute>} />
-        <Route path="/ImportarProductos"element={<AdminRoute><ImportarProductos /></AdminRoute>} />
-        <Route path="/SubirImagenes"    element={<AdminRoute><SubirImagenes /></AdminRoute>} />
-        <Route path="/Configuracion"    element={<AdminRoute><Configuracion /></AdminRoute>} />
-        <Route path="/Tiendas"          element={<AdminRoute><Tiendas /></AdminRoute>} />
+        <Route path="/Productos"         element={<AdminRoute><Productos /></AdminRoute>} />
+        <Route path="/ImportarProductos" element={<AdminRoute><ImportarProductos /></AdminRoute>} />
+        <Route path="/SubirImagenes"     element={<AdminRoute><SubirImagenes /></AdminRoute>} />
+        <Route path="/Configuracion"     element={<AdminRoute><Configuracion /></AdminRoute>} />
+        <Route path="/Tiendas"           element={<AdminRoute><Tiendas /></AdminRoute>} />
+        <Route path="/ExcelSelogas"      element={<AdminRoute><ExcelSelogas /></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/Catalogo" replace />} />
       </Routes>
