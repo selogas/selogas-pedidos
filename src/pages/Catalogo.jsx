@@ -55,9 +55,6 @@ export default function Catalogo() {
   // ── Hook de top ventas (caché multicapa) ─────────────────────────
   const { topSet: topProductos } = useTopProductos();
 
-  // ── Hook de top ventas (caché multicapa) ─────────────────────────
-  const { topSet: topProductos } = useTopProductos();
-
   // ── Persistir carrito en localStorage ───────────────────────────
   useEffect(() => {
     try { localStorage.setItem('selogas_carrito', JSON.stringify(carrito)); } catch {}
