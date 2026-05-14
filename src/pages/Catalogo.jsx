@@ -48,6 +48,7 @@ export default function Catalogo() {
   const [favoritos, setFavoritos]       = useState(new Set()); // Set de producto_id
   const [plantillaActiva, setPlantilla] = useState(null); // { id, nombre, activa, items }
   const [plantillaOn, setPlantillaOn]   = useState(false);
+  const [mapaCaducidades, setMapaCaducidades] = useState({}); // { codigo_producto: diasRestantes }
 
   // ── Persistir carrito en localStorage ───────────────────────────
   useEffect(() => {
@@ -129,15 +130,17 @@ export default function Catalogo() {
         setProductos(listaProductos);
 
         // ── Datos dinámicos en paralelo (sin caché) ────────────────
-        const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla] = await Promise.all([
+        const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla, caducMap] = await Promise.all([
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
           (tienda?.id && tienda?.doble_pedido && prefDoblePedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
           (tienda?.id && prefAvisosCantidad) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
           tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
+          tienda?.google_calendar_id ? cargarCaducidades() : Promise.resolve({}),
         ]);
 
         if (Object.keys(pedidosRecientes).length > 0) setPedidoEstaSemanaPorProducto(pedidosRecientes);
+        if (Object.keys(caducMap).length > 0) setMapaCaducidades(caducMap);
         if (Object.keys(mediasHistoricas).length > 0) setMediasPorProducto(mediasHistoricas);
         if (favSet.size > 0) setFavoritos(favSet);
         if (plantilla) setPlantilla(plantilla);
@@ -157,6 +160,29 @@ export default function Catalogo() {
 
     cargar();
   }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]);
+
+  // ── Caducidades desde Google Calendar ───────────────────────────
+  async function cargarCaducidades() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("get-caducidades", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.error || res.data?.error || res.data?.sinCalendario) return {};
+      const eventos = res.data?.caducidades || [];
+      const mapa = {};
+      for (const ev of eventos) {
+        const cod = ev.codigo_producto?.trim();
+        if (cod && ev.diasRestantes <= 15) {
+          // Si hay varios eventos para el mismo código, quedarnos con el más cercano
+          if (mapa[cod] === undefined || ev.diasRestantes < mapa[cod]) {
+            mapa[cod] = ev.diasRestantes;
+          }
+        }
+      }
+      return mapa;
+    } catch { return {}; }
+  }
 
   // ── Favoritos ─────────────────────────────────────────────────────
   async function cargarFavoritos(tiendaId) {
@@ -626,6 +652,7 @@ export default function Catalogo() {
               cantidad={carrito[prod.id] || 0}
               onAdd={() => handleAdd(prod)}
               onQtyChange={(qty) => handleQtyChange(prod.id, qty)}
+              diasCaducidad={prod.codigo ? (mapaCaducidades[prod.codigo] ?? null) : null}
             />
           ))}
         </div>
@@ -652,6 +679,7 @@ export default function Catalogo() {
                       mediaHistorica={prefAvisosCantidad ? (mediasPorProducto[prod.id] || null) : null}
                       esFavorito={favoritos.has(prod.id)}
                       onToggleFavorito={() => toggleFavorito(prod.id)}
+                      diasCaducidad={prod.codigo ? (mapaCaducidades[prod.codigo] ?? null) : null}
                     />
                   ))}
                 </div>
