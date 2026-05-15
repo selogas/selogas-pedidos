@@ -18,16 +18,16 @@ function getCatColor(nombre, index) {
 }
 
 export default function Catalogo() {
-  // ── Usar contexto auth — NO volvemos a pedir el perfil ──────────
   const { user, perfil, isAdmin, loading: authLoading } = useAuth();
 
   const tienda      = perfil?.tiendas || null;
   const grupoTienda = tienda?.grupo   || "estacion";
 
-  // Preferencias de la tienda (configuradas por el admin)
   const prefPlantilla      = tienda?.pref_plantilla       !== false;
   const prefAvisosCantidad = tienda?.pref_avisos_cantidad !== false;
   const prefDoblePedido    = tienda?.pref_doble_pedido_aviso !== false;
+  // ── NUEVO: preferencia aviso caducidad ────────────────────────────
+  const prefAvisoCaducidad = tienda?.pref_aviso_caducidad !== false;
 
   const [productos, setProductos]   = useState([]);
   const [carrito, setCarrito]       = useState(() => {
@@ -50,17 +50,14 @@ export default function Catalogo() {
   const [favoritos, setFavoritos]     = useState(new Set());
   const [plantillaActiva, setPlantilla] = useState(null);
   const [plantillaOn, setPlantillaOn]   = useState(false);
-  const [mapaCaducidades, setMapaCaducidades] = useState({}); // { codigo_producto: diasRestantes }
+  const [mapaCaducidades, setMapaCaducidades] = useState({});
 
-  // ── Hook de top ventas (caché multicapa) ─────────────────────────
   const { topSet: topProductos } = useTopProductos();
 
-  // ── Persistir carrito en localStorage ───────────────────────────
   useEffect(() => {
     try { localStorage.setItem('selogas_carrito', JSON.stringify(carrito)); } catch {}
   }, [carrito]);
 
-  // ── Carga de productos con caché 30 min ─────────────────────────
   useEffect(() => {
     if (!user) return;
     if (authLoading) return;
@@ -68,9 +65,8 @@ export default function Catalogo() {
     const cargar = async () => {
       setLoading(true);
       try {
-        // ── CACHÉ: productos en localStorage (30 min TTL) ──────────
         const CACHE_KEY = `selogas_cat_${perfil?.tienda_id || 'admin'}`;
-        const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 horas (antes 30 min)
+        const CACHE_TTL = 2 * 60 * 60 * 1000;
         let listaProductos = null;
         try {
           const raw = localStorage.getItem(CACHE_KEY);
@@ -100,7 +96,6 @@ export default function Catalogo() {
           try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: listaProductos })); } catch {}
         }
 
-        // Añadir productos 'especifico' asignados a esta tienda
         if (!isAdmin && tienda?.id) {
           try {
             const { data: asignados } = await supabase
@@ -126,14 +121,14 @@ export default function Catalogo() {
 
         setProductos(listaProductos);
 
-        // ── Datos dinámicos en paralelo (sin caché) ────────────────
         const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla, caducMap] = await Promise.all([
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
           (tienda?.id && tienda?.doble_pedido && prefDoblePedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
           (tienda?.id && prefAvisosCantidad) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
           tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
-          tienda?.google_calendar_id ? cargarCaducidades() : Promise.resolve({}),
+          // ── Solo cargar caducidades si la tienda tiene calendario Y la pref está activa ──
+          (tienda?.google_calendar_id && prefAvisoCaducidad) ? cargarCaducidades() : Promise.resolve({}),
         ]);
 
         if (Object.keys(pedidosRecientes).length > 0) setPedidoEstaSemanaPorProducto(pedidosRecientes);
@@ -158,7 +153,6 @@ export default function Catalogo() {
     cargar();
   }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]);
 
-  // ── Caducidades desde Google Calendar ───────────────────────────
   async function cargarCaducidades() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -180,7 +174,6 @@ export default function Catalogo() {
     } catch { return {}; }
   }
 
-    // ── Favoritos ─────────────────────────────────────────────────────
   async function cargarFavoritos(tiendaId) {
     try {
       const { data } = await supabase.from("favoritos").select("producto_id").eq("tienda_id", tiendaId);
@@ -202,7 +195,6 @@ export default function Catalogo() {
     setFavoritos(newFavs);
   };
 
-  // ── Plantilla de pedido ───────────────────────────────────────────
   async function cargarPlantilla(tiendaId) {
     try {
       const { data } = await supabase.from("plantillas_pedido")
@@ -244,7 +236,6 @@ export default function Catalogo() {
     if (!newVal) setCarrito({});
   };
 
-  // ── Pedidos recientes (doble pedido): últimos 7 días ────────────
   async function cargarPedidosRecientes(tiendaId) {
     try {
       const hace7dias = new Date();
@@ -272,7 +263,6 @@ export default function Catalogo() {
     } catch { return {}; }
   }
 
-  // ── Historial de cantidades: media por producto últimos 90 días ─
   async function cargarMediasHistoricas(tiendaId) {
     try {
       const hace90dias = new Date();
@@ -304,7 +294,6 @@ export default function Catalogo() {
     } catch { return {}; }
   }
 
-  // ── Sugerencias: IDs de productos pedidos últimas 2 semanas ─────
   async function cargarSugerencias(tiendaId) {
     try {
       const hace14dias = new Date();
@@ -324,7 +313,6 @@ export default function Catalogo() {
     } catch { return []; }
   }
 
-  // ── Derivados memoizados ─────────────────────────────────────────
   const categorias = useMemo(() => {
     const seen = [], s = new Set();
     for (const prod of productos) {
@@ -350,7 +338,12 @@ export default function Catalogo() {
 
   const cartCount = useMemo(() => Object.values(carrito).filter(v => v > 0).length, [carrito]);
 
-  // ── Handlers carrito ─────────────────────────────────────────────
+  // ── Helper para calcular diasCaducidad de un producto ────────────
+  const getDiasCaducidad = (prod) => {
+    if (!prefAvisoCaducidad) return null;
+    return prod.codigo ? (mapaCaducidades[prod.codigo] ?? null) : null;
+  };
+
   const handleAdd = (prod) => {
     setCarrito(c => ({ ...c, [prod.id]: (c[prod.id] || 0) + (prod.multiplo || 1) }));
   };
@@ -367,7 +360,6 @@ export default function Catalogo() {
     setSugerencias(prev => prev.filter(s => s.id !== prod.id));
   };
 
-  // ── Enviar pedido ────────────────────────────────────────────────
   const handleEnviar = async (observaciones, lineas) => {
     if (!lineas.length) return;
     setEnviando(true);
@@ -405,10 +397,7 @@ export default function Catalogo() {
       const { error: lineasError } = await supabase.from("pedido_items").insert(lineasData);
       if (lineasError) throw lineasError;
 
-      // Invalidar caché de top ventas para que el próximo acceso recalcule
       invalidateTopProductosCache();
-
-      // Email en background — no bloquea el UI
       enviarEmail(pedido.id, numeroPedido, fecha, tiendaNombre, observaciones, lineasData).catch(() => {});
 
       setCarrito({});
@@ -445,7 +434,6 @@ export default function Catalogo() {
     await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedidoId);
   }
 
-  // ── Render ───────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
@@ -498,7 +486,6 @@ export default function Catalogo() {
         </div>
       )}
 
-      {/* Barra plantilla */}
       {plantillaActiva && prefPlantilla && (
         <div className="mb-3 flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-2xl px-4 py-2.5">
           <span className="text-sm text-purple-700 font-semibold flex-1">📋 {plantillaActiva.nombre}</span>
@@ -519,7 +506,6 @@ export default function Catalogo() {
         </div>
       )}
 
-      {/* Buscador + botón carrito */}
       <div className="relative mb-6 flex gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -547,7 +533,6 @@ export default function Catalogo() {
         </button>
       </div>
 
-      {/* Filtros de categoría */}
       {categorias.length > 0 && (
         <div className="mb-6 relative flex items-center gap-1.5">
           <button
@@ -609,6 +594,7 @@ export default function Catalogo() {
           <p>No hay productos en esta categoría</p>
         </div>
       ) : categoriaActiva !== "__todas__" ? (
+        // ── Vista filtrada por categoría — con diasCaducidad ──────────
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {productosFiltrados.map(prod => (
             <ProductCard key={prod.id} producto={prod}
@@ -620,10 +606,12 @@ export default function Catalogo() {
               esFavorito={favoritos.has(prod.id)}
               esTop={topProductos.has(prod.id)}
               onToggleFavorito={() => toggleFavorito(prod.id)}
+              diasCaducidad={getDiasCaducidad(prod)}
             />
           ))}
         </div>
       ) : (
+        // ── Vista "todas" agrupada por categoría ──────────────────────
         <div>
           {categorias.map((cat, idx) => {
             const prodsCategoria = productosFiltrados.filter(p => p.categoria_id === cat.id);
@@ -647,14 +635,14 @@ export default function Catalogo() {
                       esFavorito={favoritos.has(prod.id)}
                       esTop={topProductos.has(prod.id)}
                       onToggleFavorito={() => toggleFavorito(prod.id)}
-                      diasCaducidad={prod.codigo ? (mapaCaducidades[prod.codigo] ?? null) : null}
+                      diasCaducidad={getDiasCaducidad(prod)}
                     />
                   ))}
                 </div>
               </div>
             );
           })}
-          {/* Productos sin categoría */}
+          {/* Productos sin categoría — con diasCaducidad ─────────────── */}
           {(() => {
             const sinCat = productosFiltrados.filter(p => !p.categoria_id);
             if (!sinCat.length) return null;
@@ -676,6 +664,7 @@ export default function Catalogo() {
                       esFavorito={favoritos.has(prod.id)}
                       esTop={topProductos.has(prod.id)}
                       onToggleFavorito={() => toggleFavorito(prod.id)}
+                      diasCaducidad={getDiasCaducidad(prod)}
                     />
                   ))}
                 </div>
