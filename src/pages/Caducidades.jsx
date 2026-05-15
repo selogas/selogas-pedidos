@@ -32,13 +32,33 @@ function TarjetaCaducidad({ item }) {
 }
 
 export default function Caducidades() {
-  const { perfil } = useAuth();
+  const { perfil, isAdmin } = useAuth();
   const [caducidades, setCaducidades] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
   const [tienda, setTienda]           = useState(null);
   const [sinCalendario, setSinCalendario] = useState(false);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
+  const [ejecutando, setEjecutando]     = useState(false);
+  const [logEjecucion, setLogEjecucion] = useState(null);
+
+  const ejecutarScript = async () => {
+    setEjecutando(true);
+    setLogEjecucion(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("ejecutar-caducidades", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = res.data || {};
+      if (!data.ok) throw new Error(data.error || "Error desconocido");
+      setLogEjecucion({ ok: true, logs: data.logs || [] });
+    } catch (e) {
+      setLogEjecucion({ ok: false, logs: [e.message] });
+    } finally {
+      setEjecutando(false);
+    }
+  };
 
   const cargar = async () => {
     setLoading(true);
@@ -147,10 +167,40 @@ export default function Caducidades() {
             )}
           </p>
         </div>
-        <button onClick={cargar} className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500" title="Actualizar">
-          <RefreshCw size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={ejecutarScript}
+              disabled={ejecutando}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-xl font-semibold text-sm transition-colors"
+              title="Procesa Gmail y actualiza todos los calendarios"
+            >
+              {ejecutando
+                ? <Loader2 size={15} className="animate-spin" />
+                : <RefreshCw size={15} />}
+              {ejecutando ? "Ejecutando..." : "Ejecutar script"}
+            </button>
+          )}
+          <button onClick={cargar} className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500" title="Actualizar">
+            <RefreshCw size={16} />
+          </button>
+        </div>
       </div>
+
+      {/* Panel de log (solo admin, tras ejecutar) */}
+      {isAdmin && logEjecucion && (
+        <div className={`mb-6 rounded-xl border-2 p-4 ${logEjecucion.ok ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+          <div className="flex items-center justify-between mb-2">
+            <p className={`font-bold text-sm ${logEjecucion.ok ? "text-green-800" : "text-red-800"}`}>
+              {logEjecucion.ok ? "✅ Script ejecutado correctamente" : "❌ Error en la ejecución"}
+            </p>
+            <button onClick={() => setLogEjecucion(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕ Cerrar</button>
+          </div>
+          <pre className="text-xs font-mono text-gray-700 bg-white rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap border border-gray-200">
+            {logEjecucion.logs.join("\n")}
+          </pre>
+        </div>
+      )}
 
       {/* Resumen */}
       {total > 0 && (
