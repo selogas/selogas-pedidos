@@ -93,7 +93,7 @@ export default function Caducidades() {
       }
 
       addLog("== FIN ==");
-    } catch (e: any) {
+    } catch (e) {
       addLog(`ERROR: ${e.message}`);
       hayError = true;
     } finally {
