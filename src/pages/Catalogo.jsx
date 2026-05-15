@@ -79,7 +79,7 @@ export default function Catalogo() {
         if (!listaProductos) {
           let query = supabase
             .from("productos")
-            .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, categorias(id, nombre)")
+            .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, etiqueta, categorias(id, nombre)")
             .eq("disponible", true)
             .order("orden_excel");
 
@@ -110,7 +110,7 @@ export default function Catalogo() {
               if (idsNuevos.length) {
                 const { data: prodsEspecificos } = await supabase
                   .from("productos")
-                  .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, categorias(id, nombre)")
+                  .select("id, codigo, nombre, imagen_url, categoria_id, disponible, multiplo, minimo, orden_excel, columna_excel, hoja_excel, seccion_excel, grupo_visualizacion, etiqueta, categorias(id, nombre)")
                   .in("id", idsNuevos)
                   .eq("disponible", true);
                 if (prodsEspecificos?.length) listaProductos = [...listaProductos, ...prodsEspecificos];

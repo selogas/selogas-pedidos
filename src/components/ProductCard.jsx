@@ -64,6 +64,12 @@ export default function ProductCard({
       {/* ── Imagen ─────────────────────────────────────────────── */}
       <div className="relative h-32 bg-gray-50 flex items-center justify-center">
 
+        {producto.etiqueta && (
+          <span className="absolute bottom-1.5 left-1.5 z-10 bg-amber-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow leading-tight max-w-[80px] truncate pointer-events-none">
+            {producto.etiqueta}
+          </span>
+        )}
+
         {/* Halo dorado sutil detrás de imagen (variante "glow") */}
         {esTop && <TopVentasBadge variant="glow" />}
 

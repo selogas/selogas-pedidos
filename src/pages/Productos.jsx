@@ -579,13 +579,100 @@ function MoverCategoriaModal({ productos, categorias, onClose, onMoved }) {
   );
 }
 
+
+function EtiquetaMasivaModal({ productos, onClose, onChanged }) {
+  const [busqueda, setBusqueda]   = useState("");
+  const [seleccion, setSeleccion] = useState(new Set());
+  const [etiqueta, setEtiqueta]   = useState("");
+  const [accion, setAccion]       = useState("poner");
+  const [saving, setSaving]       = useState(false);
+
+  const productosFiltrados = useMemo(() => {
+    if (!busqueda.trim()) return productos;
+    const q = busqueda.toLowerCase();
+    return productos.filter(p => p.nombre?.toLowerCase().includes(q) || p.codigo?.toLowerCase().includes(q));
+  }, [productos, busqueda]);
+
+  const todosVisibles = productosFiltrados.length > 0 && productosFiltrados.every(p => seleccion.has(p.id));
+
+  const toggleTodos = () => {
+    const ids = productosFiltrados.map(p => p.id);
+    if (todosVisibles) setSeleccion(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
+    else setSeleccion(prev => { const n = new Set(prev); ids.forEach(id => n.add(id)); return n; });
+  };
+
+  const handleGuardar = async () => {
+    if (!seleccion.size) return;
+    if (accion === "poner" && !etiqueta.trim()) { alert("Escribe la etiqueta a asignar"); return; }
+    setSaving(true);
+    const valor = accion === "quitar" ? null : etiqueta.trim();
+    const ids = [...seleccion];
+    for (let i = 0; i < ids.length; i += 50)
+      await supabase.from("productos").update({ etiqueta: valor }).in("id", ids.slice(i, i + 50));
+    setSaving(false);
+    onChanged();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-5 border-b">
+          <h2 className="font-bold text-lg flex items-center gap-2"><Tag size={18} /> Etiqueta masiva</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="p-5 border-b space-y-3">
+          <div className="flex gap-2">
+            <button onClick={() => setAccion("poner")} className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${accion==="poner" ? "border-amber-400 bg-amber-50 text-amber-800" : "border-gray-200 text-gray-500"}`}>Poner etiqueta</button>
+            <button onClick={() => setAccion("quitar")} className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${accion==="quitar" ? "border-red-400 bg-red-50 text-red-700" : "border-gray-200 text-gray-500"}`}>Quitar etiqueta</button>
+          </div>
+          {accion === "poner" && (
+            <div>
+              <input type="text" value={etiqueta} onChange={e => setEtiqueta(e.target.value)}
+                placeholder="Ej: Con devolución, Oferta, Nuevo..." maxLength={30}
+                className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+              {etiqueta && <div className="mt-2 flex items-center gap-2"><span className="text-xs text-gray-500">Vista previa:</span><span className="inline-block bg-amber-400 text-white text-xs font-bold px-2 py-0.5 rounded-full">{etiqueta}</span></div>}
+            </div>
+          )}
+          {accion === "quitar" && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">Se eliminará la etiqueta de todos los productos seleccionados.</p>}
+        </div>
+        <div className="p-4 border-b">
+          <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar producto..." className="w-full border rounded-xl px-4 py-2 text-sm" />
+        </div>
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="font-semibold text-sm text-[#00913f]">{seleccion.size} seleccionados</span>
+            <button onClick={toggleTodos} className="text-xs text-gray-500 hover:text-gray-700 underline">{todosVisibles ? "Deseleccionar visibles" : "Seleccionar visibles"}</button>
+          </div>
+          <div className="space-y-1">
+            {productosFiltrados.map(prod => (
+              <label key={prod.id} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer text-sm transition-colors ${seleccion.has(prod.id) ? "bg-amber-50 text-amber-900 font-semibold" : "hover:bg-gray-50 text-gray-700"}`}>
+                <input type="checkbox" checked={seleccion.has(prod.id)} onChange={() => setSeleccion(prev => { const n = new Set(prev); n.has(prod.id) ? n.delete(prod.id) : n.add(prod.id); return n; })} className="rounded flex-shrink-0" />
+                <div className="flex-1 min-w-0"><p className="truncate">{prod.nombre}</p>{prod.codigo && <p className="text-xs text-gray-400 font-mono">{prod.codigo}</p>}</div>
+                {prod.etiqueta && <span className="flex-shrink-0 bg-amber-400 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{prod.etiqueta}</span>}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="p-4 border-t flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium">Cancelar</button>
+          <button onClick={handleGuardar} disabled={saving || !seleccion.size || (accion==="poner" && !etiqueta.trim())}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 ${accion==="quitar" ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"}`}>
+            {saving ? "Guardando..." : `${accion==="quitar" ? "Quitar" : "Asignar"} etiqueta (${seleccion.size})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
   const [form, setForm] = useState(producto ? {
     nombre: producto.nombre||'', codigo: producto.codigo||'', categoria_id: producto.categoria_id||'',
     formato: producto.formato||'', multiplo: producto.multiplo||1, imagen_url: producto.imagen_url||'',
     descripcion: producto.descripcion||'', disponible: producto.disponible!==false,
     grupo_visualizacion: producto.grupo_visualizacion||'ambos', hoja_excel: producto.hoja_excel||'',
-  } : { nombre:'', codigo:'', categoria_id:'', formato:'', multiplo:1, imagen_url:'', descripcion:'', disponible:true, grupo_visualizacion:'ambos', hoja_excel:'' });
+    etiqueta: producto.etiqueta||'',
+  } : { nombre:'', codigo:'', categoria_id:'', formato:'', multiplo:1, imagen_url:'', descripcion:'', disponible:true, grupo_visualizacion:'ambos', hoja_excel:'', etiqueta:'' });
   const [saving, setSaving]             = useState(false);
   const [uploading, setUploading]       = useState(false);
   const [buscandoImagen, setBuscandoImagen] = useState(false);
@@ -680,6 +767,18 @@ function ProductoModal({ producto, categorias, onClose, onSave, modo }) {
                 </div>
               </div>
             </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Etiqueta de esquina <span className="text-gray-400 font-normal text-xs">(ej: Con devolución, Oferta, Nuevo...)</span></label>
+              <input type="text" value={form.etiqueta} onChange={e => setForm(f => ({...f, etiqueta: e.target.value}))}
+                placeholder="Deja vacío para no mostrar ninguna"
+                className="w-full border rounded-xl px-4 py-2.5 text-sm" maxLength={30} />
+              {form.etiqueta && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Vista previa:</span>
+                  <span className="inline-block bg-amber-400 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">{form.etiqueta}</span>
+                </div>
+              )}
+            </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <div><div className="text-sm font-semibold text-gray-700">Disponible</div><div className="text-xs text-gray-400">Visible en el cat&aacute;logo</div></div>
               <button onClick={() => setForm(f => ({...f, disponible: !f.disponible}))} className={`w-12 h-6 rounded-full transition-colors relative ${form.disponible ? "bg-[#00913f]" : "bg-gray-300"}`}><span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.disponible ? "translate-x-6" : "translate-x-0.5"}`} /></button>
@@ -707,6 +806,7 @@ export default function Productos() {
   const [gestionCat, setGestionCat]   = useState(false);
   const [moverCat, setMoverCat]       = useState(false);
   const [cambiarGrupo, setCambiarGrupo]       = useState(false);
+  const [etiquetaMasiva, setEtiquetaMasiva]    = useState(false);
   const [cambiarPaginaPDF, setCambiarPaginaPDF] = useState(false);
   const [subirImagenes, setSubirImagenes]       = useState(false);
 
@@ -766,6 +866,7 @@ export default function Productos() {
       {cambiarGrupo && <CambiarGrupoModal productos={productos} onClose={() => setCambiarGrupo(false)} onChanged={() => { setCambiarGrupo(false); cargar(); }} />}
       {cambiarPaginaPDF && <CambiarPaginaPDFModal productos={productos} categorias={categorias} onClose={() => setCambiarPaginaPDF(false)} onChanged={() => { setCambiarPaginaPDF(false); cargar(); }} />}
       {moverCat && <MoverCategoriaModal productos={productos} categorias={categorias} onClose={() => setMoverCat(false)} onMoved={() => { setMoverCat(false); cargar(); }} />}
+      {etiquetaMasiva && <EtiquetaMasivaModal productos={productos} onClose={() => setEtiquetaMasiva(false)} onChanged={() => { setEtiquetaMasiva(false); cargar(); }} />}
       {subirImagenes && <SubirImagenesModal productos={productos} onClose={() => setSubirImagenes(false)} onDone={cargar} />}
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -774,6 +875,7 @@ export default function Productos() {
           <button onClick={() => setSubirImagenes(true)} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 shadow"><Upload size={15} /> Subir Im&aacute;genes</button>
           <button onClick={() => setMoverCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><FolderOpen size={15} /> Mover</button>
           <button onClick={() => setCambiarGrupo(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><Layers size={15} /> Grupo</button>
+          <button onClick={() => setEtiquetaMasiva(true)} className="flex items-center gap-2 px-3 py-2 border border-amber-300 text-amber-700 bg-amber-50 rounded-xl text-sm font-semibold hover:bg-amber-100"><Tag size={15} /> Etiqueta</button>
           <button onClick={() => setCambiarPaginaPDF(true)} className="flex items-center gap-2 px-3 py-2 border border-blue-300 text-blue-700 bg-blue-50 rounded-xl text-sm font-semibold hover:bg-blue-100"><FileText size={15} /> P&aacute;gina PDF</button>
           <button onClick={() => setGestionCat(true)} className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50"><Tag size={15} /> Categor&iacute;as</button>
           <button onClick={() => setCreando(true)} className="flex items-center gap-2 px-4 py-2 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] shadow"><Plus size={16} /> Nuevo producto</button>
@@ -807,7 +909,12 @@ export default function Productos() {
             const catNombre = categorias.find(c => c.id === prod.categoria_id)?.nombre || "";
             const disponible = prod.disponible !== false;
             return (
-              <div key={prod.id} className={`bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden hover:shadow-md transition-shadow ${!disponible ? "opacity-60" : ""}`}>
+              <div key={prod.id} className={`bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden hover:shadow-md transition-shadow relative ${!disponible ? "opacity-60" : ""}`}>
+                {prod.etiqueta && (
+                  <span className="absolute top-1.5 left-1.5 z-10 bg-amber-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow leading-tight max-w-[90px] truncate pointer-events-none">
+                    {prod.etiqueta}
+                  </span>
+                )}
                 <CardImagen prod={prod} gi={gi} onEliminar={() => handleEliminarImagen(prod)} />
                 <div className="p-2 flex flex-col flex-1 gap-1">
                   <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2">{prod.nombre}</h3>
