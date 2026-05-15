@@ -304,11 +304,10 @@ async function procesarExcel(bytes: Uint8Array, nombre: string, clave: string, t
   const wb   = XLSX.read(bytes, { type: "array", cellDates: true });
   const ws   = wb.Sheets[wb.SheetNames[0]];
   const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
   const hoy  = new Date(); hoy.setHours(0, 0, 0, 0);
   const maxD = new Date(hoy.getTime() + 365 * 86400000);
 
-  // Filtrar y preparar filas válidas primero
+  // Filtrar filas válidas primero
   type Item = { codigo: string; prod: string; fecha: string; baseTitle: string; desc: string };
   const items: Item[] = [];
   for (let i = 1; i < rows.length; i++) {
@@ -328,30 +327,47 @@ async function procesarExcel(bytes: Uint8Array, nombre: string, clave: string, t
       desc: appendCatalogoLink(`Producto: ${prodNorm}`),
     });
   }
+  if (!items.length) { logs.push(`  ${nombre} → ${clave}: sin productos válidos`); return; }
 
+  // Una sola petición para traer todos los eventos del calendario en el rango necesario
+  const fechas = items.map(it => it.fecha).sort();
+  const tMin   = fechas[0] + "T00:00:00Z";
+  const tMax   = fechas[fechas.length - 1] + "T23:59:59Z";
+
+  let pageToken: string | undefined;
+  const todosEventos: any[] = [];
+  do {
+    const res = await calListEventsRange(token, cfg.id, tMin, tMax, pageToken);
+    todosEventos.push(...(res.items || []));
+    pageToken = res.nextPageToken;
+  } while (pageToken);
+
+  // Índice en memoria: fecha → título → [eventos]
+  const idx: Record<string, Record<string, any[]>> = {};
+  for (const e of todosEventos) {
+    const day   = e.start?.date || (e.start?.dateTime || "").slice(0, 10);
+    const title = (e.summary || "").trim();
+    if (!day || !title) continue;
+    if (!idx[day]) idx[day] = {};
+    (idx[day][title] = idx[day][title] || []).push(e);
+  }
+
+  // Procesar en lotes de 10 usando el índice en memoria (sin peticiones de lectura extra)
   let creados = 0, actualizados = 0;
-
-  // Procesar en lotes de 10 en paralelo para no saturar la API de Google
   const BATCH = 10;
   for (let i = 0; i < items.length; i += BATCH) {
-    const lote = items.slice(i, i + BATCH);
-    await Promise.all(lote.map(async ({ codigo, baseTitle, desc, fecha }) => {
-      const eventos = await calListEventsOnDay(token, cfg.id, fecha);
-      const mismos  = eventos.filter((e: any) => (e.summary || "") === baseTitle);
+    await Promise.all(items.slice(i, i + BATCH).map(async ({ codigo, baseTitle, desc, fecha }: Item) => {
+      const mismos = idx[fecha]?.[baseTitle] || [];
       if (!mismos.length) {
         await calCreateEvent(token, cfg.id, fecha, baseTitle, desc, codigo);
         creados++;
       } else {
-        await calPatchEvent(token, cfg.id, mismos[0].id, {
-          description: desc,
-          extendedProperties: { private: { codigo_producto: codigo } },
-        });
+        await calPatchEvent(token, cfg.id, mismos[0].id, { description: desc, extendedProperties: { private: { codigo_producto: codigo } } });
         for (const extra of mismos.slice(1)) await calDeleteEvent(token, cfg.id, extra.id);
         actualizados++;
       }
     }));
   }
-
   logs.push(`  ${nombre} → ${clave}: +${creados} creados, ~${actualizados} actualizados`);
 }
 
