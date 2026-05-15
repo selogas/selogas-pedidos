@@ -53,7 +53,7 @@ export default function Caducidades() {
     const headers = { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" };
     const url = `${SUPABASE_URL}/functions/v1/ejecutar-caducidades`;
 
-    const addLog = (line: string) => {
+    const addLog = (line) => {
       setLogEjecucion(prev => ({ ok: prev?.ok ?? null, logs: [...(prev?.logs || []), line] }));
       setTimeout(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, 20);
     };
