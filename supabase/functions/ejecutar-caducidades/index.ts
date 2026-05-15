@@ -305,43 +305,53 @@ async function procesarExcel(bytes: Uint8Array, nombre: string, clave: string, t
   const ws   = wb.Sheets[wb.SheetNames[0]];
   const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-  const hoy    = new Date(); hoy.setHours(0, 0, 0, 0);
-  const maxD   = new Date(hoy.getTime() + 365 * 86400000);
+  const hoy  = new Date(); hoy.setHours(0, 0, 0, 0);
+  const maxD = new Date(hoy.getTime() + 365 * 86400000);
+
+  // Filtrar y preparar filas válidas primero
+  type Item = { codigo: string; prod: string; fecha: string; baseTitle: string; desc: string };
+  const items: Item[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row    = rows[i];
+    const codigo = limpiarCodigo(row[COL_CODIGO]);
+    const prod   = row[COL_PRODUCTO];
+    const cadRaw = row[COL_CADUCIDAD];
+    if (!prod || !cadRaw) continue;
+    const prodNorm = canonProducto(String(prod));
+    const fecha    = truncarFecha(cadRaw);
+    if (!fecha) continue;
+    const fechaD = new Date(fecha + "T00:00:00");
+    if (fechaD < hoy || fechaD > maxD) continue;
+    items.push({
+      codigo, prod: prodNorm, fecha,
+      baseTitle: `⚠️ Caduca: ${prodNorm}`,
+      desc: appendCatalogoLink(`Producto: ${prodNorm}`),
+    });
+  }
 
   let creados = 0, actualizados = 0;
 
-  for (let i = 1; i < rows.length; i++) {
-    const row      = rows[i];
-    const codigo   = limpiarCodigo(row[COL_CODIGO]);
-    const producto = row[COL_PRODUCTO];
-    const cadRaw   = row[COL_CADUCIDAD];
-
-    if (!producto || !cadRaw) continue;
-
-    const prod  = canonProducto(String(producto));
-    const fecha = truncarFecha(cadRaw);
-    if (!fecha) continue;
-
-    const fechaD = new Date(fecha + "T00:00:00");
-    if (fechaD < hoy || fechaD > maxD) continue;
-
-    const baseTitle = `⚠️ Caduca: ${prod}`;
-    const desc      = appendCatalogoLink(`Producto: ${prod}`);
-    const eventos   = await calListEventsOnDay(token, cfg.id, fecha);
-    const mismos    = eventos.filter(e => (e.summary || "") === baseTitle);
-
-    if (!mismos.length) {
-      await calCreateEvent(token, cfg.id, fecha, baseTitle, desc, codigo);
-      creados++;
-    } else {
-      await calPatchEvent(token, cfg.id, mismos[0].id, {
-        description: desc,
-        extendedProperties: { private: { codigo_producto: codigo } },
-      });
-      for (const extra of mismos.slice(1)) await calDeleteEvent(token, cfg.id, extra.id);
-      actualizados++;
-    }
+  // Procesar en lotes de 10 en paralelo para no saturar la API de Google
+  const BATCH = 10;
+  for (let i = 0; i < items.length; i += BATCH) {
+    const lote = items.slice(i, i + BATCH);
+    await Promise.all(lote.map(async ({ codigo, baseTitle, desc, fecha }) => {
+      const eventos = await calListEventsOnDay(token, cfg.id, fecha);
+      const mismos  = eventos.filter((e: any) => (e.summary || "") === baseTitle);
+      if (!mismos.length) {
+        await calCreateEvent(token, cfg.id, fecha, baseTitle, desc, codigo);
+        creados++;
+      } else {
+        await calPatchEvent(token, cfg.id, mismos[0].id, {
+          description: desc,
+          extendedProperties: { private: { codigo_producto: codigo } },
+        });
+        for (const extra of mismos.slice(1)) await calDeleteEvent(token, cfg.id, extra.id);
+        actualizados++;
+      }
+    }));
   }
+
   logs.push(`  ${nombre} → ${clave}: +${creados} creados, ~${actualizados} actualizados`);
 }
 
