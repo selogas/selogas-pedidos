@@ -133,12 +133,16 @@ function CeldaSeccion({ value, productoId, onSave }) {
     if (nuevo !== (value || "").toUpperCase()) onSave(productoId, nuevo);
   };
 
+  const borrar = (e) => {
+    e.stopPropagation();
+    if (window.confirm(`¿Borrar la sección "${value}"? Se eliminará de todos los productos de este bloque.`)) {
+      onSave(productoId, "");
+    }
+  };
+
   if (editando) {
     return (
-      <td
-        colSpan={10}
-        style={{ background: "#fff9c4", padding: "3px 8px", borderBottom: "1px solid #f9a825" }}
-      >
+      <td colSpan={10} style={{ background: "#fff9c4", padding: "3px 8px", borderBottom: "1px solid #f9a825" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <input
             ref={ref}
@@ -156,8 +160,8 @@ function CeldaSeccion({ value, productoId, onSave }) {
               background: "#fffde7", color: "#333", letterSpacing: "1px",
             }}
           />
-          <button onClick={commit} style={{ background: "none", border: "none", cursor: "pointer", color: "#00913f", display: "flex", padding: 0 }}><Save size={13} /></button>
-          <button onClick={() => { setEditando(false); setVal(value || ""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#aaa", display: "flex", padding: 0 }}><X size={13} /></button>
+          <button onClick={commit} title="Guardar" style={{ background: "none", border: "none", cursor: "pointer", color: "#00913f", display: "flex", padding: 0 }}><Save size={13} /></button>
+          <button onClick={() => { setEditando(false); setVal(value || ""); }} title="Cancelar" style={{ background: "none", border: "none", cursor: "pointer", color: "#aaa", display: "flex", padding: 0 }}><X size={13} /></button>
         </div>
       </td>
     );
@@ -166,26 +170,41 @@ function CeldaSeccion({ value, productoId, onSave }) {
   return (
     <td
       colSpan={10}
-      title="Clic para editar el nombre de la sección"
-      onClick={() => setEditando(true)}
       style={{
         background: "#fff9c4",
-        textAlign: "center",
-        padding: "4px 8px",
-        fontWeight: 700,
-        fontSize: "12px",
-        letterSpacing: "1.5px",
-        color: "#333",
-        cursor: "pointer",
+        padding: "3px 8px",
         borderTop: "1px solid #f9a825",
         borderBottom: "1px solid #f9a825",
         userSelect: "none",
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = "#fff176"; }}
-      onMouseLeave={e => { e.currentTarget.style.background = "#fff9c4"; }}
     >
-      ━━━━ {val || "SIN NOMBRE"} ━━━━
-      <span style={{ marginLeft: "8px", fontSize: "9px", color: "#aaa", fontWeight: 400, letterSpacing: 0 }}>(clic para editar)</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+        <span style={{ fontWeight: 700, fontSize: "12px", letterSpacing: "1.5px", color: "#333" }}>
+          ━━━━ {val || "SIN NOMBRE"} ━━━━
+        </span>
+        <button
+          onClick={() => setEditando(true)}
+          title="Editar nombre de sección"
+          style={{
+            background: "none", border: "1px solid #c79600", borderRadius: "3px",
+            cursor: "pointer", color: "#7a5c00", fontSize: "10px", padding: "1px 6px",
+            fontWeight: 500, display: "flex", alignItems: "center", gap: "3px",
+          }}
+        >
+          ✏️ Editar
+        </button>
+        <button
+          onClick={borrar}
+          title="Borrar esta sección (quita la cabecera de todos los productos del bloque)"
+          style={{
+            background: "none", border: "1px solid #e53935", borderRadius: "3px",
+            cursor: "pointer", color: "#c62828", fontSize: "10px", padding: "1px 6px",
+            fontWeight: 500, display: "flex", alignItems: "center", gap: "3px",
+          }}
+        >
+          🗑 Borrar
+        </button>
+      </div>
     </td>
   );
 }
