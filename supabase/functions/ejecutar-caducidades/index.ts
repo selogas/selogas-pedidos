@@ -345,95 +345,111 @@ async function procesarExcel(bytes: Uint8Array, nombre: string, clave: string, t
   logs.push(`  ${nombre} → ${clave}: +${creados} creados, ~${actualizados} actualizados`);
 }
 
-// ── Handler principal ────────────────────────────────────────────────────────
+// ── Handler principal (streaming) ────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  try {
-    // Verificar que es admin via JWT
-    const authHeader = req.headers.get("Authorization") || "";
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const enc    = new TextEncoder();
+  const emit   = async (line: string) => { await writer.write(enc.encode(line + "\n")); };
 
-    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { Authorization: authHeader, apikey: supabaseKey },
-    });
-    const userData = await userRes.json();
-    if (!userData?.id) throw new Error("No autenticado");
+  (async () => {
+    try {
+      const authHeader  = req.headers.get("Authorization") || "";
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verificar rol admin en tabla perfiles
-    const perfilRes = await fetch(
-      `${supabaseUrl}/rest/v1/perfiles?id=eq.${userData.id}&select=rol,tiendas(nombre)`,
-      { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey } }
-    );
-    const perfiles = await perfilRes.json();
-    const perfil   = perfiles?.[0];
-    const esAdmin  = perfil?.rol === "admin" || perfil?.tiendas?.nombre === "PRINCIPAL";
-    if (!esAdmin) throw new Error("Sin permisos de administrador");
+      const userRes  = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: { Authorization: authHeader, apikey: supabaseKey },
+      });
+      const userData = await userRes.json();
+      if (!userData?.id) { await emit("ERROR: No autenticado"); return; }
 
-    // Obtener access token Google
-    const gToken = await getAccessToken();
-    const logs: string[] = ["== INICIO =="];
+      const perfilRes = await fetch(
+        `${supabaseUrl}/rest/v1/perfiles?id=eq.${userData.id}&select=rol,tiendas(nombre)`,
+        { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey } }
+      );
+      const perfiles = await perfilRes.json();
+      const perfil   = perfiles?.[0];
+      const esAdmin  = perfil?.rol === "admin" || perfil?.tiendas?.nombre === "PRINCIPAL";
+      if (!esAdmin) { await emit("ERROR: Sin permisos de administrador"); return; }
 
-    // 1. Formatear manuales y limpiar duplicados en todos los calendarios
-    logs.push("-- Formateando manuales y limpiando duplicados --");
-    const calIds = [...new Set(Object.values(calendarMap).map(c => c.id))];
-    for (const calId of calIds) {
+      await emit("== INICIO ==");
+
+      let gToken: string;
       try {
-        await formatearManualesYLimpiarDuplicados(gToken, calId, logs);
+        gToken = await getAccessToken();
+        await emit("✓ Token Google obtenido");
       } catch (e: any) {
-        logs.push(`  ! Error en ${calId}: ${e.message}`);
-      }
-    }
-
-    // 2. Escanear Gmail
-    logs.push("-- Escaneando Gmail --");
-    const QUERY = "in:inbox has:attachment (filename:xlsx OR filename:xls OR filename:xlsm) newer_than:7d";
-    const mensajes = await gmailSearch(gToken, QUERY);
-    logs.push(`Mensajes encontrados: ${mensajes.length}`);
-
-    for (const m of mensajes) {
-      const full  = await gmailGetMessage(gToken, m.id);
-      const parts: any[] = [];
-      const pila  = [...(full?.payload?.parts || [])];
-      while (pila.length) {
-        const p = pila.pop();
-        if (p.parts) pila.push(...p.parts);
-        parts.push(p);
+        await emit(`ERROR: ${e.message}`);
+        return;
       }
 
-      for (const p of parts) {
-        const filename = p.filename || "";
-        const attId    = p.body?.attachmentId;
-        if (!filename || !attId) continue;
-        if (!/\.xls(x|m)?$/i.test(filename)) continue;
-
-        const clave = detectarClavePorNombre(filename);
-        if (!clave || !calendarMap[clave]) {
-          logs.push(`  - Ignorado (sin clave): ${filename}`);
-          continue;
-        }
-
+      // 1. Formatear manuales y limpiar duplicados
+      await emit("-- Formateando manuales y limpiando duplicados --");
+      const calIds = [...new Set(Object.values(calendarMap).map(c => c.id))];
+      for (const calId of calIds) {
         try {
-          const bytes = await gmailGetAttachment(gToken, full.id, attId);
-          await procesarExcel(bytes, filename, clave, gToken, logs);
+          const logs: string[] = [];
+          await formatearManualesYLimpiarDuplicados(gToken, calId, logs);
+          for (const l of logs) await emit(l);
         } catch (e: any) {
-          logs.push(`  ! Error con ${filename}: ${e.message}`);
+          await emit(`  ! Error en ${calId}: ${e.message}`);
         }
       }
+
+      // 2. Escanear Gmail
+      await emit("-- Escaneando Gmail --");
+      const QUERY = "in:inbox has:attachment (filename:xlsx OR filename:xls OR filename:xlsm) newer_than:7d";
+      const mensajes = await gmailSearch(gToken, QUERY);
+      await emit(`Mensajes encontrados: ${mensajes.length}`);
+
+      for (const m of mensajes) {
+        const full  = await gmailGetMessage(gToken, m.id);
+        const parts: any[] = [];
+        const pila  = [...(full?.payload?.parts || [])];
+        while (pila.length) {
+          const p = pila.pop()!;
+          if (p.parts) pila.push(...p.parts);
+          parts.push(p);
+        }
+        for (const p of parts) {
+          const filename = p.filename || "";
+          const attId    = p.body?.attachmentId;
+          if (!filename || !attId) continue;
+          if (!/\.xls(x|m)?$/i.test(filename)) continue;
+          const clave = detectarClavePorNombre(filename);
+          if (!clave || !calendarMap[clave]) {
+            await emit(`  - Ignorado (sin clave): ${filename}`);
+            continue;
+          }
+          try {
+            await emit(`  → Procesando ${filename}...`);
+            const bytes = await gmailGetAttachment(gToken, full.id, attId);
+            const logs: string[] = [];
+            await procesarExcel(bytes, filename, clave, gToken, logs);
+            for (const l of logs) await emit(l);
+          } catch (e: any) {
+            await emit(`  ! Error con ${filename}: ${e.message}`);
+          }
+        }
+      }
+
+      await emit("== FIN ==");
+    } catch (err: any) {
+      await emit(`ERROR: ${err.message}`);
+    } finally {
+      await writer.close();
     }
+  })();
 
-    logs.push("== FIN ==");
-
-    return new Response(JSON.stringify({ ok: true, logs }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
-  } catch (err: any) {
-    return new Response(JSON.stringify({ ok: false, error: err.message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  return new Response(readable, {
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+    },
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, Calendar, Loader2, RefreshCw, Package, CheckCircle } from "lucide-react";
@@ -42,19 +42,44 @@ export default function Caducidades() {
   const [ejecutando, setEjecutando]     = useState(false);
   const [logEjecucion, setLogEjecucion] = useState(null);
 
+  const logRef = useRef(null);
+
   const ejecutarScript = async () => {
     setEjecutando(true);
-    setLogEjecucion(null);
+    setLogEjecucion({ ok: null, logs: [] });
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await supabase.functions.invoke("ejecutar-caducidades", {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://pasllyqgczegpvquaxvb.supabase.co";
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/ejecutar-caducidades`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      const data = res.data || {};
-      if (!data.ok) throw new Error(data.error || "Error desconocido");
-      setLogEjecucion({ ok: true, logs: data.logs || [] });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = "";
+      let   hayError = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          if (line.startsWith("ERROR:")) hayError = true;
+          setLogEjecucion(prev => ({
+            ok: prev?.ok === false ? false : !hayError,
+            logs: [...(prev?.logs || []), line],
+          }));
+          // auto-scroll
+          setTimeout(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, 20);
+        }
+      }
+      setLogEjecucion(prev => ({ ...prev, ok: !hayError }));
     } catch (e) {
-      setLogEjecucion({ ok: false, logs: [e.message] });
+      setLogEjecucion({ ok: false, logs: [`ERROR: ${e.message}`] });
     } finally {
       setEjecutando(false);
     }
@@ -189,15 +214,36 @@ export default function Caducidades() {
 
       {/* Panel de log (solo admin, tras ejecutar) */}
       {isAdmin && logEjecucion && (
-        <div className={`mb-6 rounded-xl border-2 p-4 ${logEjecucion.ok ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
-          <div className="flex items-center justify-between mb-2">
-            <p className={`font-bold text-sm ${logEjecucion.ok ? "text-green-800" : "text-red-800"}`}>
-              {logEjecucion.ok ? "✅ Script ejecutado correctamente" : "❌ Error en la ejecución"}
+        <div className={`mb-6 rounded-xl border-2 ${logEjecucion.ok === false ? "border-red-200 bg-red-50" : logEjecucion.ok === true ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+          <div className="flex items-center justify-between px-4 py-2 border-b border-current border-opacity-20">
+            <p className={`font-bold text-sm flex items-center gap-2 ${logEjecucion.ok === false ? "text-red-800" : logEjecucion.ok === true ? "text-green-800" : "text-amber-800"}`}>
+              {ejecutando && <Loader2 size={13} className="animate-spin" />}
+              {logEjecucion.ok === false ? "❌ Error en la ejecución" : logEjecucion.ok === true ? "✅ Completado" : "⏳ Ejecutando..."}
             </p>
-            <button onClick={() => setLogEjecucion(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕ Cerrar</button>
+            <button onClick={() => setLogEjecucion(null)} className="text-gray-400 hover:text-gray-600 text-xs px-2 py-1 rounded hover:bg-black/5">✕</button>
           </div>
-          <pre className="text-xs font-mono text-gray-700 bg-white rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap border border-gray-200">
-            {logEjecucion.logs.join("\n")}
+          <pre
+            ref={logRef}
+            className="text-xs font-mono text-gray-800 p-3 max-h-64 overflow-y-auto whitespace-pre-wrap"
+          >
+            {logEjecucion.logs.map((line, i) => {
+              const isError   = line.startsWith("ERROR") || line.startsWith("  !");
+              const isOk      = line.startsWith("✓") || line.startsWith("== FIN");
+              const isHeader  = line.startsWith("==") || line.startsWith("--");
+              const isProcess = line.startsWith("  →");
+              return (
+                <span key={i} className={
+                  isError   ? "text-red-600 font-semibold" :
+                  isOk      ? "text-green-700 font-semibold" :
+                  isHeader  ? "text-amber-700 font-bold" :
+                  isProcess ? "text-blue-600" :
+                  "text-gray-700"
+                }>
+                  {line}{"\n"}
+                </span>
+              );
+            })}
+            {ejecutando && <span className="text-gray-400 animate-pulse">▋</span>}
           </pre>
         </div>
       )}
