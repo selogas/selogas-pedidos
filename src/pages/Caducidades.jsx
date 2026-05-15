@@ -66,6 +66,7 @@ export default function Caducidades() {
       addLog("-- Formateando calendarios --");
       const fRes = await fetch(url, { method: "POST", headers, body: JSON.stringify({ modo: "formatear" }) });
       const fData = await fRes.json();
+      addLog(`  [formatear HTTP ${fRes.status}] ${JSON.stringify(fData).slice(0, 200)}`);
       if (!fData.ok) throw new Error(fData.error);
       for (const l of (fData.logs || [])) addLog(l);
       addLog(`✓ Calendarios procesados`);
