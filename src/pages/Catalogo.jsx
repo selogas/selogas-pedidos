@@ -163,7 +163,8 @@ export default function Catalogo() {
       const eventos = res.data?.caducidades || [];
       const mapa = {};
       for (const ev of eventos) {
-        const cod = ev.codigo_producto?.trim();
+        // La Edge Function devuelve codigoProducto (camelCase)
+        const cod = (ev.codigoProducto || ev.codigo_producto)?.trim();
         if (cod && ev.diasRestantes <= 15) {
           if (mapa[cod] === undefined || ev.diasRestantes < mapa[cod]) {
             mapa[cod] = ev.diasRestantes;
