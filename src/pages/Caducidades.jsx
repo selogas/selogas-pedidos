@@ -47,40 +47,56 @@ export default function Caducidades() {
   const ejecutarScript = async () => {
     setEjecutando(true);
     setLogEjecucion({ ok: null, logs: [] });
+
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://pasllyqgczegpvquaxvb.supabase.co";
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers = { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" };
+    const url = `${SUPABASE_URL}/functions/v1/ejecutar-caducidades`;
+
+    const addLog = (line: string) => {
+      setLogEjecucion(prev => ({ ok: prev?.ok ?? null, logs: [...(prev?.logs || []), line] }));
+      setTimeout(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, 20);
+    };
+
+    let hayError = false;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://pasllyqgczegpvquaxvb.supabase.co";
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ejecutar-caducidades`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      addLog("== INICIO ==");
 
-      const reader  = res.body.getReader();
-      const decoder = new TextDecoder();
-      let   buffer  = "";
-      let   hayError = false;
+      // 1. Formatear calendarios
+      addLog("-- Formateando calendarios --");
+      const fRes = await fetch(url, { method: "POST", headers, body: JSON.stringify({ modo: "formatear" }) });
+      const fData = await fRes.json();
+      if (!fData.ok) throw new Error(fData.error);
+      for (const l of (fData.logs || [])) addLog(l);
+      addLog(`✓ Calendarios procesados`);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          if (line.startsWith("ERROR:")) hayError = true;
-          setLogEjecucion(prev => ({
-            ok: prev?.ok === false ? false : !hayError,
-            logs: [...(prev?.logs || []), line],
-          }));
-          // auto-scroll
-          setTimeout(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, 20);
+      // 2. Listar adjuntos
+      addLog("-- Escaneando Gmail --");
+      const lRes = await fetch(url, { method: "POST", headers, body: JSON.stringify({ modo: "listar" }) });
+      const lData = await lRes.json();
+      if (!lData.ok) throw new Error(lData.error);
+      const adjuntos = lData.adjuntos || [];
+      addLog(`Adjuntos encontrados: ${adjuntos.length}`);
+
+      // 3. Procesar cada adjunto por separado
+      for (const adj of adjuntos) {
+        if (!adj.clave) {
+          addLog(`  - Ignorado (sin clave): ${adj.filename}`);
+          continue;
         }
+        addLog(`  → Procesando ${adj.filename}...`);
+        const pRes = await fetch(url, { method: "POST", headers, body: JSON.stringify({ modo: "procesar", ...adj }) });
+        const pData = await pRes.json();
+        if (!pData.ok) { addLog(`  ! Error: ${pData.error}`); hayError = true; }
+        else addLog(pData.log);
       }
-      setLogEjecucion(prev => ({ ...prev, ok: !hayError }));
-    } catch (e) {
-      setLogEjecucion({ ok: false, logs: [`ERROR: ${e.message}`] });
+
+      addLog("== FIN ==");
+    } catch (e: any) {
+      addLog(`ERROR: ${e.message}`);
+      hayError = true;
     } finally {
+      setLogEjecucion(prev => ({ logs: prev?.logs || [], ok: !hayError }));
       setEjecutando(false);
     }
   };

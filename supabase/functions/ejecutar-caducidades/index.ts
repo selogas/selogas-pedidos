@@ -1,13 +1,3 @@
-/**
- * ejecutar-caducidades
- * Replica la lógica de caducidades.py:
- *  1. Refresca el access_token con el refresh_token guardado en secrets
- *  2. Busca en Gmail adjuntos Excel de los últimos 7 días
- *  3. Procesa cada Excel y crea/actualiza eventos en Google Calendar
- *  4. Formatea eventos manuales y limpia duplicados
- * Solo accesible para admin (verificado via JWT + perfil en BD).
- */
-
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 
 const corsHeaders = {
@@ -15,478 +5,229 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Mapa calendarios ────────────────────────────────────────────────────────
 const calendarMap: Record<string, { id: string }> = {
-  tormo:            { id: "atalaya365megino@gmail.com" },
-  atalayuela:       { id: "atalayuelamegino@gmail.com" },
-  nassica:          { id: "bpnassica365@gmail.com" },
-  corvo:            { id: "bpriocorvo365@gmail.com" },
-  cepsasanfernando: { id: "cepsasanfernando0@gmail.com" },
-  sanfer:           { id: "bpsanfernando365@gmail.com" },
-  cabanillas:       { id: "empleadoscabanillas@gmail.com" },
-  europa:           { id: "areaeuropa81@gmail.com" },
-  guadalcanal:      { id: "guadalcanal365@gmail.com" },
-  lagavia:          { id: "lagavia.megino@gmail.com" },
-  laguna:           { id: "lagunamegino532@gmail.com" },
-  polvoranca:       { id: "polvorancamegino247@gmail.com" },
-  arenas:           { id: "cepsalasarenas@gmail.com" },
-  mayorazgo:        { id: "bpmayorazgo@gmail.com" },
-  urtinsa:          { id: "urtinsamegino@gmail.com" },
-  portillo:         { id: "portillorepsol@gmail.com" },
-  pozuelo:          { id: "pozuelomegino26@gmail.com" },
-  pinto:            { id: "expendedoresrepsol@gmail.com" },
-  sanpedro:         { id: "sanpedromegino@gmail.com" },
-  shellatalayuela:  { id: "atalayuelashell@gmail.com" },
-  taraza:           { id: "tarazamegino@gmail.com" },
-  puentearce:       { id: "puentearcemegino@gmail.com" },
-  elalamo:          { id: "alamodualez@gmail.com" },
-  altocampo:        { id: "altocampo365@gmail.com" },
-  selogas:          { id: "selogascaducidades@gmail.com" },
-  trigorico:        { id: "selogascaducidades@gmail.com" },
-  impulso:          { id: "selogascaducidades@gmail.com" },
-  qualianza:        { id: "selogascaducidades@gmail.com" },
-  saexma:           { id: "selogascaducidades@gmail.com" },
-  centro:           { id: "meginoslbpcentro@gmail.com" },
+  tormo:{id:"atalaya365megino@gmail.com"},atalayuela:{id:"atalayuelamegino@gmail.com"},
+  nassica:{id:"bpnassica365@gmail.com"},corvo:{id:"bpriocorvo365@gmail.com"},
+  cepsasanfernando:{id:"cepsasanfernando0@gmail.com"},sanfer:{id:"bpsanfernando365@gmail.com"},
+  cabanillas:{id:"empleadoscabanillas@gmail.com"},europa:{id:"areaeuropa81@gmail.com"},
+  guadalcanal:{id:"guadalcanal365@gmail.com"},lagavia:{id:"lagavia.megino@gmail.com"},
+  laguna:{id:"lagunamegino532@gmail.com"},polvoranca:{id:"polvorancamegino247@gmail.com"},
+  arenas:{id:"cepsalasarenas@gmail.com"},mayorazgo:{id:"bpmayorazgo@gmail.com"},
+  urtinsa:{id:"urtinsamegino@gmail.com"},portillo:{id:"portillorepsol@gmail.com"},
+  pozuelo:{id:"pozuelomegino26@gmail.com"},pinto:{id:"expendedoresrepsol@gmail.com"},
+  sanpedro:{id:"sanpedromegino@gmail.com"},shellatalayuela:{id:"atalayuelashell@gmail.com"},
+  taraza:{id:"tarazamegino@gmail.com"},puentearce:{id:"puentearcemegino@gmail.com"},
+  elalamo:{id:"alamodualez@gmail.com"},altocampo:{id:"altocampo365@gmail.com"},
+  selogas:{id:"selogascaducidades@gmail.com"},trigorico:{id:"selogascaducidades@gmail.com"},
+  impulso:{id:"selogascaducidades@gmail.com"},qualianza:{id:"selogascaducidades@gmail.com"},
+  saexma:{id:"selogascaducidades@gmail.com"},centro:{id:"meginoslbpcentro@gmail.com"},
 };
 
-const aliasMap: Record<string, string> = {
-  riocorvo: "corvo", lasarenas: "arenas", cepsasanfer: "cepsasanfernando",
-  ricardotormo: "tormo", atalaya: "tormo", bpsanfernando: "sanfer",
-  sanfernando: "sanfer", sanpeter: "sanpedro",
-  tormoi: "tormo", tormoii: "tormo", tormo1: "tormo", tormo2: "tormo",
-  atalayuelai: "atalayuela", atalayuelaii: "atalayuela",
-  nassicai: "nassica", nassicaii: "nassica",
-  corvoi: "corvo", corvoii: "corvo",
-  sanferi: "sanfer", sanferii: "sanfer",
-  cabanillasi: "cabanillas", cabanillasii: "cabanillas",
-  europai: "europa", europaii: "europa",
-  guadalcanali: "guadalcanal", guadalcanalii: "guadalcanal",
-  lagaviai: "lagavia", lagaviaii: "lagavia",
-  lagunai: "laguna", lagunaii: "laguna",
-  polvorancai: "polvoranca", polvorancaii: "polvoranca",
-  arenasi: "arenas", arenasii: "arenas",
-  mayorazgoi: "mayorazgo", mayorazgoii: "mayorazgo",
-  urtinsai: "urtinsa", urtinsaii: "urtinsa",
-  portilloi: "portillo", portilloii: "portillo",
-  pozueloi: "pozuelo", pozueloii: "pozuelo",
-  pintoi: "pinto", pintoii: "pinto",
-  sanpedroi: "sanpedro", sanpedroii: "sanpedro",
-  shellatalayuelai: "shellatalayuela", shellatalayuelaii: "shellatalayuela",
-  tarazai: "taraza", tarazaii: "taraza",
-  alamo: "elalamo", centroi: "centro", centroii: "centro",
+const aliasMap: Record<string,string> = {
+  riocorvo:"corvo",lasarenas:"arenas",cepsasanfer:"cepsasanfernando",ricardotormo:"tormo",
+  atalaya:"tormo",bpsanfernando:"sanfer",sanfernando:"sanfer",sanpeter:"sanpedro",
+  tormoi:"tormo",tormoii:"tormo",tormo1:"tormo",tormo2:"tormo",
+  atalayuelai:"atalayuela",atalayuelaii:"atalayuela",nassicai:"nassica",nassicaii:"nassica",
+  corvoi:"corvo",corvoii:"corvo",sanferi:"sanfer",sanferii:"sanfer",
+  cabanillasi:"cabanillas",cabanillasii:"cabanillas",europai:"europa",europaii:"europa",
+  guadalcanali:"guadalcanal",guadalcanalii:"guadalcanal",lagaviai:"lagavia",lagaviaii:"lagavia",
+  lagunai:"laguna",lagunaii:"laguna",polvorancai:"polvoranca",polvorancaii:"polvoranca",
+  arenasi:"arenas",arenasii:"arenas",mayorazgoi:"mayorazgo",mayorazgoii:"mayorazgo",
+  urtinsai:"urtinsa",urtinsaii:"urtinsa",portilloi:"portillo",portilloii:"portillo",
+  pozueloi:"pozuelo",pozueloii:"pozuelo",pintoi:"pinto",pintoii:"pinto",
+  sanpedroi:"sanpedro",sanpedroii:"sanpedro",shellatalayuelai:"shellatalayuela",
+  shellatalayuelaii:"shellatalayuela",tarazai:"taraza",tarazaii:"taraza",
+  alamo:"elalamo",centroi:"centro",centroii:"centro",
 };
 
-const CATALOGO_URL = "https://docs.google.com/spreadsheets/d/1L-8hN_jb2ranxU8Z_Pq3P8zmOQmEnXabxHMc7SLK4Yc/edit?gid=2143597533#gid=2143597533";
-const COL_CODIGO    = 1; // B
-const COL_PRODUCTO  = 3; // D
-const COL_CADUCIDAD = 6; // G
+const CATALOGO_URL="https://docs.google.com/spreadsheets/d/1L-8hN_jb2ranxU8Z_Pq3P8zmOQmEnXabxHMc7SLK4Yc/edit?gid=2143597533#gid=2143597533";
+const COL_CODIGO=1,COL_PRODUCTO=3,COL_CADUCIDAD=6;
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function normalizaProducto(texto: string): string {
-  let t = (texto || "").toString().toUpperCase();
-  t = t.replace(/[ÁÀÂÄ]/g, "A").replace(/[ÉÈÊË]/g, "E")
-       .replace(/[ÍÌÎÏ]/g, "I").replace(/[ÓÒÔÖ]/g, "O")
-       .replace(/[ÚÙÛÜ]/g, "U").replace(/[^A-Z0-9 ]/g, "")
-       .replace(/\s{2,}/g, " ").trim();
-  return t;
+function normalizaProducto(t:string):string{
+  let s=(t||"").toString().toUpperCase();
+  s=s.replace(/[ÁÀÂÄ]/g,"A").replace(/[ÉÈÊË]/g,"E").replace(/[ÍÌÎÏ]/g,"I")
+     .replace(/[ÓÒÔÖ]/g,"O").replace(/[ÚÙÛÜ]/g,"U").replace(/[^A-Z0-9 ]/g,"")
+     .replace(/\s{2,}/g," ").trim();
+  return s;
 }
-
-function canonProducto(texto: string): string {
-  let t = normalizaProducto(texto);
-  t = t.replace(/(\d)\.(\d)/g, "$1,$2").replace(/\s+(CL|L)\b/g, " $1").replace(/\s{2,}/g, " ").trim();
-  return t;
+function canonProducto(t:string):string{
+  let s=normalizaProducto(t);
+  return s.replace(/(\d)\.(\d)/g,"$1,$2").replace(/\s+(CL|L)\b/g," $1").replace(/\s{2,}/g," ").trim();
 }
-
-function limpiarCodigo(val: any): string {
-  if (val === null || val === undefined) return "";
-  return val.toString().trim().replace(/\.0$/, "");
+function limpiarCodigo(v:any):string{
+  if(v==null)return"";return v.toString().trim().replace(/\.0$/,"");
 }
-
-function detectarClavePorNombre(nombre: string): string | null {
-  const base = nombre.toLowerCase()
-    .replace(/\.[^.]+$/, "")
-    .replace(/[-_\s]+/g, "")
-    .replace(/caducidades?/g, "")
-    .replace(/\d{4,}/g, "")
-    .trim();
-
-  if (calendarMap[base]) return base;
-  if (aliasMap[base] && calendarMap[aliasMap[base]]) return aliasMap[base];
-
-  for (const [alias, canon] of Object.entries(aliasMap)) {
-    if (base.includes(alias) && calendarMap[canon]) return canon;
-  }
-  for (const clave of Object.keys(calendarMap)) {
-    if (base.includes(clave)) return clave;
-  }
+function detectarClave(nombre:string):string|null{
+  const base=nombre.toLowerCase().replace(/\.[^.]+$/,"").replace(/[-_\s]+/g,"")
+    .replace(/caducidades?/g,"").replace(/\d{4,}/g,"").trim();
+  if(calendarMap[base])return base;
+  if(aliasMap[base]&&calendarMap[aliasMap[base]])return aliasMap[base];
+  for(const[a,c]of Object.entries(aliasMap))if(base.includes(a)&&calendarMap[c])return c;
+  for(const k of Object.keys(calendarMap))if(base.includes(k))return k;
   return null;
 }
-
-function truncarFecha(val: any): string | null {
-  if (!val) return null;
-  if (val instanceof Date) {
-    if (isNaN(val.getTime())) return null;
-    return val.toISOString().slice(0, 10);
-  }
-  if (typeof val === "number") {
-    // Excel serial date
-    const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-    if (isNaN(d.getTime())) return null;
-    return d.toISOString().slice(0, 10);
-  }
-  const s = val.toString().trim();
-  const m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-  if (m) {
-    const y = m[3].length === 2 ? "20" + m[3] : m[3];
-    return `${y}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  }
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+function truncarFecha(v:any):string|null{
+  if(!v)return null;
+  if(v instanceof Date){if(isNaN(v.getTime()))return null;return v.toISOString().slice(0,10);}
+  if(typeof v==="number"){const d=new Date(Math.round((v-25569)*86400000));if(isNaN(d.getTime()))return null;return d.toISOString().slice(0,10);}
+  const s=v.toString().trim();
+  const m=s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){const y=m[3].length===2?"20"+m[3]:m[3];return`${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;}
+  const iso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(iso)return`${iso[1]}-${iso[2]}-${iso[3]}`;
   return null;
 }
-
-function appendCatalogoLink(desc: string): string {
-  if (desc.includes(CATALOGO_URL)) return desc;
-  return desc + `\n\nCatálogo: ${CATALOGO_URL}`;
+function appendLink(d:string):string{
+  return d.includes(CATALOGO_URL)?d:d+"\n\nCatálogo: "+CATALOGO_URL;
 }
 
-// ── Google OAuth ─────────────────────────────────────────────────────────────
-
-async function getAccessToken(): Promise<string> {
-  const clientId     = Deno.env.get("GOOGLE_CLIENT_ID");
-  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
-  const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN");
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error("SECRETS_MISSING: Configura GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REFRESH_TOKEN en Supabase Edge Function secrets.");
-  }
-
-  const r = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-  const data = await r.json();
-  if (!r.ok || !data.access_token) {
-    throw new Error(`Error refrescando token Google: ${JSON.stringify(data)}`);
-  }
-  return data.access_token;
+async function getToken():Promise<string>{
+  const ci=Deno.env.get("GOOGLE_CLIENT_ID"),cs=Deno.env.get("GOOGLE_CLIENT_SECRET"),rt=Deno.env.get("GOOGLE_REFRESH_TOKEN");
+  if(!ci||!cs||!rt)throw new Error("SECRETS_MISSING: faltan GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN");
+  const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:ci,client_secret:cs,refresh_token:rt,grant_type:"refresh_token"})});
+  const d=await r.json();
+  if(!r.ok||!d.access_token)throw new Error("Error token: "+JSON.stringify(d));
+  return d.access_token;
 }
 
-// ── Gmail API ────────────────────────────────────────────────────────────────
-
-async function gmailSearch(token: string, query: string): Promise<any[]> {
-  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=200`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  const d = await r.json();
-  return d.messages || [];
-}
-
-async function gmailGetMessage(token: string, msgId: string): Promise<any> {
-  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=full`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+async function gFetch(token:string,url:string,opts:any={}):Promise<any>{
+  const r=await fetch(url,{...opts,headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",...(opts.headers||{})}});
+  if(r.status===204)return{};
   return r.json();
 }
 
-async function gmailGetAttachment(token: string, msgId: string, attId: string): Promise<Uint8Array> {
-  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}/attachments/${attId}`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  const d = await r.json();
-  const b64 = (d.data || "").replace(/-/g, "+").replace(/_/g, "/");
-  const bin = atob(b64);
-  return Uint8Array.from(bin, c => c.charCodeAt(0));
+async function calRange(token:string,calId:string,tMin:string,tMax:string,pt?:string):Promise<any>{
+  let url=`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${tMin}&timeMax=${tMax}&singleEvents=true&maxResults=2500`;
+  if(pt)url+=`&pageToken=${pt}`;
+  return gFetch(token,url);
 }
 
-// ── Calendar API ─────────────────────────────────────────────────────────────
-
-async function calListEventsOnDay(token: string, calId: string, fecha: string): Promise<any[]> {
-  const tMin = `${fecha}T00:00:00Z`;
-  const tMax = `${fecha}T23:59:59Z`;
-  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${tMin}&timeMax=${tMax}&singleEvents=true`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  const d = await r.json();
-  return d.items || [];
+async function calAllEvents(token:string,calId:string,tMin:string,tMax:string):Promise<any[]>{
+  const all:any[]=[];let pt:string|undefined;
+  do{const r=await calRange(token,calId,tMin,tMax,pt);all.push(...(r.items||[]));pt=r.nextPageToken;}while(pt);
+  return all;
 }
 
-async function calListEventsRange(token: string, calId: string, tMin: string, tMax: string, pageToken?: string): Promise<any> {
-  let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${tMin}&timeMax=${tMax}&singleEvents=true&maxResults=2500`;
-  if (pageToken) url += `&pageToken=${pageToken}`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  return r.json();
+async function calCreate(token:string,calId:string,fecha:string,title:string,desc:string,codigo:string):Promise<void>{
+  await gFetch(token,`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`,
+    {method:"POST",body:JSON.stringify({summary:title,description:desc,start:{date:fecha},end:{date:fecha},extendedProperties:{private:{codigo_producto:codigo}}})});
+}
+async function calPatch(token:string,calId:string,evId:string,fields:any):Promise<void>{
+  await gFetch(token,`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${evId}`,{method:"PATCH",body:JSON.stringify(fields)});
+}
+async function calDel(token:string,calId:string,evId:string):Promise<void>{
+  await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${evId}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
 }
 
-async function calCreateEvent(token: string, calId: string, fecha: string, title: string, description: string, codigo: string): Promise<void> {
-  const body = {
-    summary: title,
-    description,
-    start: { date: fecha },
-    end:   { date: fecha },
-    extendedProperties: { private: { codigo_producto: codigo } },
-  };
-  await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-async function calPatchEvent(token: string, calId: string, eventId: string, fields: Record<string, any>): Promise<void> {
-  await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${eventId}`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(fields),
-  });
-}
-
-async function calDeleteEvent(token: string, calId: string, eventId: string): Promise<void> {
-  await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${eventId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-}
-
-// ── Lógica principal ─────────────────────────────────────────────────────────
-
-async function formatearManualesYLimpiarDuplicados(token: string, calId: string, logs: string[]): Promise<void> {
-  const hoy    = new Date();
-  const tMin   = new Date(hoy.getTime() - 400 * 86400000).toISOString();
-  const tMax   = new Date(hoy.getTime() + 400 * 86400000).toISOString();
-
-  let pageToken: string | undefined;
-  const events: any[] = [];
-  do {
-    const res = await calListEventsRange(token, calId, tMin, tMax, pageToken);
-    events.push(...(res.items || []));
-    pageToken = res.nextPageToken;
-  } while (pageToken);
-
-  // Formatear manuales
-  let formateados = 0;
-  for (const e of events) {
-    const title = (e.summary || "").trim();
-    if (!title.startsWith("⚠️ Caduca:")) {
-      const newTitle = `⚠️ Caduca: ${title || "(sin título)"}`;
-      const newDesc  = appendCatalogoLink(e.description || "");
-      await calPatchEvent(token, calId, e.id, { summary: newTitle, description: newDesc });
-      formateados++;
+// ── MODO listar ───────────────────────────────────────────────────────────────
+async function modoListar(token:string){
+  const r=await gFetch(token,`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent("in:inbox has:attachment (filename:xlsx OR filename:xls OR filename:xlsm) newer_than:7d")}&maxResults=200`);
+  const mensajes=r.messages||[];
+  const adjuntos:any[]=[];
+  for(const m of mensajes){
+    const full=await gFetch(token,`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`);
+    const pila=[...(full?.payload?.parts||[])];
+    while(pila.length){
+      const p=pila.pop()!;if(p.parts)pila.push(...p.parts);
+      const fn=p.filename||"",aid=p.body?.attachmentId;
+      if(!fn||!aid||!/\.xls(x|m)?$/i.test(fn))continue;
+      const clave=detectarClave(fn);
+      adjuntos.push({msg_id:full.id,att_id:aid,filename:fn,clave});
     }
   }
-  if (formateados) logs.push(`  ${calId}: ${formateados} eventos manuales formateados`);
-
-  // Limpiar duplicados
-  const buckets: Record<string, any[]> = {};
-  for (const e of events) {
-    const title = (e.summary || "").trim();
-    if (!title.startsWith("⚠️ Caduca:")) continue;
-    const day = (e.start?.date || (e.start?.dateTime || "").slice(0, 10));
-    if (!day) continue;
-    const key = `${day}||${title}`;
-    (buckets[key] = buckets[key] || []).push(e);
-  }
-  let eliminados = 0;
-  for (const arr of Object.values(buckets)) {
-    for (const extra of arr.slice(1)) {
-      await calDeleteEvent(token, calId, extra.id);
-      eliminados++;
-    }
-  }
-  if (eliminados) logs.push(`  ${calId}: ${eliminados} duplicados eliminados`);
+  return{adjuntos};
 }
 
-async function procesarExcel(bytes: Uint8Array, nombre: string, clave: string, token: string, logs: string[]): Promise<void> {
-  const cfg  = calendarMap[clave];
-  const wb   = XLSX.read(bytes, { type: "array", cellDates: true });
-  const ws   = wb.Sheets[wb.SheetNames[0]];
-  const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-  const hoy  = new Date(); hoy.setHours(0, 0, 0, 0);
-  const maxD = new Date(hoy.getTime() + 365 * 86400000);
+// ── MODO formatear ────────────────────────────────────────────────────────────
+async function modoFormatear(token:string){
+  const calIds=[...new Set(Object.values(calendarMap).map(c=>c.id))];
+  const logs:string[]=[];
+  await Promise.allSettled(calIds.map(async calId=>{
+    const hoy=new Date();
+    const events=await calAllEvents(token,calId,new Date(hoy.getTime()-400*86400000).toISOString(),new Date(hoy.getTime()+400*86400000).toISOString());
+    let f=0,e=0;
+    for(const ev of events){
+      const t=(ev.summary||"").trim();
+      if(!t.startsWith("⚠️ Caduca:")){await calPatch(token,calId,ev.id,{summary:`⚠️ Caduca: ${t||"(sin título)"}`,description:appendLink(ev.description||"")});f++;}
+    }
+    const bk:Record<string,any[]>={};
+    for(const ev of events){const t=(ev.summary||"").trim();if(!t.startsWith("⚠️ Caduca:"))continue;const d=ev.start?.date||(ev.start?.dateTime||"").slice(0,10);if(!d)continue;(bk[`${d}||${t}`]=bk[`${d}||${t}`]||[]).push(ev);}
+    for(const arr of Object.values(bk))for(const ex of arr.slice(1)){await calDel(token,calId,ex.id);e++;}
+    if(f||e)logs.push(`  ${calId}: ${f} formateados, ${e} eliminados`);
+  }));
+  return{logs};
+}
 
-  // Filtrar filas válidas primero
-  type Item = { codigo: string; prod: string; fecha: string; baseTitle: string; desc: string };
-  const items: Item[] = [];
-  for (let i = 1; i < rows.length; i++) {
-    const row    = rows[i];
-    const codigo = limpiarCodigo(row[COL_CODIGO]);
-    const prod   = row[COL_PRODUCTO];
-    const cadRaw = row[COL_CADUCIDAD];
-    if (!prod || !cadRaw) continue;
-    const prodNorm = canonProducto(String(prod));
-    const fecha    = truncarFecha(cadRaw);
-    if (!fecha) continue;
-    const fechaD = new Date(fecha + "T00:00:00");
-    if (fechaD < hoy || fechaD > maxD) continue;
-    items.push({
-      codigo, prod: prodNorm, fecha,
-      baseTitle: `⚠️ Caduca: ${prodNorm}`,
-      desc: appendCatalogoLink(`Producto: ${prodNorm}`),
-    });
+// ── MODO procesar ─────────────────────────────────────────────────────────────
+async function modoProcesar(token:string,msgId:string,attId:string,filename:string,clave:string){
+  const cfg=calendarMap[clave];
+  const ar=await gFetch(token,`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}/attachments/${attId}`);
+  const b64=(ar.data||"").replace(/-/g,"+").replace(/_/g,"/");
+  const bytes=Uint8Array.from(atob(b64),(c:string)=>c.charCodeAt(0));
+
+  const wb=XLSX.read(bytes,{type:"array",cellDates:true});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows:any[][]=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const maxD=new Date(hoy.getTime()+365*86400000);
+
+  type Item={codigo:string;fecha:string;baseTitle:string;desc:string};
+  const items:Item[]=[];
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i];
+    const codigo=limpiarCodigo(row[COL_CODIGO]);
+    const prod=row[COL_PRODUCTO];const cadRaw=row[COL_CADUCIDAD];
+    if(!prod||!cadRaw)continue;
+    const pn=canonProducto(String(prod));
+    const fecha=truncarFecha(cadRaw);if(!fecha)continue;
+    const fd=new Date(fecha+"T00:00:00");if(fd<hoy||fd>maxD)continue;
+    items.push({codigo,fecha,baseTitle:`⚠️ Caduca: ${pn}`,desc:appendLink(`Producto: ${pn}`)});
   }
-  if (!items.length) { logs.push(`  ${nombre} → ${clave}: sin productos válidos`); return; }
+  if(!items.length)return{log:`  ${filename} → ${clave}: sin productos válidos`};
 
-  // Una sola petición para traer todos los eventos del calendario en el rango necesario
-  const fechas = items.map(it => it.fecha).sort();
-  const tMin   = fechas[0] + "T00:00:00Z";
-  const tMax   = fechas[fechas.length - 1] + "T23:59:59Z";
+  const fechas=items.map(it=>it.fecha).sort();
+  const events=await calAllEvents(token,cfg.id,fechas[0]+"T00:00:00Z",fechas[fechas.length-1]+"T23:59:59Z");
+  const idx:Record<string,Record<string,any[]>>={};
+  for(const e of events){const day=e.start?.date||(e.start?.dateTime||"").slice(0,10);const t=(e.summary||"").trim();if(!day||!t)continue;if(!idx[day])idx[day]={};(idx[day][t]=idx[day][t]||[]).push(e);}
 
-  let pageToken: string | undefined;
-  const todosEventos: any[] = [];
-  do {
-    const res = await calListEventsRange(token, cfg.id, tMin, tMax, pageToken);
-    todosEventos.push(...(res.items || []));
-    pageToken = res.nextPageToken;
-  } while (pageToken);
-
-  // Índice en memoria: fecha → título → [eventos]
-  const idx: Record<string, Record<string, any[]>> = {};
-  for (const e of todosEventos) {
-    const day   = e.start?.date || (e.start?.dateTime || "").slice(0, 10);
-    const title = (e.summary || "").trim();
-    if (!day || !title) continue;
-    if (!idx[day]) idx[day] = {};
-    (idx[day][title] = idx[day][title] || []).push(e);
-  }
-
-  // Procesar en lotes de 10 usando el índice en memoria (sin peticiones de lectura extra)
-  let creados = 0, actualizados = 0;
-  const BATCH = 10;
-  for (let i = 0; i < items.length; i += BATCH) {
-    await Promise.all(items.slice(i, i + BATCH).map(async ({ codigo, baseTitle, desc, fecha }: Item) => {
-      const mismos = idx[fecha]?.[baseTitle] || [];
-      if (!mismos.length) {
-        await calCreateEvent(token, cfg.id, fecha, baseTitle, desc, codigo);
-        creados++;
-      } else {
-        await calPatchEvent(token, cfg.id, mismos[0].id, { description: desc, extendedProperties: { private: { codigo_producto: codigo } } });
-        for (const extra of mismos.slice(1)) await calDeleteEvent(token, cfg.id, extra.id);
-        actualizados++;
-      }
+  let cr=0,ac=0;
+  for(let i=0;i<items.length;i+=10){
+    await Promise.all(items.slice(i,i+10).map(async({codigo,fecha,baseTitle,desc}:Item)=>{
+      const ms=idx[fecha]?.[baseTitle]||[];
+      if(!ms.length){await calCreate(token,cfg.id,fecha,baseTitle,desc,codigo);cr++;}
+      else{await calPatch(token,cfg.id,ms[0].id,{description:desc,extendedProperties:{private:{codigo_producto:codigo}}});for(const ex of ms.slice(1))await calDel(token,cfg.id,ex.id);ac++;}
     }));
   }
-  logs.push(`  ${nombre} → ${clave}: +${creados} creados, ~${actualizados} actualizados`);
+  return{log:`  ${filename} → ${clave}: +${cr} creados, ~${ac} actualizados`};
 }
 
-// ── Handler principal (streaming) ────────────────────────────────────────────
+// ── Handler ───────────────────────────────────────────────────────────────────
+Deno.serve(async(req)=>{
+  if(req.method==="OPTIONS")return new Response("ok",{headers:corsHeaders});
+  const ok=(d:any)=>new Response(JSON.stringify(d),{headers:{...corsHeaders,"Content-Type":"application/json"}});
+  const fail=(m:string,s=400)=>new Response(JSON.stringify({ok:false,error:m}),{status:s,headers:{...corsHeaders,"Content-Type":"application/json"}});
+  try{
+    const authH=req.headers.get("Authorization")||"";
+    const sbUrl=Deno.env.get("SUPABASE_URL")!;
+    const sbKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const uRes=await fetch(`${sbUrl}/auth/v1/user`,{headers:{Authorization:authH,apikey:sbKey}});
+    const uData=await uRes.json();
+    if(!uData?.id)return fail("No autenticado",401);
+    const pRes=await fetch(`${sbUrl}/rest/v1/perfiles?id=eq.${uData.id}&select=rol,tiendas(nombre)`,{headers:{Authorization:`Bearer ${sbKey}`,apikey:sbKey}});
+    const perfil=(await pRes.json())?.[0];
+    if(!(perfil?.rol==="admin"||perfil?.tiendas?.nombre==="PRINCIPAL"))return fail("Sin permisos",403);
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+    const body=await req.json().catch(()=>({}));
+    const gToken=await getToken();
 
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
-  const enc    = new TextEncoder();
-  const emit   = async (line: string) => { await writer.write(enc.encode(line + "\n")); };
-
-  (async () => {
-    try {
-      const authHeader  = req.headers.get("Authorization") || "";
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-      const userRes  = await fetch(`${supabaseUrl}/auth/v1/user`, {
-        headers: { Authorization: authHeader, apikey: supabaseKey },
-      });
-      const userData = await userRes.json();
-      if (!userData?.id) { await emit("ERROR: No autenticado"); return; }
-
-      const perfilRes = await fetch(
-        `${supabaseUrl}/rest/v1/perfiles?id=eq.${userData.id}&select=rol,tiendas(nombre)`,
-        { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey } }
-      );
-      const perfiles = await perfilRes.json();
-      const perfil   = perfiles?.[0];
-      const esAdmin  = perfil?.rol === "admin" || perfil?.tiendas?.nombre === "PRINCIPAL";
-      if (!esAdmin) { await emit("ERROR: Sin permisos de administrador"); return; }
-
-      await emit("== INICIO ==");
-
-      let gToken: string;
-      try {
-        gToken = await getAccessToken();
-        await emit("✓ Token Google obtenido");
-      } catch (e: any) {
-        await emit(`ERROR: ${e.message}`);
-        return;
-      }
-
-      // Formatear manuales y limpiar duplicados — todos los calendarios en paralelo
-      await emit("-- Formateando calendarios (en paralelo) --");
-      const calIds = [...new Set(Object.values(calendarMap).map(c => c.id))];
-      const resultados = await Promise.allSettled(
-        calIds.map(async (calId) => {
-          const logs: string[] = [];
-          await formatearManualesYLimpiarDuplicados(gToken, calId, logs);
-          return logs;
-        })
-      );
-      let totalFormateados = 0, totalEliminados = 0;
-      for (const r of resultados) {
-        if (r.status === "fulfilled") {
-          for (const l of r.value) {
-            await emit(l);
-            if (l.includes("formateados")) totalFormateados++;
-            if (l.includes("eliminados"))  totalEliminados++;
-          }
-        } else {
-          await emit(`  ! Error en calendario: ${r.reason?.message || r.reason}`);
-        }
-      }
-      await emit(`✓ Calendarios procesados: ${calIds.length} (${totalFormateados} formateados, ${totalEliminados} duplicados eliminados)`);
-
-      // Escanear Gmail y procesar adjuntos
-      await emit("-- Escaneando Gmail --");
-      const QUERY = "in:inbox has:attachment (filename:xlsx OR filename:xls OR filename:xlsm) newer_than:7d";
-      const mensajes = await gmailSearch(gToken, QUERY);
-      await emit(`Mensajes encontrados: ${mensajes.length}`);
-
-      for (const m of mensajes) {
-        const full  = await gmailGetMessage(gToken, m.id);
-        const parts: any[] = [];
-        const pila  = [...(full?.payload?.parts || [])];
-        while (pila.length) {
-          const p = pila.pop()!;
-          if (p.parts) pila.push(...p.parts);
-          parts.push(p);
-        }
-        for (const p of parts) {
-          const filename = p.filename || "";
-          const attId    = p.body?.attachmentId;
-          if (!filename || !attId) continue;
-          if (!/\.xls(x|m)?$/i.test(filename)) continue;
-          const clave = detectarClavePorNombre(filename);
-          if (!clave || !calendarMap[clave]) {
-            await emit(`  - Ignorado (sin clave): ${filename}`);
-            continue;
-          }
-          try {
-            await emit(`  → Procesando ${filename}...`);
-            const bytes = await gmailGetAttachment(gToken, full.id, attId);
-            const logs: string[] = [];
-            await procesarExcel(bytes, filename, clave, gToken, logs);
-            for (const l of logs) await emit(l);
-          } catch (e: any) {
-            await emit(`  ! Error con ${filename}: ${e.message}`);
-          }
-        }
-      }
-
-      await emit("== FIN ==");
-    } catch (err: any) {
-      await emit(`ERROR: ${err.message}`);
-    } finally {
-      await writer.close();
+    if(body.modo==="listar")return ok({ok:true,...await modoListar(gToken)});
+    if(body.modo==="formatear")return ok({ok:true,...await modoFormatear(gToken)});
+    if(body.modo==="procesar"){
+      const{msg_id,att_id,filename,clave}=body;
+      if(!msg_id||!att_id||!filename||!clave)return fail("Faltan parámetros");
+      if(!calendarMap[clave])return fail(`Clave desconocida: ${clave}`);
+      return ok({ok:true,...await modoProcesar(gToken,msg_id,att_id,filename,clave)});
     }
-  })();
-
-  return new Response(readable, {
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-cache",
-    },
-  });
+    return fail("Modo desconocido");
+  }catch(e:any){return fail(e.message);}
 });
