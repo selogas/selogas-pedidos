@@ -15,6 +15,106 @@ function CardImagen({ prod, gi, onEliminar }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Edición rápida de múltiplo directamente en la tarjeta
+// ─────────────────────────────────────────────────────────────────────────────
+function MultiploRapido({ prod, onGuardado }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor]       = useState(String(prod.multiplo || 1));
+  const [estado, setEstado]     = useState(null); // null | "guardando" | "ok" | "error"
+  const [mensajeError, setMensajeError] = useState("");
+  const inputRef = useRef();
+
+  useEffect(() => {
+    if (editando && inputRef.current) {
+      inputRef.current.select();
+    }
+  }, [editando]);
+
+  const validar = (v) => {
+    const n = parseInt(v, 10);
+    if (isNaN(n) || !Number.isInteger(n) || n <= 0) return false;
+    return true;
+  };
+
+  const guardar = async () => {
+    const n = parseInt(valor, 10);
+    if (!validar(valor)) {
+      setMensajeError("Solo enteros positivos (≥1)");
+      setEstado("error");
+      return;
+    }
+    if (n === (prod.multiplo || 1)) {
+      setEditando(false);
+      setEstado(null);
+      return;
+    }
+    setEstado("guardando");
+    const { error } = await supabase.from("productos").update({ multiplo: n }).eq("id", prod.id);
+    if (error) {
+      setEstado("error");
+      setMensajeError("Error al guardar");
+      return;
+    }
+    setEstado("ok");
+    setEditando(false);
+    onGuardado(prod.id, n);
+    setTimeout(() => setEstado(null), 1800);
+  };
+
+  const cancelar = () => {
+    setValor(String(prod.multiplo || 1));
+    setEditando(false);
+    setEstado(null);
+    setMensajeError("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter")  guardar();
+    if (e.key === "Escape") cancelar();
+  };
+
+  const handleChange = (e) => {
+    setValor(e.target.value);
+    setEstado(null);
+    setMensajeError("");
+  };
+
+  return (
+    <div className="flex items-center gap-1 min-h-[20px]">
+      <span className="text-xs text-gray-400 flex-shrink-0">✕</span>
+      {editando ? (
+        <input
+          ref={inputRef}
+          type="number"
+          min="1"
+          step="1"
+          value={valor}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onBlur={guardar}
+          className={`w-14 text-xs border rounded px-1.5 py-0.5 font-mono font-bold focus:outline-none ${
+            estado === "error"
+              ? "border-red-400 bg-red-50 text-red-700"
+              : "border-[#00c254] bg-[#edf7f2] text-gray-800"
+          }`}
+        />
+      ) : (
+        <button
+          onClick={() => { setEditando(true); setValor(String(prod.multiplo || 1)); }}
+          className="text-xs font-mono font-bold text-gray-700 hover:text-[#00913f] hover:underline px-0.5 rounded transition-colors"
+          title="Click para editar el múltiplo"
+        >
+          {prod.multiplo || 1}
+        </button>
+      )}
+      {estado === "guardando" && <Loader2 size={11} className="animate-spin text-gray-400 flex-shrink-0" />}
+      {estado === "ok"        && <span className="text-green-600 text-xs font-semibold flex-shrink-0">✓</span>}
+      {estado === "error"     && <span className="text-red-500 text-xs flex-shrink-0" title={mensajeError}>✗</span>}
+    </div>
+  );
+}
+
 const GRUPOS = [
   { value: 'ambos',      label: '📦 Ambos',      desc: 'Todos lo ven',       color: 'bg-purple-100 text-purple-700' },
   { value: 'estacion',   label: '🏪 Estación',   desc: 'Solo estaciones',    color: 'bg-[#d9f0e4] text-[#007a34]' },
@@ -652,6 +752,11 @@ export default function Productos() {
     setProductos(prev => prev.map(p => p.id === prod.id ? { ...p, imagen_url: null } : p));
   };
 
+  // Callback que recibe MultiploRapido cuando guarda con éxito
+  const handleMultiploGuardado = (prodId, nuevoMultiplo) => {
+    setProductos(prev => prev.map(p => p.id === prodId ? { ...p, multiplo: nuevoMultiplo } : p));
+  };
+
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 size={40} className="animate-spin" style={{ color: "var(--color-primary)" }} /></div>;
 
   return (
@@ -708,6 +813,8 @@ export default function Productos() {
                   <h3 className="font-bold text-xs leading-snug text-gray-900 line-clamp-2">{prod.nombre}</h3>
                   {catNombre && <span className="text-xs text-[#00913f] font-medium truncate">{catNombre}</span>}
                   {prod.codigo && <p className="text-xs text-gray-400">SKU: {prod.codigo}</p>}
+                  {/* ── EDICIÓN RÁPIDA DE MÚLTIPLO ── */}
+                  <MultiploRapido prod={prod} onGuardado={handleMultiploGuardado} />
                   {prod.hoja_excel && <p className="text-xs text-blue-500 font-medium truncate">📄 {prod.hoja_excel}</p>}
                   <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs mt-1">
                     {GRUPOS.map(g => <button key={g.value} onClick={() => handleGrupoChange(prod, g.value)} className={`flex-1 py-0.5 transition-colors font-medium ${(prod.grupo_visualizacion||'ambas') === g.value ? (g.value==='ambas' ? 'bg-purple-600 text-white' : g.value==='estacion' ? 'bg-[#00913f] text-white' : 'bg-orange-500 text-white') : 'bg-white text-gray-400 hover:bg-gray-50'}`} title={g.desc}>{g.label.split(' ')[0]}</button>)}
