@@ -159,6 +159,26 @@ Deno.serve(async (req) => {
 
       for (let row = 0; row < maxRows; row++) {
         ensure(rH + 1);
+
+        // Detectar cambio de sección (columna 1 como referencia, fallback a col 2 o 3)
+        const prodRef = cols[0][row] || cols[1][row] || cols[2][row];
+        const seccionFila: string = ((prodRef?.seccion_excel) || '').toString().trim();
+        const seccionPrev: string = row === 0
+          ? ''
+          : ((cols[0][row-1] || cols[1][row-1] || cols[2][row-1])?.seccion_excel || '').toString().trim();
+
+        if (seccionFila && seccionFila !== seccionPrev) {
+          // Cabecera de sección: fondo amarillo, texto centrado, negrita, tamaño +30%
+          const secH = 13; // altura de fila sección (similar a hH de hoja)
+          ensure(secH + rH);
+          page.drawRectangle({ x: mg, y: y - secH, width: totalW, height: secH, color: rgb(1, 0.95, 0.2) });
+          const secFontSize = 11; // ~30% más grande que el rH normal de 6-8
+          const secTextWidth = fontBold.widthOfTextAtSize(seccionFila, secFontSize);
+          const secTextX = mg + (totalW - secTextWidth) / 2;
+          page.drawText(seccionFila, { x: secTextX, y: y - secH + 2.5, size: secFontSize, font: fontBold, color: rgb(0,0,0) });
+          y -= secH;
+        }
+
         drawProd(cols[0][row], 0);
         drawProd(cols[1][row], 1);
         drawProd(cols[2][row], 2);

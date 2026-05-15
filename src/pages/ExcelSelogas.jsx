@@ -118,6 +118,78 @@ function CeldaColumna({ value, disabled, onSave }) {
   );
 }
 
+// ── Cabecera de sección editable (seccion_excel) ─────────────────────────
+function CeldaSeccion({ value, productoId, onSave }) {
+  const [editando, setEditando] = useState(false);
+  const [val, setVal] = useState(value || "");
+  const ref = useRef();
+
+  useEffect(() => { setVal(value || ""); }, [value]);
+  useEffect(() => { if (editando) { ref.current?.focus(); ref.current?.select(); } }, [editando]);
+
+  const commit = () => {
+    setEditando(false);
+    const nuevo = val.trim().toUpperCase();
+    if (nuevo !== (value || "").toUpperCase()) onSave(productoId, nuevo);
+  };
+
+  if (editando) {
+    return (
+      <td
+        colSpan={10}
+        style={{ background: "#fff9c4", padding: "3px 8px", borderBottom: "1px solid #f9a825" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <input
+            ref={ref}
+            type="text"
+            value={val}
+            onChange={e => setVal(e.target.value.toUpperCase())}
+            onBlur={commit}
+            onKeyDown={e => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") { setEditando(false); setVal(value || ""); }
+            }}
+            style={{
+              flex: 1, fontSize: "13px", fontWeight: 700, textAlign: "center",
+              padding: "3px 8px", border: "1.5px solid #f9a825", borderRadius: "4px",
+              background: "#fffde7", color: "#333", letterSpacing: "1px",
+            }}
+          />
+          <button onClick={commit} style={{ background: "none", border: "none", cursor: "pointer", color: "#00913f", display: "flex", padding: 0 }}><Save size={13} /></button>
+          <button onClick={() => { setEditando(false); setVal(value || ""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#aaa", display: "flex", padding: 0 }}><X size={13} /></button>
+        </div>
+      </td>
+    );
+  }
+
+  return (
+    <td
+      colSpan={10}
+      title="Clic para editar el nombre de la sección"
+      onClick={() => setEditando(true)}
+      style={{
+        background: "#fff9c4",
+        textAlign: "center",
+        padding: "4px 8px",
+        fontWeight: 700,
+        fontSize: "12px",
+        letterSpacing: "1.5px",
+        color: "#333",
+        cursor: "pointer",
+        borderTop: "1px solid #f9a825",
+        borderBottom: "1px solid #f9a825",
+        userSelect: "none",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#fff176"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "#fff9c4"; }}
+    >
+      ━━━━ {val || "SIN NOMBRE"} ━━━━
+      <span style={{ marginLeft: "8px", fontSize: "9px", color: "#aaa", fontWeight: 400, letterSpacing: 0 }}>(clic para editar)</span>
+    </td>
+  );
+}
+
 // ── Panel de orden de hojas (drag & drop) ─────────────────────────────────
 function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
   const [lista, setLista] = useState([]);
@@ -255,6 +327,34 @@ export default function ExcelSelogas() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  const handleSaveSeccion = useCallback(async (productoId, nuevoValor) => {
+    // Encontrar el producto para saber qué hoja y qué valor anterior tenía
+    const prod = productos.find(p => p.id === productoId);
+    if (!prod) return;
+    const valorAnterior = prod.seccion_excel || "";
+    const hoja = prod.hoja_excel;
+
+    // Actualizar todos los productos de la misma hoja y misma sección anterior
+    const afectados = productos.filter(p =>
+      p.hoja_excel === hoja && (p.seccion_excel || "") === valorAnterior
+    );
+
+    const ids = afectados.map(p => p.id);
+    const { error } = await supabase
+      .from("productos")
+      .update({ seccion_excel: nuevoValor })
+      .in("id", ids);
+
+    if (!error) {
+      setProductos(prev => prev.map(p =>
+        ids.includes(p.id) ? { ...p, seccion_excel: nuevoValor } : p
+      ));
+      setCambios(n => n + afectados.length);
+    } else {
+      alert("Error al guardar sección: " + error.message);
+    }
+  }, [productos]);
+
   const handleSave = useCallback(async (id, campo, nuevoValor) => {
     setGuardando(prev => ({ ...prev, [id]: true }));
     const { error } = await supabase
@@ -388,6 +488,7 @@ export default function ExcelSelogas() {
           <div style={{ display: "flex", gap: "20px", marginBottom: "12px", flexWrap: "wrap", fontSize: "11px", color: "var(--color-text-secondary)" }}>
             <span>💡 Clic en el <strong>número de fila</strong> (junto al código) → cambiar posición</span>
             <span>💡 Clic en <strong>A/B · D/E · G/H</strong> → mover a otra columna</span>
+            <span>💡 Clic en la <strong style={{ color: "#c79600" }}>banda amarilla</strong> → editar sección (cambia toda la sección)</span>
           </div>
 
           {/* Buscador */}
@@ -471,57 +572,79 @@ export default function ExcelSelogas() {
                                 <td colSpan={10} style={{ textAlign: "center", color: "var(--color-text-tertiary)", padding: "12px" }}>Sin productos</td>
                               </tr>
                             ) : (
-                              Array.from({ length: maxRows }, (_, i) => {
-                                const p1 = hoja.cols[1][i];
-                                const p2 = hoja.cols[2][i];
-                                const p3 = hoja.cols[3][i];
-                                const filaRef = p1?.orden_excel ?? p2?.orden_excel ?? p3?.orden_excel ?? i;
+                              (() => {
+                                const rows = [];
+                                let seccionActual = null;
 
-                                return (
-                                  <tr key={i}>
-                                    <td className="rn">{filaRef}</td>
+                                for (let i = 0; i < maxRows; i++) {
+                                  const p1 = hoja.cols[1][i];
+                                  const p2 = hoja.cols[2][i];
+                                  const p3 = hoja.cols[3][i];
+                                  const filaRef = p1?.orden_excel ?? p2?.orden_excel ?? p3?.orden_excel ?? i;
 
-                                    <td style={{ background: "#f1f8e9", textAlign: "center" }}>
-                                      {p1 && <CeldaColumna value={p1.columna_excel} disabled={!!guardando[p1.id]} onSave={v => handleSave(p1.id, "columna_excel", v)} />}
-                                    </td>
-                                    <td className="cod" style={{ opacity: guardando[p1?.id] ? 0.4 : 1 }}>
-                                      {p1 && (
-                                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                                          <span>{p1.codigo}</span>
-                                          <CeldaOrden value={p1.orden_excel} disabled={!!guardando[p1.id]} onSave={v => handleSave(p1.id, "orden_excel", v)} />
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="nom">{p1?.nombre || ""}</td>
+                                  // Detectar cambio de sección (basado en col1 como referencia)
+                                  const seccionFila = p1?.seccion_excel || p2?.seccion_excel || p3?.seccion_excel || null;
+                                  if (seccionFila && seccionFila !== seccionActual) {
+                                    seccionActual = seccionFila;
+                                    const primerProdConSeccion = p1 || p2 || p3;
+                                    rows.push(
+                                      <tr key={`sec-${i}`}>
+                                        <CeldaSeccion
+                                          value={seccionFila}
+                                          productoId={primerProdConSeccion.id}
+                                          onSave={handleSaveSeccion}
+                                        />
+                                      </tr>
+                                    );
+                                  }
 
-                                    <td className="sep" style={{ background: "#f1f8e9", textAlign: "center" }}>
-                                      {p2 && <CeldaColumna value={p2.columna_excel} disabled={!!guardando[p2.id]} onSave={v => handleSave(p2.id, "columna_excel", v)} />}
-                                    </td>
-                                    <td className="cod sep" style={{ opacity: guardando[p2?.id] ? 0.4 : 1 }}>
-                                      {p2 && (
-                                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                                          <span>{p2.codigo}</span>
-                                          <CeldaOrden value={p2.orden_excel} disabled={!!guardando[p2.id]} onSave={v => handleSave(p2.id, "orden_excel", v)} />
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="nom">{p2?.nombre || ""}</td>
+                                  rows.push(
+                                    <tr key={i}>
+                                      <td className="rn">{filaRef}</td>
 
-                                    <td className="sep" style={{ background: "#f1f8e9", textAlign: "center" }}>
-                                      {p3 && <CeldaColumna value={p3.columna_excel} disabled={!!guardando[p3.id]} onSave={v => handleSave(p3.id, "columna_excel", v)} />}
-                                    </td>
-                                    <td className="cod sep" style={{ opacity: guardando[p3?.id] ? 0.4 : 1 }}>
-                                      {p3 && (
-                                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                                          <span>{p3.codigo}</span>
-                                          <CeldaOrden value={p3.orden_excel} disabled={!!guardando[p3.id]} onSave={v => handleSave(p3.id, "orden_excel", v)} />
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="nom">{p3?.nombre || ""}</td>
-                                  </tr>
-                                );
-                              })
+                                      <td style={{ background: "#f1f8e9", textAlign: "center" }}>
+                                        {p1 && <CeldaColumna value={p1.columna_excel} disabled={!!guardando[p1.id]} onSave={v => handleSave(p1.id, "columna_excel", v)} />}
+                                      </td>
+                                      <td className="cod" style={{ opacity: guardando[p1?.id] ? 0.4 : 1 }}>
+                                        {p1 && (
+                                          <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                                            <span>{p1.codigo}</span>
+                                            <CeldaOrden value={p1.orden_excel} disabled={!!guardando[p1.id]} onSave={v => handleSave(p1.id, "orden_excel", v)} />
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="nom">{p1?.nombre || ""}</td>
+
+                                      <td className="sep" style={{ background: "#f1f8e9", textAlign: "center" }}>
+                                        {p2 && <CeldaColumna value={p2.columna_excel} disabled={!!guardando[p2.id]} onSave={v => handleSave(p2.id, "columna_excel", v)} />}
+                                      </td>
+                                      <td className="cod sep" style={{ opacity: guardando[p2?.id] ? 0.4 : 1 }}>
+                                        {p2 && (
+                                          <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                                            <span>{p2.codigo}</span>
+                                            <CeldaOrden value={p2.orden_excel} disabled={!!guardando[p2.id]} onSave={v => handleSave(p2.id, "orden_excel", v)} />
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="nom">{p2?.nombre || ""}</td>
+
+                                      <td className="sep" style={{ background: "#f1f8e9", textAlign: "center" }}>
+                                        {p3 && <CeldaColumna value={p3.columna_excel} disabled={!!guardando[p3.id]} onSave={v => handleSave(p3.id, "columna_excel", v)} />}
+                                      </td>
+                                      <td className="cod sep" style={{ opacity: guardando[p3?.id] ? 0.4 : 1 }}>
+                                        {p3 && (
+                                          <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                                            <span>{p3.codigo}</span>
+                                            <CeldaOrden value={p3.orden_excel} disabled={!!guardando[p3.id]} onSave={v => handleSave(p3.id, "orden_excel", v)} />
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="nom">{p3?.nombre || ""}</td>
+                                    </tr>
+                                  );
+                                }
+                                return rows;
+                              })()
                             )}
                           </tbody>
                         </table>
