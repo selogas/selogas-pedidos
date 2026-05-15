@@ -593,7 +593,8 @@ export default function ExcelSelogas() {
                             ) : (
                               (() => {
                                 const rows = [];
-                                let seccionActual = null;
+                                // Rastrear sección actual por cada columna independientemente
+                                let sec = [null, null, null];
 
                                 for (let i = 0; i < maxRows; i++) {
                                   const p1 = hoja.cols[1][i];
@@ -601,18 +602,75 @@ export default function ExcelSelogas() {
                                   const p3 = hoja.cols[3][i];
                                   const filaRef = p1?.orden_excel ?? p2?.orden_excel ?? p3?.orden_excel ?? i;
 
-                                  // Detectar cambio de sección (basado en col1 como referencia)
-                                  const seccionFila = p1?.seccion_excel || p2?.seccion_excel || p3?.seccion_excel || null;
-                                  if (seccionFila && seccionFila !== seccionActual) {
-                                    seccionActual = seccionFila;
-                                    const primerProdConSeccion = p1 || p2 || p3;
+                                  const s1 = (p1?.seccion_excel || "").trim();
+                                  const s2 = (p2?.seccion_excel || "").trim();
+                                  const s3 = (p3?.seccion_excel || "").trim();
+
+                                  const cambio1 = s1 && s1 !== sec[0];
+                                  const cambio2 = s2 && s2 !== sec[1];
+                                  const cambio3 = s3 && s3 !== sec[2];
+
+                                  if (cambio1) sec[0] = s1;
+                                  if (cambio2) sec[1] = s2;
+                                  if (cambio3) sec[2] = s3;
+
+                                  // Si alguna columna tiene cabecera nueva, insertar fila de cabeceras
+                                  if (cambio1 || cambio2 || cambio3) {
+                                    // Render inline de cabecera por bloque de 3 celdas
+                                    const celdaSeccionInline = (secVal, prodId, esPrimera) => {
+                                      if (!secVal) {
+                                        // Columna sin cabecera: celdas vacías
+                                        return [
+                                          <td key="col" style={{ background: "#fafafa", borderLeft: esPrimera ? undefined : "2px solid #a5d6a7" }} />,
+                                          <td key="cod" style={{ background: "#fafafa" }} />,
+                                          <td key="nom" style={{ background: "#fafafa" }} />,
+                                        ];
+                                      }
+                                      return [
+                                        <td
+                                          key="sec"
+                                          colSpan={3}
+                                          style={{
+                                            background: "#fff9c4",
+                                            textAlign: "center",
+                                            fontWeight: 700,
+                                            fontSize: "11px",
+                                            letterSpacing: "1px",
+                                            color: "#333",
+                                            padding: "3px 6px",
+                                            borderTop: "1px solid #f9a825",
+                                            borderBottom: "1px solid #f9a825",
+                                            borderLeft: esPrimera ? undefined : "2px solid #a5d6a7",
+                                          }}
+                                        >
+                                          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                                            {secVal}
+                                            <button
+                                              onClick={() => {
+                                                const nuevo = window.prompt("Nuevo nombre de sección:", secVal);
+                                                if (nuevo !== null && nuevo.trim() !== "") handleSaveSeccion(prodId, nuevo.trim().toUpperCase());
+                                              }}
+                                              title="Editar"
+                                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "10px", padding: "0 2px", color: "#7a5c00" }}
+                                            >✏️</button>
+                                            <button
+                                              onClick={() => {
+                                                if (window.confirm(`¿Borrar la sección "${secVal}"?`)) handleSaveSeccion(prodId, "");
+                                              }}
+                                              title="Borrar"
+                                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "10px", padding: "0 2px", color: "#c62828" }}
+                                            >🗑</button>
+                                          </span>
+                                        </td>
+                                      ];
+                                    };
+
                                     rows.push(
-                                      <tr key={`sec-${i}`}>
-                                        <CeldaSeccion
-                                          value={seccionFila}
-                                          productoId={primerProdConSeccion.id}
-                                          onSave={handleSaveSeccion}
-                                        />
+                                      <tr key={`sec-${i}`} style={{ height: "20px" }}>
+                                        <td className="rn" style={{ background: "#fafafa" }} />
+                                        {celdaSeccionInline(cambio1 ? s1 : null, p1?.id, true)}
+                                        {celdaSeccionInline(cambio2 ? s2 : null, p2?.id, false)}
+                                        {celdaSeccionInline(cambio3 ? s3 : null, p3?.id, false)}
                                       </tr>
                                     );
                                   }
