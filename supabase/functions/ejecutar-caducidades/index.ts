@@ -387,20 +387,31 @@ Deno.serve(async (req) => {
         return;
       }
 
-      // 1. Formatear manuales y limpiar duplicados
-      await emit("-- Formateando manuales y limpiando duplicados --");
+      // Formatear manuales y limpiar duplicados — todos los calendarios en paralelo
+      await emit("-- Formateando calendarios (en paralelo) --");
       const calIds = [...new Set(Object.values(calendarMap).map(c => c.id))];
-      for (const calId of calIds) {
-        try {
+      const resultados = await Promise.allSettled(
+        calIds.map(async (calId) => {
           const logs: string[] = [];
           await formatearManualesYLimpiarDuplicados(gToken, calId, logs);
-          for (const l of logs) await emit(l);
-        } catch (e: any) {
-          await emit(`  ! Error en ${calId}: ${e.message}`);
+          return logs;
+        })
+      );
+      let totalFormateados = 0, totalEliminados = 0;
+      for (const r of resultados) {
+        if (r.status === "fulfilled") {
+          for (const l of r.value) {
+            await emit(l);
+            if (l.includes("formateados")) totalFormateados++;
+            if (l.includes("eliminados"))  totalEliminados++;
+          }
+        } else {
+          await emit(`  ! Error en calendario: ${r.reason?.message || r.reason}`);
         }
       }
+      await emit(`✓ Calendarios procesados: ${calIds.length} (${totalFormateados} formateados, ${totalEliminados} duplicados eliminados)`);
 
-      // 2. Escanear Gmail
+      // Escanear Gmail y procesar adjuntos
       await emit("-- Escaneando Gmail --");
       const QUERY = "in:inbox has:attachment (filename:xlsx OR filename:xls OR filename:xlsm) newer_than:7d";
       const mensajes = await gmailSearch(gToken, QUERY);
