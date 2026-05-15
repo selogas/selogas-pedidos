@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     const cCod = 52;
     const cPed = 24;
     const cNom = colW - cCod - cPed;
-    const rH = 9.5;
+    const rH = 11;
     const hH = 13;
 
     let page: any = null;
@@ -135,9 +135,9 @@ Deno.serve(async (req) => {
       if (qty > 0) page.drawRectangle({ x, y: ry, width: colW, height: rH, color: rgb(0.68, 0.92, 0.68) });
       page.drawLine({ start: {x: x+cCod, y: ry},        end: {x: x+cCod,       y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
       page.drawLine({ start: {x: x+cCod+cNom, y: ry},   end: {x: x+cCod+cNom,  y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
-      page.drawText(codigoKey.substring(0, 10),           { x: x + 1.5,             y: ry + 2.5, size: 6, font,            color: rgb(0,0,0) });
-      page.drawText((prod.nombre||'').substring(0, 33),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 5.5 : 5, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
-      if (qty > 0) page.drawText(qty.toString(),          { x: x + cCod + cNom + 2, y: ry + 2.5, size: 6.5, font: fontBold, color: rgb(0,0.38,0) });
+      page.drawText(codigoKey.substring(0, 10),           { x: x + 1.5,             y: ry + 2.5, size: 7,                font,            color: rgb(0,0,0) });
+      page.drawText((prod.nombre||'').substring(0, 33),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 7 : 6.5, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
+      if (qty > 0) page.drawText(qty.toString(),          { x: x + cCod + cNom + 2, y: ry + 2.5, size: 7.5, font: fontBold, color: rgb(0,0.38,0) });
     };
 
     newPage();
