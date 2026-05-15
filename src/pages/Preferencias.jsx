@@ -31,6 +31,12 @@ const OPCIONES = [
     desc: "Avisa cuando un producto ya fue pedido esta semana. Requiere que la tienda tenga Doble Pedido activado.",
     icono: "🔁",
   },
+  {
+    key: "pref_aviso_caducidad",
+    titulo: "Aviso de caducidad en catálogo",
+    desc: "Marca los productos que caducan en menos de 15 días directamente en el catálogo de pedidos.",
+    icono: "⚠️",
+  },
 ];
 
 export default function Preferencias() {
@@ -42,7 +48,7 @@ export default function Preferencias() {
 
   useEffect(() => {
     supabase.from("tiendas")
-      .select("id, nombre, pref_plantilla, pref_avisos_cantidad, pref_doble_pedido_aviso, doble_pedido")
+      .select("id, nombre, pref_plantilla, pref_avisos_cantidad, pref_doble_pedido_aviso, pref_aviso_caducidad, doble_pedido")
       .neq("nombre", "PRINCIPAL")
       .eq("activa", true)
       .order("nombre")
@@ -50,7 +56,6 @@ export default function Preferencias() {
   }, []);
 
   const handleToggle = async (tiendaId, key, val) => {
-    // Actualizar UI inmediatamente
     setTiendas(prev => prev.map(t => t.id === tiendaId ? { ...t, [key]: val } : t));
     setSaving(prev => ({ ...prev, [tiendaId + key]: true }));
 
@@ -61,7 +66,6 @@ export default function Preferencias() {
     setTimeout(() => setSaved(prev => ({ ...prev, [tiendaId]: false })), 2000);
   };
 
-  // Si no es admin, no tiene acceso
   if (!isAdmin) return (
     <div className="max-w-xl mx-auto text-center py-20 text-gray-400">
       <SlidersHorizontal size={40} className="mx-auto mb-3 opacity-30" />
@@ -80,7 +84,7 @@ export default function Preferencias() {
       </p>
 
       {/* Cabecera de columnas */}
-      <div className="hidden md:grid grid-cols-[1fr_repeat(3,110px)] gap-2 px-4 mb-2">
+      <div className="hidden md:grid grid-cols-[1fr_repeat(4,110px)] gap-2 px-4 mb-2">
         <div />
         {OPCIONES.map(op => (
           <div key={op.key} className="text-center">
@@ -98,7 +102,7 @@ export default function Preferencias() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           {tiendas.map((tienda, i) => (
             <div key={tienda.id}
-              className={`grid grid-cols-1 md:grid-cols-[1fr_repeat(3,110px)] gap-3 items-center px-5 py-4 ${
+              className={`grid grid-cols-1 md:grid-cols-[1fr_repeat(4,110px)] gap-3 items-center px-5 py-4 ${
                 i > 0 ? "border-t border-gray-100" : ""
               } hover:bg-gray-50 transition-colors`}>
 
@@ -121,7 +125,6 @@ export default function Preferencias() {
               {/* Toggles */}
               {OPCIONES.map(op => (
                 <div key={op.key} className="flex md:justify-center items-center gap-2">
-                  {/* Label visible solo en móvil */}
                   <span className="md:hidden text-xs text-gray-500 flex-1">{op.icono} {op.titulo}</span>
                   <div className="relative">
                     <Toggle
@@ -140,7 +143,7 @@ export default function Preferencias() {
       )}
 
       {/* Leyenda */}
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {OPCIONES.map(op => (
           <div key={op.key} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
             <p className="text-xs font-semibold text-gray-700 mb-1">{op.icono} {op.titulo}</p>
