@@ -21,7 +21,7 @@ function calcularAvisoMedia(cantidad, mediaHistorica) {
     return {
       tipo: 'bajo',
       texto: `Sueles pedir ${media} uds`,
-      icon: TrendingDown,
+      Icon: TrendingDown,
       color: 'text-orange-600 bg-orange-50',
     };
   }
@@ -29,7 +29,7 @@ function calcularAvisoMedia(cantidad, mediaHistorica) {
     return {
       tipo: 'alto',
       texto: `Sueles pedir ${media} uds`,
-      icon: TrendingUp,
+      Icon: TrendingUp,
       color: 'text-[#00913f] bg-[#edf7f2]',
     };
   }
@@ -49,17 +49,17 @@ export default function ProductCard({
   diasCaducidad = null,
 }) {
   const multiplo = producto.multiplo || 1;
-  const agotado  = producto.disponible === false;
+  const agotado = producto.disponible === false;
   const yaPedido = fechasPedido.length > 0;
-  const diasStr  = formatearDiasPedido(fechasPedido);
-  const aviso    = calcularAvisoMedia(cantidad, mediaHistorica);
+  const diasStr = formatearDiasPedido(fechasPedido);
+  const aviso = calcularAvisoMedia(cantidad, mediaHistorica);
 
   return (
     <div
       className={`bg-white rounded-2xl border-2 flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-all
-        ${agotado   ? 'opacity-75'        : ''}
-        ${yaPedido  ? 'border-orange-300' : 'border-gray-100'}
-        ${esTop     ? 'ring-1 ring-amber-300/60' : ''}`}
+        ${agotado ? 'opacity-75' : ''}
+        ${yaPedido ? 'border-orange-300' : 'border-gray-100'}
+        ${esTop ? 'ring-1 ring-amber-300/60' : ''}`}
     >
       {/* ── Imagen ─────────────────────────────────────────────── */}
       <div className="relative h-32 bg-gray-50 flex items-center justify-center">
@@ -126,12 +126,15 @@ export default function ProductCard({
         <p className="text-xs text-[#00913f] font-semibold">x{multiplo}</p>
 
         {/* Aviso inteligente de cantidad */}
-        {aviso && (
-          <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-lg ${aviso.color}`}>
-            <aviso.icon size={11} />
-            {aviso.texto}
-          </div>
-        )}
+        {aviso && (() => {
+          const AvisoIcon = aviso.Icon;
+          return (
+            <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-lg ${aviso.color}`}>
+              <AvisoIcon size={11} />
+              {aviso.texto}
+            </div>
+          );
+        })()}
 
         {/* Badge caducidad próxima */}
         {diasCaducidad !== null && (
