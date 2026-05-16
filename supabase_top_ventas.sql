@@ -52,21 +52,23 @@ AS $$
 DECLARE
   v_desde TIMESTAMPTZ := NOW() - INTERVAL '90 days';
 BEGIN
-  -- Vaciar la caché anterior y recalcular en una sola operación atómica
+  -- Vaciar la caché anterior y recalcular en una sola operación atómica.
+  -- El bloque EXCEPTION garantiza que si el INSERT falla, el DELETE se revierte
+  -- y la caché no queda vacía.
   DELETE FROM top_ventas_cache;
 
   INSERT INTO top_ventas_cache (producto_id, rank, unidades_total, tiendas_count, ultima_venta, updated_at)
   WITH ranking AS (
     SELECT
       pi.producto_id,
-      SUM(pi.cantidad)                         AS unidades_total,
-      COUNT(DISTINCT p.tienda_id)              AS tiendas_count,
-      MAX(p.fecha_pedido)                      AS ultima_venta
+      SUM(pi.cantidad)            AS unidades_total,
+      COUNT(DISTINCT p.tienda_id) AS tiendas_count,
+      MAX(p.fecha_pedido)         AS ultima_venta
     FROM pedido_items pi
     INNER JOIN pedidos p ON p.id = pi.pedido_id
     WHERE
       p.fecha_pedido >= v_desde
-      AND p.estado   != 'borrador'
+      AND p.estado != 'borrador'
       AND pi.producto_id IS NOT NULL
     GROUP BY pi.producto_id
   )
@@ -74,10 +76,10 @@ BEGIN
     producto_id,
     ROW_NUMBER() OVER (
       ORDER BY
-        unidades_total DESC,   -- 1º criterio: mayor volumen
-        tiendas_count  DESC,   -- 2º criterio: más tiendas distintas (recurrencia)
-        ultima_venta   DESC    -- 3º criterio: venta más reciente (tendencia)
-    )                          AS rank,
+        unidades_total DESC, -- 1º criterio: mayor volumen
+        tiendas_count  DESC, -- 2º criterio: más tiendas distintas (recurrencia)
+        ultima_venta   DESC  -- 3º criterio: venta más reciente (tendencia)
+    ) AS rank,
     unidades_total,
     tiendas_count,
     ultima_venta,
@@ -85,6 +87,11 @@ BEGIN
   FROM ranking
   LIMIT 15;
 
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Si el INSERT falla, relanzar el error. PostgreSQL revertirá el DELETE
+    -- ya que ambas sentencias están en el mismo bloque transaccional.
+    RAISE;
 END;
 $$;
 
