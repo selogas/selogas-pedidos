@@ -138,9 +138,9 @@ export default function Catalogo() {
         if (plantilla) setPlantilla(plantilla);
 
         if (sugsData.length > 0 && listaProductos.length > 0) {
-          const idsOrdenados = new Set(sugsData);
+          const idsYaPedidos = new Set(sugsData);
           setSugerencias(listaProductos
-            .filter(p => !idsOrdenados.has(p.id) && (p.hoja_excel || "").toUpperCase() !== "AUTOCONSUMO")
+            .filter(p => !idsYaPedidos.has(p.id) && (p.hoja_excel || "").toUpperCase() !== "AUTOCONSUMO")
             .slice(0, 20));
         }
       } catch (e) {
@@ -151,7 +151,8 @@ export default function Catalogo() {
     };
 
     cargar();
-  }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, perfil?.rol, perfil?.tiendas?.id, authLoading, isAdmin, grupoTienda, prefDoblePedido, prefAvisosCantidad, prefAvisoCaducidad]);
 
   async function cargarCaducidades() {
     try {
@@ -424,7 +425,7 @@ export default function Catalogo() {
     const { data: todosProds } = await supabase
       .from("productos")
       .select("id,codigo,referencia,nombre,hoja_excel,seccion_excel,orden_excel,columna_excel")
-      .eq("activo", true)
+      .eq("disponible", true)
       .order("orden_excel", { ascending: true })
       .limit(2000);
     await supabase.functions.invoke("send-email", {
