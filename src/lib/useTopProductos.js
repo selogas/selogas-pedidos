@@ -157,7 +157,9 @@ export function useTopProductos() {
           .select('producto_id, rank')
           .order('rank', { ascending: true })
           .limit(TOP_N);
-        if (cache?.length === TOP_N) ids = cache.map(r => r.producto_id);
+        // Usar caché si tiene al menos 1 resultado (no exigir exactamente TOP_N
+        // por si el catálogo tiene menos de 15 productos)
+        if (cache?.length > 0) ids = cache.map(r => r.producto_id);
       } catch {
         // La tabla aún no existe: continuar al siguiente nivel
       }
