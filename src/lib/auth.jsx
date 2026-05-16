@@ -1,10 +1,10 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
 
 const AuthContext = createContext(null);
-const STORAGE_KEY  = 'sb-pasllyqgczegpvquaxvb-auth-token';
-const SUPABASE_URL = 'https://pasllyqgczegpvquaxvb.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhc2xseXFnY3plZ3B2cXVheHZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MzE3MzIsImV4cCI6MjA5MzAwNzczMn0.XEz01HOL7g0ziWtMullK1TU7tdFGWFiNDZA8H041p_w';
+const STORAGE_KEY = `sb-${import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0]}-auth-token`;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 function getSessionFromStorage() {
   try {
@@ -32,10 +32,11 @@ async function fetchPerfil(userId, accessToken) {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [perfil, setPerfil]   = useState(null);
+  const [user, setUser] = useState(null);
+  const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
-  const lastUserId = { current: null };
+  // useRef para que el valor persista entre renders sin causar re-renders
+  const lastUserId = useRef(null);
 
   const registrarSesion = useCallback(async (p, accessToken) => {
     if (!p?.id) return;
@@ -111,7 +112,7 @@ export function AuthProvider({ children }) {
 
     init();
 
-    // Actualizar actividad cada 2 minutos
+    // Actualizar actividad cada 5 minutos
     const intervalo = setInterval(() => {
       const session = getSessionFromStorage();
       if (session && lastUserId.current) {
@@ -120,7 +121,7 @@ export function AuthProvider({ children }) {
       }
     }, 5 * 60 * 1000);
 
-    // Verificar modo mantenimiento cada minuto (solo tiendas)
+    // Verificar modo mantenimiento cada 5 minutos (solo tiendas)
     const checkMant = setInterval(async () => {
       if (!mounted) return;
       const session = getSessionFromStorage();
@@ -140,7 +141,7 @@ export function AuthProvider({ children }) {
           }
         }
       } catch {}
-    }, 5 * 60 * 1000); // verificar modo mantenimiento cada 5 min (antes 60 s)
+    }, 5 * 60 * 1000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -173,7 +174,7 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   };
 
-  const isAdmin  = !loading && (perfil?.tiendas?.nombre === 'PRINCIPAL' || perfil?.rol === 'admin');
+  const isAdmin = !loading && (perfil?.tiendas?.nombre === 'PRINCIPAL' || perfil?.rol === 'admin');
   const isTienda = !loading && !isAdmin;
 
   return (
