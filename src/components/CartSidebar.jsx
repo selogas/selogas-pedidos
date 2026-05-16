@@ -44,28 +44,29 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
         {lineas.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-6">
             <ShoppingCart size={48} className="text-gray-200 mb-4" />
-            <p className="text-gray-400 font-medium">El carrito est&aacute; vac&iacute;o</p>
-            <p className="text-gray-400 text-sm mt-1">A&ntilde;ade productos desde el cat&aacute;logo</p>
+            <p className="text-gray-400 font-medium">El carrito está vacío</p>
+            <p className="text-gray-400 text-sm mt-1">Añade productos desde el catálogo</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
             {lineas.map(({ prod, qty }) => {
               const multiplo = prod.multiplo || 1;
-              const minimo = prod.minimo || multiplo;
               const fechasPedido = pedidoEstaSemanaPorProducto[prod.id] || [];
               const yaPedido = fechasPedido.length > 0;
               const diasStr = yaPedido ? [...new Set(fechasPedido.map(f => {
                 const d = new Date(f);
                 return ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d.getDay()];
               }))].join(', ') : '';
+
               // Aviso inteligente de cantidad vs media histórica
               const mediaData = mediasPorProducto[prod.id];
               let avisoMedia = null;
               if (mediaData && mediaData.numPedidos >= 3 && mediaData.media > 0) {
                 const ratio = qty / mediaData.media;
-                if (ratio < 0.6) avisoMedia = { tipo: 'bajo', texto: `Sueles pedir ${mediaData.media} uds`, icon: TrendingDown, color: 'text-orange-600 bg-orange-50' };
-                else if (ratio > 1.4) avisoMedia = { tipo: 'alto', texto: `Sueles pedir ${mediaData.media} uds`, icon: TrendingUp, color: 'text-[#00913f] bg-[#edf7f2]' };
+                if (ratio < 0.6) avisoMedia = { tipo: 'bajo', texto: `Sueles pedir ${mediaData.media} uds`, Icon: TrendingDown, color: 'text-orange-600 bg-orange-50' };
+                else if (ratio > 1.4) avisoMedia = { tipo: 'alto', texto: `Sueles pedir ${mediaData.media} uds`, Icon: TrendingUp, color: 'text-[#00913f] bg-[#edf7f2]' };
               }
+
               return (
                 <div key={prod.id} className={`p-3 hover:bg-gray-50 ${yaPedido ? 'bg-orange-50' : ''}`}>
                   {yaPedido && (
@@ -76,34 +77,34 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
                   )}
                   {avisoMedia && (
                     <div className={`flex items-center gap-1.5 mb-1.5 rounded-lg px-2 py-1 ${avisoMedia.color}`}>
-                      <avisoMedia.icon size={12} className="flex-shrink-0" />
+                      <avisoMedia.Icon size={12} className="flex-shrink-0" />
                       <span className="text-xs font-semibold">{avisoMedia.texto}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {prod.imagen_url ? (
-                      <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-full object-contain p-1"
-                        onError={e => { e.target.onerror=null; e.target.style.display='none'; }} />
-                    ) : (
-                      <ShoppingCart size={20} className="text-gray-300" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-xs text-gray-900 leading-snug line-clamp-2">{prod.nombre}</div>
-                    {prod.codigo && <div className="text-xs text-gray-400 font-mono">{prod.codigo}</div>}
-                    <div className="text-xs text-[#00913f] font-semibold">x{multiplo}</div>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button onClick={() => onQtyChange(prod.id, Math.max(0, qty - multiplo))}
-                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-base">&minus;</button>
-                    <span className="w-8 text-center font-bold text-sm text-gray-900">{qty}</span>
-                    <button onClick={() => onQtyChange(prod.id, qty + multiplo)}
-                      className="w-7 h-7 rounded-lg bg-[#00913f] hover:bg-[#007a34] text-white font-bold flex items-center justify-center text-base">+</button>
-                    <button onClick={() => onRemove(prod.id)} className="w-7 h-7 ml-1 rounded-lg hover:bg-red-50 text-red-400 flex items-center justify-center">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {prod.imagen_url ? (
+                        <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-full object-contain p-1"
+                          onError={e => { e.target.onerror=null; e.target.style.display='none'; }} />
+                      ) : (
+                        <ShoppingCart size={20} className="text-gray-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-xs text-gray-900 leading-snug line-clamp-2">{prod.nombre}</div>
+                      {prod.codigo && <div className="text-xs text-gray-400 font-mono">{prod.codigo}</div>}
+                      <div className="text-xs text-[#00913f] font-semibold">x{multiplo}</div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button onClick={() => onQtyChange(prod.id, Math.max(0, qty - multiplo))}
+                        className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center text-base">&minus;</button>
+                      <span className="w-8 text-center font-bold text-sm text-gray-900">{qty}</span>
+                      <button onClick={() => onQtyChange(prod.id, qty + multiplo)}
+                        className="w-7 h-7 rounded-lg bg-[#00913f] hover:bg-[#007a34] text-white font-bold flex items-center justify-center text-base">+</button>
+                      <button onClick={() => onRemove(prod.id)} className="w-7 h-7 ml-1 rounded-lg hover:bg-red-50 text-red-400 flex items-center justify-center">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -118,7 +119,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
               className="w-full flex items-center justify-between p-3 text-amber-800">
               <div className="flex items-center gap-2 text-sm font-bold">
                 <Lightbulb size={16} className="text-amber-500" />
-                &iquest;No se te olvida esto?
+                ¿No se te olvida esto?
                 <span className="text-xs bg-amber-200 text-amber-700 px-2 py-0.5 rounded-full">{sugerencias.length}</span>
               </div>
               <ChevronDown size={16} className={`transition-transform ${showSugerencias ? 'rotate-180' : ''}`} />
@@ -171,7 +172,7 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
             <div className="space-y-2">
               <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl text-amber-800 text-xs">
                 <AlertCircle size={16} className="flex-shrink-0" />
-                <span>&iquest;Confirmas el pedido de <strong>{totalLineas} producto{totalLineas !== 1 ? 's' : ''}</strong>?</span>
+                <span>¿Confirmas el pedido de <strong>{totalLineas} producto{totalLineas !== 1 ? 's' : ''}</strong>?</span>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setConfirmOpen(false)} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-100">Cancelar</button>
