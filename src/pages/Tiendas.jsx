@@ -17,10 +17,7 @@ const DIAS_SEMANA = [
   { value: 6, label: "Domingo",   short: "D" },
 ];
 
-// Día en que se envía el aviso para cada día de llegada
-// Llegada Lunes(0) → aviso Viernes(4) anterior
-// Llegada Mar-Vie  → aviso el día anterior
-const DIA_AVISO: Record<number, string> = {
+const DIA_AVISO = {
   0: "Viernes (semana anterior)",
   1: "Lunes",
   2: "Martes",
@@ -52,7 +49,8 @@ function SelectorDias({ value = [], onChange }) {
       ))}
       {actual.length > 0 && (
         <button type="button" onClick={() => onChange([])}
-          className="px-2 h-9 rounded-xl text-xs text-gray-400 hover:text-red-400 border-2 border-dashed border-gray-200 hover:border-red-200 transition-all" title="Quitar todos">
+          className="px-2 h-9 rounded-xl text-xs text-gray-400 hover:text-red-400 border-2 border-dashed border-gray-200 hover:border-red-200 transition-all"
+          title="Quitar todos">
           <X size={12} />
         </button>
       )}
@@ -60,15 +58,18 @@ function SelectorDias({ value = [], onChange }) {
   );
 }
 
-// ── Badges de días con su día de aviso ──────────────────────────────
+// ── Badges de días ───────────────────────────────────────────────────
 function BadgesDias({ dias }) {
-  if (!Array.isArray(dias) || dias.length === 0) return <span className="text-xs text-gray-300">—</span>;
+  if (!Array.isArray(dias) || dias.length === 0)
+    return <span className="text-xs text-gray-300">—</span>;
   return (
     <div className="flex gap-1 flex-wrap">
       {dias.map(v => {
         const d = DIAS_SEMANA.find(x => x.value === v);
         return d ? (
-          <span key={v} className="text-xs px-2 py-0.5 bg-[#edf7f2] text-[#007a34] rounded-full font-semibold">{d.label}</span>
+          <span key={v} className="text-xs px-2 py-0.5 bg-[#edf7f2] text-[#007a34] rounded-full font-semibold">
+            {d.label}
+          </span>
         ) : null;
       })}
     </div>
@@ -81,7 +82,11 @@ function TiendaModal({ tienda, onSave, onClose }) {
   const [form, setForm] = useState(
     tienda
       ? { ...tienda, dia_pedido: diasIniciales }
-      : { nombre: "", codigo: "", email: "", responsable: "", activa: true, grupo: "estacion", mensaje_banner: "", google_calendar_id: "", doble_pedido: false, dia_pedido: [] }
+      : {
+          nombre: "", codigo: "", email: "", responsable: "",
+          activa: true, grupo: "estacion", mensaje_banner: "",
+          google_calendar_id: "", doble_pedido: false, dia_pedido: [],
+        }
   );
   const [saving, setSaving] = useState(false);
 
@@ -98,7 +103,10 @@ function TiendaModal({ tienda, onSave, onClose }) {
       mensaje_banner:     form.mensaje_banner || null,
       google_calendar_id: form.google_calendar_id || null,
       doble_pedido:       form.doble_pedido === true,
-      dia_pedido:         Array.isArray(form.dia_pedido) && form.dia_pedido.length > 0 ? form.dia_pedido : null,
+      dia_pedido:
+        Array.isArray(form.dia_pedido) && form.dia_pedido.length > 0
+          ? form.dia_pedido
+          : null,
     };
     if (tienda?.id) {
       const { error } = await supabase.from("tiendas").update(campos).eq("id", tienda.id);
@@ -128,25 +136,35 @@ function TiendaModal({ tienda, onSave, onClose }) {
             { field: "responsable", label: "Responsable" },
           ].map(({ field, label, required }) => (
             <div key={field}>
-              <label className="block text-sm font-medium mb-1 text-gray-700">{label}{required && " *"}</label>
-              <input type={field === "email" ? "email" : "text"} value={form[field] || ""}
+              <label className="block text-sm font-medium mb-1 text-gray-700">
+                {label}{required && " *"}
+              </label>
+              <input
+                type={field === "email" ? "email" : "text"}
+                value={form[field] || ""}
                 onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]" />
+                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
+              />
             </div>
           ))}
 
-          {/* Selector días + tabla de avisos */}
+          {/* Selector días */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700 flex items-center gap-1.5">
-              <Bell size={14} className="text-[#00913f]" />
-              Días que llega el pedido
-              {diasSeleccionados.length > 0 && (
-                <span className="text-xs text-gray-400 font-normal">({diasSeleccionados.length} día{diasSeleccionados.length > 1 ? "s" : ""})</span>
-              )}
+            <label className="block text-sm font-medium mb-2 text-gray-700">
+              <span className="flex items-center gap-1.5">
+                <Bell size={14} className="text-[#00913f]" />
+                Días que llega el pedido
+                {diasSeleccionados.length > 0 && (
+                  <span className="text-xs text-gray-400 font-normal">
+                    ({diasSeleccionados.length} día{diasSeleccionados.length > 1 ? "s" : ""})
+                  </span>
+                )}
+              </span>
             </label>
-            <SelectorDias value={form.dia_pedido} onChange={dias => setForm(f => ({ ...f, dia_pedido: dias }))} />
-
-            {/* Tabla de cuándo salta el aviso */}
+            <SelectorDias
+              value={form.dia_pedido}
+              onChange={dias => setForm(f => ({ ...f, dia_pedido: dias }))}
+            />
             {diasSeleccionados.length > 0 && (
               <div className="mt-2 rounded-xl border border-[#b3dfc4] bg-[#edf7f2] overflow-hidden">
                 <div className="px-3 py-1.5 text-xs font-semibold text-[#007a34] border-b border-[#b3dfc4]">
@@ -154,8 +172,8 @@ function TiendaModal({ tienda, onSave, onClose }) {
                 </div>
                 {diasSeleccionados.map(v => {
                   const d = DIAS_SEMANA.find(x => x.value === v);
-                  const aviso = DIA_AVISO[v] ?? "—";
-                  return d ? (
+                  const aviso = DIA_AVISO[v];
+                  return d && aviso ? (
                     <div key={v} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-[#d9f0e4] last:border-0">
                       <span className="text-gray-600">Llega el <strong>{d.label}</strong></span>
                       <span className="text-[#007a34] font-semibold">→ aviso el {aviso}</span>
@@ -165,30 +183,39 @@ function TiendaModal({ tienda, onSave, onClose }) {
               </div>
             )}
             <p className="text-xs text-gray-400 mt-1.5">
-              El aviso se envía el día laborable anterior si esa semana no hay pedido registrado.
+              El aviso se envía el día laborable anterior si no hay pedido en esa ventana de entrega.
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">📅 Google Calendar ID</label>
-            <input type="text" value={form.google_calendar_id || ""}
+            <input
+              type="text"
+              value={form.google_calendar_id || ""}
               onChange={e => setForm(f => ({ ...f, google_calendar_id: e.target.value }))}
               placeholder="Ej: tormo22@megino.com"
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]" />
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">📢 Mensaje banner</label>
-            <textarea value={form.mensaje_banner || ""}
+            <textarea
+              value={form.mensaje_banner || ""}
               onChange={e => setForm(f => ({ ...f, mensaje_banner: e.target.value }))}
               placeholder="Ej: Tu día de pedido es el MARTES..."
-              rows={2} className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] resize-none" />
+              rows={2}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] resize-none"
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Tipo de tienda *</label>
-            <select value={form.grupo || "estacion"} onChange={e => setForm(f => ({ ...f, grupo: e.target.value }))}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]">
+            <select
+              value={form.grupo || "estacion"}
+              onChange={e => setForm(f => ({ ...f, grupo: e.target.value }))}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
+            >
               <option value="estacion">🏪 Estación</option>
               <option value="cafeteria">☕ Cafetería</option>
               <option value="ambos">📦 Ambos</option>
@@ -196,8 +223,12 @@ function TiendaModal({ tienda, onSave, onClose }) {
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.doble_pedido === true}
-              onChange={e => setForm(f => ({ ...f, doble_pedido: e.target.checked }))} className="rounded" />
+            <input
+              type="checkbox"
+              checked={form.doble_pedido === true}
+              onChange={e => setForm(f => ({ ...f, doble_pedido: e.target.checked }))}
+              className="rounded"
+            />
             <div>
               <span className="text-sm font-medium">Doble pedido semanal</span>
               <p className="text-xs text-gray-400">Avisa en catálogo cuando un producto ya fue pedido esta semana</p>
@@ -205,17 +236,27 @@ function TiendaModal({ tienda, onSave, onClose }) {
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.activa !== false}
-              onChange={e => setForm(f => ({ ...f, activa: e.target.checked }))} className="rounded" />
+            <input
+              type="checkbox"
+              checked={form.activa !== false}
+              onChange={e => setForm(f => ({ ...f, activa: e.target.checked }))}
+              className="rounded"
+            />
             <span className="text-sm font-medium">Tienda activa</span>
           </label>
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving || !form.nombre}
-            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50">
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Guardar
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !form.nombre}
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+            Guardar
           </button>
         </div>
       </div>
@@ -223,19 +264,19 @@ function TiendaModal({ tienda, onSave, onClose }) {
   );
 }
 
-// ── Modal Nuevo/Editar Usuario ────────────────────────────────────────
+// ── Modal Usuario ────────────────────────────────────────────────────
 function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
   const [form, setForm] = useState({
-    email: usuarioEditar?.email || "",
+    email:           usuarioEditar?.email || "",
     nombre_completo: usuarioEditar?.nombre_completo || "",
-    rol: usuarioEditar?.rol || "tienda",
-    tienda_id: usuarioEditar?.tienda_id || "",
-    activo: usuarioEditar?.activo !== false,
+    rol:             usuarioEditar?.rol || "tienda",
+    tienda_id:       usuarioEditar?.tienda_id || "",
+    activo:          usuarioEditar?.activo !== false,
   });
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState("");
   const esEdicion = !!usuarioEditar?.id;
 
   const handleSave = async () => {
@@ -252,12 +293,16 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           tiendaIdEdit = principal?.id || null;
         }
         const { error: e } = await supabase.from("perfiles").update({
-          nombre_completo: form.nombre_completo, rol: "tienda",
-          tienda_id: tiendaIdEdit, activo: form.activo,
+          nombre_completo: form.nombre_completo,
+          rol: "tienda",
+          tienda_id: tiendaIdEdit,
+          activo: form.activo,
         }).eq("id", usuarioEditar.id);
         if (e) throw e;
         if (password.trim().length >= 6) {
-          const { error: pwError } = await supabase.rpc("cambiar_password_usuario", { p_user_id: usuarioEditar.id, p_password: password });
+          const { error: pwError } = await supabase.rpc("cambiar_password_usuario", {
+            p_user_id: usuarioEditar.id, p_password: password,
+          });
           if (pwError) throw pwError;
         }
       } else {
@@ -267,14 +312,19 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           tiendaId = principal?.id || null;
         }
         const { data: rpcData, error: rpcError } = await supabase.rpc("crear_usuario_tienda", {
-          p_email: form.email.trim(), p_password: password,
-          p_nombre: form.nombre_completo || "", p_rol: "tienda", p_tienda_id: tiendaId,
+          p_email: form.email.trim(),
+          p_password: password,
+          p_nombre: form.nombre_completo || "",
+          p_rol: "tienda",
+          p_tienda_id: tiendaId,
         });
         if (rpcError) throw rpcError;
         if (rpcData?.error) throw new Error(rpcData.error);
       }
       onSave();
-    } catch (err) { setError(err.message || "Error al guardar el usuario."); }
+    } catch (err) {
+      setError(err.message || "Error al guardar el usuario.");
+    }
     setSaving(false);
   };
 
@@ -296,21 +346,32 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Email *</label>
-            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} disabled={esEdicion}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] disabled:bg-gray-50 disabled:text-gray-400" />
+            <input
+              type="email" value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              disabled={esEdicion}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] disabled:bg-gray-50 disabled:text-gray-400"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Nombre completo</label>
-            <input type="text" value={form.nombre_completo} onChange={e => setForm(f => ({ ...f, nombre_completo: e.target.value }))}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]" />
+            <input
+              type="text" value={form.nombre_completo}
+              onChange={e => setForm(f => ({ ...f, nombre_completo: e.target.value }))}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Contraseña *</label>
             <div className="relative">
-              <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
+              <input
+                type={showPass ? "text" : "password"} value={password}
+                onChange={e => setPassword(e.target.value)}
                 placeholder={esEdicion ? "Nueva contraseña (vacío = no cambiar)" : "Mínimo 6 caracteres"}
-                className="w-full border rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-[#00c254]" />
-              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                className="w-full border rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-[#00c254]"
+              />
+              <button type="button" onClick={() => setShowPass(!showPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
@@ -334,7 +395,9 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
               <select value={form.tienda_id} onChange={e => setForm(f => ({ ...f, tienda_id: e.target.value }))}
                 className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]">
                 <option value="">— Sin tienda asignada —</option>
-                {tiendas.filter(t => t.activa !== false).map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                {tiendas.filter(t => t.activa !== false).map(t => (
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
               </select>
             </div>
           )}
@@ -345,7 +408,9 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           </label>
         </div>
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">Cancelar</button>
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">
+            Cancelar
+          </button>
           <button onClick={handleSave} disabled={saving}
             className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
@@ -357,16 +422,14 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
   );
 }
 
-// ── Panel de Recordatorios ───────────────────────────────────────────
+// ── Panel Recordatorios ──────────────────────────────────────────────
 function PanelRecordatorios({ tiendas }) {
-  const [ejecutando, setEjecutando]   = useState(false);
-  const [resultado, setResultado]     = useState(null);
-  const [historial, setHistorial]     = useState([]);
-  const [loadingHist, setLoadingHist] = useState(false);
-
-  // Test
-  const [emailTest, setEmailTest]       = useState("");
-  const [enviandoTest, setEnviandoTest] = useState(false);
+  const [ejecutando, setEjecutando]       = useState(false);
+  const [resultado, setResultado]         = useState(null);
+  const [historial, setHistorial]         = useState([]);
+  const [loadingHist, setLoadingHist]     = useState(false);
+  const [emailTest, setEmailTest]         = useState("");
+  const [enviandoTest, setEnviandoTest]   = useState(false);
   const [resultadoTest, setResultadoTest] = useState(null);
 
   const cargarHistorial = async () => {
@@ -382,25 +445,19 @@ function PanelRecordatorios({ tiendas }) {
 
   useEffect(() => { cargarHistorial(); }, []);
 
-  const getSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session;
-  };
-
   const ejecutarAhora = async () => {
     setEjecutando(true);
     setResultado(null);
     try {
-      const session = await getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/recordatorio-pedido`,
-        { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: "{}" }
-      );
-      const json = await res.json();
-      setResultado(json);
-      if (json.ok) cargarHistorial();
+      const { data, error } = await supabase.functions.invoke("recordatorio-pedido", {
+        method: "POST",
+        body: {},
+      });
+      if (error) throw error;
+      setResultado(data);
+      if (data?.ok) cargarHistorial();
     } catch (err) {
-      setResultado({ ok: false, error: err.message });
+      setResultado({ ok: false, error: err?.message || String(err) });
     }
     setEjecutando(false);
   };
@@ -410,35 +467,34 @@ function PanelRecordatorios({ tiendas }) {
     setEnviandoTest(true);
     setResultadoTest(null);
     try {
-      const session = await getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/recordatorio-pedido`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ test: true, email: emailTest.trim(), nombre: "Tienda de Prueba" }),
-        }
-      );
-      const json = await res.json();
-      setResultadoTest(json);
+      const { data, error } = await supabase.functions.invoke("recordatorio-pedido", {
+        method: "POST",
+        body: { test: true, email: emailTest.trim(), nombre: "Tienda de Prueba" },
+      });
+      if (error) throw error;
+      setResultadoTest(data);
     } catch (err) {
-      setResultadoTest({ ok: false, error: err.message });
+      setResultadoTest({ ok: false, error: err?.message || String(err) });
     }
     setEnviandoTest(false);
   };
 
-  const tiendasConDia = tiendas.filter(t => Array.isArray(t.dia_pedido) && t.dia_pedido.length > 0);
+  const tiendasConDia = tiendas.filter(
+    t => Array.isArray(t.dia_pedido) && t.dia_pedido.length > 0
+  );
 
   return (
     <div className="space-y-5">
 
-      {/* Explicación lógica */}
+      {/* Info lógica */}
       <div className="bg-[#edf7f2] border border-[#b3dfc4] rounded-xl p-4 text-sm text-[#007a34] space-y-1">
         <p><strong>Cron automático:</strong> se ejecuta cada día laborable a las 09:00 Madrid.</p>
-        <p><strong>Lógica:</strong> si hoy es el día laborable anterior al día de llegada del pedido, y esa tienda no tiene ningún pedido registrado esta semana → envía aviso.</p>
-        <p><strong>Ejemplo:</strong> pedido llega el Martes → aviso el Lunes. Pedido llega el Lunes → aviso el Viernes anterior.</p>
+        <p><strong>Lógica:</strong> cada entrega tiene su propia ventana de búsqueda. Un pedido para el Martes no cancela el aviso del Viernes.</p>
+        <p><strong>Ejemplo:</strong> llega Martes → avisa el Lunes buscando pedidos desde el Viernes anterior. Llega Viernes → avisa el Jueves buscando pedidos desde el Martes.</p>
         <p><strong>Fin de semana:</strong> no se envían avisos sábado ni domingo.</p>
-        <p className="text-xs text-[#007a34]/70">Emails desde <code className="bg-[#d9f0e4] px-1 rounded">onboarding@resend.dev</code></p>
+        <p className="text-xs text-[#007a34]/70">
+          Emails desde <code className="bg-[#d9f0e4] px-1 rounded">onboarding@resend.dev</code>
+        </p>
       </div>
 
       {/* Test de email */}
@@ -448,11 +504,12 @@ function PanelRecordatorios({ tiendas }) {
           <p className="font-semibold text-amber-800 text-sm">Probar que los emails llegan</p>
         </div>
         <div className="p-5 space-y-3">
-          <p className="text-xs text-gray-500">Envía un email de prueba a cualquier dirección para verificar que el sistema funciona. No registra nada ni comprueba pedidos.</p>
+          <p className="text-xs text-gray-500">
+            Envía un email de prueba a cualquier dirección. No registra nada ni comprueba pedidos.
+          </p>
           <div className="flex gap-2">
             <input
-              type="email"
-              value={emailTest}
+              type="email" value={emailTest}
               onChange={e => setEmailTest(e.target.value)}
               onKeyDown={e => e.key === "Enter" && enviarTest()}
               placeholder="tu@email.com"
@@ -465,12 +522,27 @@ function PanelRecordatorios({ tiendas }) {
             </button>
           </div>
           {resultadoTest && (
-            <div className={`rounded-xl p-3 flex items-start gap-2 text-sm ${resultadoTest.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-700"}`}>
+            <div className={`rounded-xl p-3 flex items-start gap-2 text-sm ${
+              resultadoTest.ok
+                ? "bg-green-50 border border-green-200 text-green-800"
+                : "bg-red-50 border border-red-200 text-red-700"
+            }`}>
               {resultadoTest.ok
-                ? <><CheckCircle size={16} className="flex-shrink-0 mt-0.5" /><span>Email enviado a <strong>{emailTest}</strong>. Si no llega en 1-2 minutos, revisa la carpeta de spam.</span></>
-                : <><X size={16} className="flex-shrink-0 mt-0.5" /><span>Error: {resultadoTest.error}</span></>
+                ? <>
+                    <CheckCircle size={16} className="flex-shrink-0 mt-0.5" />
+                    <span>
+                      Email enviado a <strong>{emailTest}</strong>.
+                      Si no llega en 1–2 minutos, revisa la carpeta de spam.
+                    </span>
+                  </>
+                : <>
+                    <X size={16} className="flex-shrink-0 mt-0.5" />
+                    <span>Error: {resultadoTest.error}</span>
+                  </>
               }
-              <button onClick={() => setResultadoTest(null)} className="ml-auto text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={13} /></button>
+              <button onClick={() => setResultadoTest(null)} className="ml-auto text-gray-400 hover:text-gray-600 flex-shrink-0">
+                <X size={13} />
+              </button>
             </div>
           )}
         </div>
@@ -481,7 +553,9 @@ function PanelRecordatorios({ tiendas }) {
         <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
           <div>
             <p className="font-semibold text-gray-800">Días configurados por tienda</p>
-            <p className="text-xs text-gray-400 mt-0.5">{tiendasConDia.length} tienda{tiendasConDia.length !== 1 ? "s" : ""} con recordatorio activo</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {tiendasConDia.length} tienda{tiendasConDia.length !== 1 ? "s" : ""} con recordatorio activo
+            </p>
           </div>
           <button onClick={ejecutarAhora} disabled={ejecutando}
             className="flex items-center gap-2 px-4 py-2 bg-[#00913f] text-white rounded-xl font-bold text-sm hover:bg-[#007a34] disabled:opacity-50">
@@ -505,9 +579,11 @@ function PanelRecordatorios({ tiendas }) {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-gray-900">{t.nombre}</p>
                     <p className="text-xs text-gray-400">
-                      {t.email || <span className="text-amber-500 font-medium">Sin email — no recibirá avisos</span>}
+                      {t.email
+                        ? t.email
+                        : <span className="text-amber-500 font-medium">Sin email — no recibirá avisos</span>
+                      }
                     </p>
-                    {/* Detallar cada día con su día de aviso */}
                     {Array.isArray(t.dia_pedido) && (
                       <div className="mt-1.5 space-y-0.5">
                         {t.dia_pedido.map(v => {
@@ -536,13 +612,17 @@ function PanelRecordatorios({ tiendas }) {
       {resultado && (
         <div className={`rounded-2xl border-2 p-4 ${resultado.ok ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
           <div className="flex items-center gap-2 mb-2">
-            {resultado.ok ? <CheckCircle size={18} className="text-green-600" /> : <X size={18} className="text-red-500" />}
+            {resultado.ok
+              ? <CheckCircle size={18} className="text-green-600" />
+              : <X size={18} className="text-red-500" />}
             <span className={`font-bold text-sm ${resultado.ok ? "text-green-800" : "text-red-700"}`}>
               {resultado.ok
                 ? `Completado — ${resultado.enviados} enviado${resultado.enviados !== 1 ? "s" : ""}, ${resultado.omitidos} sin acción`
                 : "Error en la ejecución"}
             </span>
-            <button onClick={() => setResultado(null)} className="ml-auto text-gray-400 hover:text-gray-600"><X size={14} /></button>
+            <button onClick={() => setResultado(null)} className="ml-auto text-gray-400 hover:text-gray-600">
+              <X size={14} />
+            </button>
           </div>
           {resultado.log && (
             <pre className="text-xs font-mono text-gray-700 bg-white/70 rounded-xl p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
@@ -557,7 +637,8 @@ function PanelRecordatorios({ tiendas }) {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
           <p className="font-semibold text-gray-700 text-sm">Historial de envíos</p>
-          <button onClick={cargarHistorial} disabled={loadingHist} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500">
+          <button onClick={cargarHistorial} disabled={loadingHist}
+            className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500">
             {loadingHist ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           </button>
         </div>
@@ -565,13 +646,23 @@ function PanelRecordatorios({ tiendas }) {
           <div className="p-6 text-center text-gray-400 text-sm">Aún no se han enviado recordatorios.</div>
         ) : (
           <div className="divide-y max-h-72 overflow-y-auto">
-            {historial.map(r => (
-              <div key={r.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-                <div className="w-2 h-2 rounded-full bg-[#00913f] flex-shrink-0" />
-                <span className="font-medium text-gray-800 flex-1">{r.tiendas?.nombre || "—"}</span>
-                <span className="text-gray-400 text-xs">{r.fecha_envio}</span>
-              </div>
-            ))}
+            {historial.map(r => {
+              const diaLabel = r.dia_llegada != null
+                ? DIAS_SEMANA.find(d => d.value === r.dia_llegada)?.label
+                : null;
+              return (
+                <div key={r.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+                  <div className="w-2 h-2 rounded-full bg-[#00913f] flex-shrink-0" />
+                  <span className="font-medium text-gray-800 flex-1">{r.tiendas?.nombre || "—"}</span>
+                  {diaLabel && (
+                    <span className="text-xs px-2 py-0.5 bg-[#edf7f2] text-[#007a34] rounded-full font-semibold">
+                      llega {diaLabel}
+                    </span>
+                  )}
+                  <span className="text-gray-400 text-xs">{r.fecha_envio}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -581,16 +672,16 @@ function PanelRecordatorios({ tiendas }) {
 
 // ── Página principal ─────────────────────────────────────────────────
 export default function Tiendas() {
-  const [tiendas, setTiendas]   = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [tiendas, setTiendas]             = useState([]);
+  const [usuarios, setUsuarios]           = useState([]);
+  const [loading, setLoading]             = useState(true);
   const [loadingUsuarios, setLoadingUsuarios] = useState(true);
-  const [tab, setTab] = useState("tiendas");
+  const [tab, setTab]                     = useState("tiendas");
   const [editandoCalendario, setEditandoCalendario] = useState({});
-  const [guardandoCal, setGuardandoCal] = useState({});
-  const [modalTienda,  setModalTienda]  = useState(false);
-  const [modalUsuario, setModalUsuario] = useState(false);
-  const [editandoTienda,  setEditandoTienda]  = useState(null);
+  const [guardandoCal, setGuardandoCal]   = useState({});
+  const [modalTienda, setModalTienda]     = useState(false);
+  const [modalUsuario, setModalUsuario]   = useState(false);
+  const [editandoTienda, setEditandoTienda]   = useState(null);
   const [editandoUsuario, setEditandoUsuario] = useState(null);
 
   const cargarTiendas = async () => {
@@ -602,7 +693,8 @@ export default function Tiendas() {
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
-    const { data } = await supabase.from("perfiles").select("*, tiendas(nombre)").order("nombre_completo");
+    const { data } = await supabase
+      .from("perfiles").select("*, tiendas(nombre)").order("nombre_completo");
     setUsuarios(data || []);
     setLoadingUsuarios(false);
   };
@@ -614,7 +706,9 @@ export default function Tiendas() {
     setGuardandoCal(prev => ({ ...prev, [tiendaId]: true }));
     await supabase.from("tiendas").update({ google_calendar_id: valor || null }).eq("id", tiendaId);
     setGuardandoCal(prev => ({ ...prev, [tiendaId]: false }));
-    setTiendas(prev => prev.map(t => t.id === tiendaId ? { ...t, google_calendar_id: valor || null } : t));
+    setTiendas(prev => prev.map(t =>
+      t.id === tiendaId ? { ...t, google_calendar_id: valor || null } : t
+    ));
   };
 
   const eliminarTienda = async (id) => {
@@ -650,54 +744,80 @@ export default function Tiendas() {
   return (
     <div>
       {modalTienda && (
-        <TiendaModal tienda={editandoTienda}
+        <TiendaModal
+          tienda={editandoTienda}
           onSave={() => { setModalTienda(false); setEditandoTienda(null); cargarTiendas(); }}
-          onClose={() => { setModalTienda(false); setEditandoTienda(null); }} />
+          onClose={() => { setModalTienda(false); setEditandoTienda(null); }}
+        />
       )}
       {modalUsuario && (
-        <UsuarioModal key={editandoUsuario?.id || "nuevo"} tiendas={tiendas} usuarioEditar={editandoUsuario}
+        <UsuarioModal
+          key={editandoUsuario?.id || "nuevo"}
+          tiendas={tiendas}
+          usuarioEditar={editandoUsuario}
           onSave={() => { setModalUsuario(false); setEditandoUsuario(null); cargarUsuarios(); }}
-          onClose={() => { setModalUsuario(false); setEditandoUsuario(null); }} />
+          onClose={() => { setModalUsuario(false); setEditandoUsuario(null); }}
+        />
       )}
 
+      {/* Cabecera */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Gestión de Tiendas y Usuarios</h1>
-          <p className="text-gray-500 text-sm mt-1">{tiendas.length} tiendas · {usuarios.length} usuarios</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {tiendas.length} tiendas · {usuarios.length} usuarios
+          </p>
         </div>
         {(tab === "tiendas" || tab === "usuarios") && (
-          <button onClick={() => { if (tab === "tiendas") { setEditandoTienda(null); setModalTienda(true); } else { setEditandoUsuario(null); setModalUsuario(true); } }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]">
-            <Plus size={16} />{tab === "tiendas" ? "Nueva tienda" : "Nuevo usuario"}
+          <button
+            onClick={() => {
+              if (tab === "tiendas") { setEditandoTienda(null); setModalTienda(true); }
+              else { setEditandoUsuario(null); setModalUsuario(true); }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]"
+          >
+            <Plus size={16} />
+            {tab === "tiendas" ? "Nueva tienda" : "Nuevo usuario"}
           </button>
         )}
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6 flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === t.id ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"}`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              tab === t.id ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"
+            }`}>
             <t.icon size={15} /> {t.label}
           </button>
         ))}
       </div>
 
-      {/* TIENDAS */}
+      {/* ── TIENDAS ── */}
       {tab === "tiendas" && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="bg-[#edf7f2] border border-[#b3dfc4] rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-1"><span className="text-2xl">🏪</span><span className="font-bold text-[#007a34]">Estaciones</span></div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">🏪</span>
+                <span className="font-bold text-[#007a34]">Estaciones</span>
+              </div>
               <p className="text-sm text-[#007a34]">Ven productos marcados como "estación" o "ambas"</p>
             </div>
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-1"><span className="text-2xl">☕</span><span className="font-bold text-orange-800">Cafeterías</span></div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">☕</span>
+                <span className="font-bold text-orange-800">Cafeterías</span>
+              </div>
               <p className="text-sm text-orange-700">Ven productos marcados como "cafetería" o "ambas"</p>
             </div>
           </div>
           <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
             {loading ? (
-              <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-[#00913f]" /></div>
+              <div className="p-8 text-center">
+                <Loader2 className="animate-spin mx-auto text-[#00913f]" />
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[820px]">
@@ -716,17 +836,31 @@ export default function Tiendas() {
                           <td className="px-4 py-3 font-mono text-sm text-gray-500">{t.codigo || "—"}</td>
                           <td className="px-4 py-3 font-semibold text-sm">{t.nombre}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">{t.email || "—"}</td>
-                          <td className="px-4 py-3"><span className={`text-xs px-2.5 py-1 rounded-full font-medium ${gi.color}`}>{gi.label}</span></td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${gi.color}`}>
+                              {gi.label}
+                            </span>
+                          </td>
                           <td className="px-4 py-3"><BadgesDias dias={t.dia_pedido} /></td>
                           <td className="px-4 py-3">
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${t.activa !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                              t.activa !== false
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-500"
+                            }`}>
                               {t.activa !== false ? "Activa" : "Inactiva"}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-1">
-                              <button onClick={() => { setEditandoTienda(t); setModalTienda(true); }} className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]"><Pencil size={15} /></button>
-                              <button onClick={() => eliminarTienda(t.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400"><Trash2 size={15} /></button>
+                              <button onClick={() => { setEditandoTienda(t); setModalTienda(true); }}
+                                className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]">
+                                <Pencil size={15} />
+                              </button>
+                              <button onClick={() => eliminarTienda(t.id)}
+                                className="p-2 hover:bg-red-50 rounded-lg text-red-400">
+                                <Trash2 size={15} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -740,40 +874,65 @@ export default function Tiendas() {
         </>
       )}
 
-      {/* USUARIOS */}
+      {/* ── USUARIOS ── */}
       {tab === "usuarios" && (
         <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
           {loadingUsuarios ? (
-            <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-[#00913f]" /></div>
+            <div className="p-8 text-center">
+              <Loader2 className="animate-spin mx-auto text-[#00913f]" />
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[650px]">
                 <thead className="bg-gray-50 border-b">
-                  <tr>{["Usuario","Email","Rol","Tienda","Estado","Acciones"].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-sm font-semibold text-gray-600">{h}</th>
-                  ))}</tr>
+                  <tr>
+                    {["Usuario","Email","Rol","Tienda","Estado","Acciones"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-sm font-semibold text-gray-600">{h}</th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
                   {usuarios.map(u => (
                     <tr key={u.id} className="border-b hover:bg-gray-50">
                       <td className="px-4 py-3 font-semibold text-sm">{u.nombre_completo || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600"><div className="flex items-center gap-1.5"><Mail size={13} className="text-gray-400" />{u.email || "—"}</div></td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        <div className="flex items-center gap-1.5">
+                          <Mail size={13} className="text-gray-400" />{u.email || "—"}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold ${(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? "bg-purple-100 text-purple-700" : "bg-[#d9f0e4] text-[#007a34]"}`}>
-                          {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? <ShieldCheck size={11} /> : <Store size={11} />}
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold ${
+                          (u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin")
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-[#d9f0e4] text-[#007a34]"
+                        }`}>
+                          {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin")
+                            ? <ShieldCheck size={11} />
+                            : <Store size={11} />}
                           {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? "Admin" : "Tienda"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{u.tiendas?.nombre || "—"}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => toggleActivo(u)} className={`text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer ${u.activo !== false ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                        <button onClick={() => toggleActivo(u)}
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer ${
+                            u.activo !== false
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          }`}>
                           {u.activo !== false ? "Activo" : "Inactivo"}
                         </button>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <button onClick={() => { setEditandoUsuario(u); setModalUsuario(true); }} className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]"><Pencil size={15} /></button>
-                          <button onClick={() => eliminarUsuario(u.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400"><Trash2 size={15} /></button>
+                          <button onClick={() => { setEditandoUsuario(u); setModalUsuario(true); }}
+                            className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]">
+                            <Pencil size={15} />
+                          </button>
+                          <button onClick={() => eliminarUsuario(u.id)}
+                            className="p-2 hover:bg-red-50 rounded-lg text-red-400">
+                            <Trash2 size={15} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -785,14 +944,16 @@ export default function Tiendas() {
         </div>
       )}
 
-      {/* CALENDARIOS */}
+      {/* ── CALENDARIOS ── */}
       {tab === "calendarios" && (
         <div>
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
             <Calendar size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-amber-800">Calendarios de Google para Caducidades</p>
-              <p className="text-xs text-amber-700 mt-0.5">Email del calendario de cada tienda. La cuenta <strong>caducidades@gmail.com</strong> debe tener acceso.</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Email del calendario de cada tienda. La cuenta <strong>caducidades@gmail.com</strong> debe tener acceso.
+              </p>
             </div>
           </div>
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -806,22 +967,37 @@ export default function Tiendas() {
               </thead>
               <tbody>
                 {tiendas.filter(t => t.nombre !== "PRINCIPAL").map(t => {
-                  const valor = editandoCalendario[t.id] !== undefined ? editandoCalendario[t.id] : (t.google_calendar_id || "");
+                  const valor = editandoCalendario[t.id] !== undefined
+                    ? editandoCalendario[t.id]
+                    : (t.google_calendar_id || "");
                   const guardando = guardandoCal[t.id];
                   return (
                     <tr key={t.id} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-3"><div className="font-semibold text-sm">{t.nombre}</div>{t.codigo && <div className="text-xs text-gray-400 font-mono">{t.codigo}</div>}</td>
                       <td className="px-4 py-3">
-                        <input type="email" value={valor}
+                        <div className="font-semibold text-sm">{t.nombre}</div>
+                        {t.codigo && <div className="text-xs text-gray-400 font-mono">{t.codigo}</div>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="email" value={valor}
                           onChange={e => setEditandoCalendario(prev => ({ ...prev, [t.id]: e.target.value }))}
                           onKeyDown={e => e.key === "Enter" && guardarCalendario(t.id)}
                           placeholder="email@gmail.com"
-                          className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none ${valor && valor !== (t.google_calendar_id || "") ? "border-[#00c254] bg-[#edf7f2]" : "border-gray-200"}`} />
+                          className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none ${
+                            valor && valor !== (t.google_calendar_id || "")
+                              ? "border-[#00c254] bg-[#edf7f2]"
+                              : "border-gray-200"
+                          }`}
+                        />
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => guardarCalendario(t.id)} disabled={guardando || valor === (t.google_calendar_id || "")}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-[#00913f] text-white rounded-xl text-xs font-bold hover:bg-[#007a34] disabled:opacity-40 mx-auto">
-                          {guardando ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Guardar
+                        <button
+                          onClick={() => guardarCalendario(t.id)}
+                          disabled={guardando || valor === (t.google_calendar_id || "")}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-[#00913f] text-white rounded-xl text-xs font-bold hover:bg-[#007a34] disabled:opacity-40 mx-auto"
+                        >
+                          {guardando ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                          Guardar
                         </button>
                       </td>
                     </tr>
@@ -833,9 +1009,11 @@ export default function Tiendas() {
         </div>
       )}
 
-      {/* RECORDATORIOS */}
+      {/* ── RECORDATORIOS ── */}
       {tab === "recordatorios" && (
-        <PanelRecordatorios tiendas={tiendas.filter(t => t.nombre !== "PRINCIPAL" && t.activa !== false)} />
+        <PanelRecordatorios
+          tiendas={tiendas.filter(t => t.nombre !== "PRINCIPAL" && t.activa !== false)}
+        />
       )}
     </div>
   );
