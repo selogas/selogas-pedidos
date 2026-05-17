@@ -25,6 +25,19 @@ const DIA_AVISO = {
   4: "Jueves",
 };
 
+// URL fija de la Edge Function — no necesita token (verify_jwt: false)
+const FN_URL = "https://pasllyqgczegpvquaxvb.supabase.co/functions/v1/recordatorio-pedido";
+
+async function llamarFuncion(body) {
+  const res = await fetch(FN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  return data;
+}
+
 // ── Selector de días múltiple ────────────────────────────────────────
 function SelectorDias({ value = [], onChange }) {
   const actual = Array.isArray(value) ? value : [];
@@ -105,8 +118,7 @@ function TiendaModal({ tienda, onSave, onClose }) {
       doble_pedido:       form.doble_pedido === true,
       dia_pedido:
         Array.isArray(form.dia_pedido) && form.dia_pedido.length > 0
-          ? form.dia_pedido
-          : null,
+          ? form.dia_pedido : null,
     };
     if (tienda?.id) {
       const { error } = await supabase.from("tiendas").update(campos).eq("id", tienda.id);
@@ -189,33 +201,25 @@ function TiendaModal({ tienda, onSave, onClose }) {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">📅 Google Calendar ID</label>
-            <input
-              type="text"
-              value={form.google_calendar_id || ""}
+            <input type="text" value={form.google_calendar_id || ""}
               onChange={e => setForm(f => ({ ...f, google_calendar_id: e.target.value }))}
               placeholder="Ej: tormo22@megino.com"
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
-            />
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]" />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">📢 Mensaje banner</label>
-            <textarea
-              value={form.mensaje_banner || ""}
+            <textarea value={form.mensaje_banner || ""}
               onChange={e => setForm(f => ({ ...f, mensaje_banner: e.target.value }))}
               placeholder="Ej: Tu día de pedido es el MARTES..."
-              rows={2}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] resize-none"
-            />
+              rows={2} className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] resize-none" />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Tipo de tienda *</label>
-            <select
-              value={form.grupo || "estacion"}
+            <select value={form.grupo || "estacion"}
               onChange={e => setForm(f => ({ ...f, grupo: e.target.value }))}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
-            >
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]">
               <option value="estacion">🏪 Estación</option>
               <option value="cafeteria">☕ Cafetería</option>
               <option value="ambos">📦 Ambos</option>
@@ -223,12 +227,8 @@ function TiendaModal({ tienda, onSave, onClose }) {
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.doble_pedido === true}
-              onChange={e => setForm(f => ({ ...f, doble_pedido: e.target.checked }))}
-              className="rounded"
-            />
+            <input type="checkbox" checked={form.doble_pedido === true}
+              onChange={e => setForm(f => ({ ...f, doble_pedido: e.target.checked }))} className="rounded" />
             <div>
               <span className="text-sm font-medium">Doble pedido semanal</span>
               <p className="text-xs text-gray-400">Avisa en catálogo cuando un producto ya fue pedido esta semana</p>
@@ -236,27 +236,17 @@ function TiendaModal({ tienda, onSave, onClose }) {
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.activa !== false}
-              onChange={e => setForm(f => ({ ...f, activa: e.target.checked }))}
-              className="rounded"
-            />
+            <input type="checkbox" checked={form.activa !== false}
+              onChange={e => setForm(f => ({ ...f, activa: e.target.checked }))} className="rounded" />
             <span className="text-sm font-medium">Tienda activa</span>
           </label>
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !form.nombre}
-            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-            Guardar
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">Cancelar</button>
+          <button onClick={handleSave} disabled={saving || !form.nombre}
+            className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Guardar
           </button>
         </div>
       </div>
@@ -293,16 +283,12 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           tiendaIdEdit = principal?.id || null;
         }
         const { error: e } = await supabase.from("perfiles").update({
-          nombre_completo: form.nombre_completo,
-          rol: "tienda",
-          tienda_id: tiendaIdEdit,
-          activo: form.activo,
+          nombre_completo: form.nombre_completo, rol: "tienda",
+          tienda_id: tiendaIdEdit, activo: form.activo,
         }).eq("id", usuarioEditar.id);
         if (e) throw e;
         if (password.trim().length >= 6) {
-          const { error: pwError } = await supabase.rpc("cambiar_password_usuario", {
-            p_user_id: usuarioEditar.id, p_password: password,
-          });
+          const { error: pwError } = await supabase.rpc("cambiar_password_usuario", { p_user_id: usuarioEditar.id, p_password: password });
           if (pwError) throw pwError;
         }
       } else {
@@ -312,19 +298,14 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           tiendaId = principal?.id || null;
         }
         const { data: rpcData, error: rpcError } = await supabase.rpc("crear_usuario_tienda", {
-          p_email: form.email.trim(),
-          p_password: password,
-          p_nombre: form.nombre_completo || "",
-          p_rol: "tienda",
-          p_tienda_id: tiendaId,
+          p_email: form.email.trim(), p_password: password,
+          p_nombre: form.nombre_completo || "", p_rol: "tienda", p_tienda_id: tiendaId,
         });
         if (rpcError) throw rpcError;
         if (rpcData?.error) throw new Error(rpcData.error);
       }
       onSave();
-    } catch (err) {
-      setError(err.message || "Error al guardar el usuario.");
-    }
+    } catch (err) { setError(err.message || "Error al guardar el usuario."); }
     setSaving(false);
   };
 
@@ -346,30 +327,23 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Email *</label>
-            <input
-              type="email" value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              disabled={esEdicion}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] disabled:bg-gray-50 disabled:text-gray-400"
-            />
+            <input type="email" value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))} disabled={esEdicion}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254] disabled:bg-gray-50 disabled:text-gray-400" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Nombre completo</label>
-            <input
-              type="text" value={form.nombre_completo}
+            <input type="text" value={form.nombre_completo}
               onChange={e => setForm(f => ({ ...f, nombre_completo: e.target.value }))}
-              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
-            />
+              className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700">Contraseña *</label>
             <div className="relative">
-              <input
-                type={showPass ? "text" : "password"} value={password}
+              <input type={showPass ? "text" : "password"} value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder={esEdicion ? "Nueva contraseña (vacío = no cambiar)" : "Mínimo 6 caracteres"}
-                className="w-full border rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-[#00c254]"
-              />
+                className="w-full border rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-[#00c254]" />
               <button type="button" onClick={() => setShowPass(!showPass)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -408,9 +382,7 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           </label>
         </div>
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">
-            Cancelar
-          </button>
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl font-medium text-sm hover:bg-gray-50">Cancelar</button>
           <button onClick={handleSave} disabled={saving}
             className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#007a34] disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
@@ -445,15 +417,12 @@ function PanelRecordatorios({ tiendas }) {
 
   useEffect(() => { cargarHistorial(); }, []);
 
+  // Fetch directo sin token — la función tiene verify_jwt:false
   const ejecutarAhora = async () => {
     setEjecutando(true);
     setResultado(null);
     try {
-      const { data, error } = await supabase.functions.invoke("recordatorio-pedido", {
-        method: "POST",
-        body: {},
-      });
-      if (error) throw error;
+      const data = await llamarFuncion({});
       setResultado(data);
       if (data?.ok) cargarHistorial();
     } catch (err) {
@@ -467,11 +436,11 @@ function PanelRecordatorios({ tiendas }) {
     setEnviandoTest(true);
     setResultadoTest(null);
     try {
-      const { data, error } = await supabase.functions.invoke("recordatorio-pedido", {
-        method: "POST",
-        body: { test: true, email: emailTest.trim(), nombre: "Tienda de Prueba" },
+      const data = await llamarFuncion({
+        test: true,
+        email: emailTest.trim(),
+        nombre: "Tienda de Prueba",
       });
-      if (error) throw error;
       setResultadoTest(data);
     } catch (err) {
       setResultadoTest({ ok: false, error: err?.message || String(err) });
@@ -489,11 +458,12 @@ function PanelRecordatorios({ tiendas }) {
       {/* Info lógica */}
       <div className="bg-[#edf7f2] border border-[#b3dfc4] rounded-xl p-4 text-sm text-[#007a34] space-y-1">
         <p><strong>Cron automático:</strong> se ejecuta cada día laborable a las 09:00 Madrid.</p>
-        <p><strong>Lógica:</strong> cada entrega tiene su propia ventana de búsqueda. Un pedido para el Martes no cancela el aviso del Viernes.</p>
-        <p><strong>Ejemplo:</strong> llega Martes → avisa el Lunes buscando pedidos desde el Viernes anterior. Llega Viernes → avisa el Jueves buscando pedidos desde el Martes.</p>
+        <p><strong>Lógica:</strong> cada entrega tiene su propia ventana. Un pedido del Martes no cancela el aviso del Viernes.</p>
+        <p><strong>Ejemplo:</strong> llega Martes → avisa Lunes buscando pedidos desde el Viernes anterior. Llega Viernes → avisa Jueves buscando desde el Martes.</p>
         <p><strong>Fin de semana:</strong> no se envían avisos sábado ni domingo.</p>
         <p className="text-xs text-[#007a34]/70">
-          Emails desde <code className="bg-[#d9f0e4] px-1 rounded">onboarding@resend.dev</code>
+          Emails desde <code className="bg-[#d9f0e4] px-1 rounded">onboarding@resend.dev</code> —
+          solo llegan a emails verificados en Resend (modo sandbox).
         </p>
       </div>
 
@@ -505,16 +475,15 @@ function PanelRecordatorios({ tiendas }) {
         </div>
         <div className="p-5 space-y-3">
           <p className="text-xs text-gray-500">
-            Envía un email de prueba a cualquier dirección. No registra nada ni comprueba pedidos.
+            Envía un email de prueba. Solo llega si el email destino está verificado en tu cuenta de Resend
+            (modo sandbox). Para enviar a cualquier email necesitas verificar el dominio <strong>megino.com</strong> en Resend.
           </p>
           <div className="flex gap-2">
-            <input
-              type="email" value={emailTest}
+            <input type="email" value={emailTest}
               onChange={e => setEmailTest(e.target.value)}
               onKeyDown={e => e.key === "Enter" && enviarTest()}
               placeholder="tu@email.com"
-              className="flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
-            />
+              className="flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]" />
             <button onClick={enviarTest} disabled={enviandoTest || !emailTest.trim()}
               className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition-colors whitespace-nowrap">
               {enviandoTest ? <Loader2 size={15} className="animate-spin" /> : <FlaskConical size={15} />}
@@ -530,14 +499,22 @@ function PanelRecordatorios({ tiendas }) {
               {resultadoTest.ok
                 ? <>
                     <CheckCircle size={16} className="flex-shrink-0 mt-0.5" />
-                    <span>
-                      Email enviado a <strong>{emailTest}</strong>.
-                      Si no llega en 1–2 minutos, revisa la carpeta de spam.
-                    </span>
+                    <div>
+                      <p>Email enviado a <strong>{emailTest}</strong>. Revisa la bandeja de entrada (y spam).</p>
+                      {resultadoTest.log?.[0] && <p className="text-xs mt-1 opacity-70">{resultadoTest.log[0]}</p>}
+                    </div>
                   </>
                 : <>
                     <X size={16} className="flex-shrink-0 mt-0.5" />
-                    <span>Error: {resultadoTest.error}</span>
+                    <div>
+                      <p className="font-semibold">Error al enviar</p>
+                      <p className="text-xs mt-0.5">{resultadoTest.error}</p>
+                      {resultadoTest.ayuda && (
+                        <p className="text-xs mt-1 bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-700">
+                          💡 {resultadoTest.ayuda}
+                        </p>
+                      )}
+                    </div>
                   </>
               }
               <button onClick={() => setResultadoTest(null)} className="ml-auto text-gray-400 hover:text-gray-600 flex-shrink-0">
@@ -579,10 +556,7 @@ function PanelRecordatorios({ tiendas }) {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-gray-900">{t.nombre}</p>
                     <p className="text-xs text-gray-400">
-                      {t.email
-                        ? t.email
-                        : <span className="text-amber-500 font-medium">Sin email — no recibirá avisos</span>
-                      }
+                      {t.email || <span className="text-amber-500 font-medium">Sin email — no recibirá avisos</span>}
                     </p>
                     {Array.isArray(t.dia_pedido) && (
                       <div className="mt-1.5 space-y-0.5">
@@ -693,8 +667,7 @@ export default function Tiendas() {
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
-    const { data } = await supabase
-      .from("perfiles").select("*, tiendas(nombre)").order("nombre_completo");
+    const { data } = await supabase.from("perfiles").select("*, tiendas(nombre)").order("nombre_completo");
     setUsuarios(data || []);
     setLoadingUsuarios(false);
   };
@@ -706,9 +679,7 @@ export default function Tiendas() {
     setGuardandoCal(prev => ({ ...prev, [tiendaId]: true }));
     await supabase.from("tiendas").update({ google_calendar_id: valor || null }).eq("id", tiendaId);
     setGuardandoCal(prev => ({ ...prev, [tiendaId]: false }));
-    setTiendas(prev => prev.map(t =>
-      t.id === tiendaId ? { ...t, google_calendar_id: valor || null } : t
-    ));
+    setTiendas(prev => prev.map(t => t.id === tiendaId ? { ...t, google_calendar_id: valor || null } : t));
   };
 
   const eliminarTienda = async (id) => {
@@ -744,80 +715,56 @@ export default function Tiendas() {
   return (
     <div>
       {modalTienda && (
-        <TiendaModal
-          tienda={editandoTienda}
+        <TiendaModal tienda={editandoTienda}
           onSave={() => { setModalTienda(false); setEditandoTienda(null); cargarTiendas(); }}
-          onClose={() => { setModalTienda(false); setEditandoTienda(null); }}
-        />
+          onClose={() => { setModalTienda(false); setEditandoTienda(null); }} />
       )}
       {modalUsuario && (
-        <UsuarioModal
-          key={editandoUsuario?.id || "nuevo"}
-          tiendas={tiendas}
-          usuarioEditar={editandoUsuario}
+        <UsuarioModal key={editandoUsuario?.id || "nuevo"} tiendas={tiendas} usuarioEditar={editandoUsuario}
           onSave={() => { setModalUsuario(false); setEditandoUsuario(null); cargarUsuarios(); }}
-          onClose={() => { setModalUsuario(false); setEditandoUsuario(null); }}
-        />
+          onClose={() => { setModalUsuario(false); setEditandoUsuario(null); }} />
       )}
 
-      {/* Cabecera */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Gestión de Tiendas y Usuarios</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {tiendas.length} tiendas · {usuarios.length} usuarios
-          </p>
+          <p className="text-gray-500 text-sm mt-1">{tiendas.length} tiendas · {usuarios.length} usuarios</p>
         </div>
         {(tab === "tiendas" || tab === "usuarios") && (
-          <button
-            onClick={() => {
-              if (tab === "tiendas") { setEditandoTienda(null); setModalTienda(true); }
-              else { setEditandoUsuario(null); setModalUsuario(true); }
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]"
-          >
-            <Plus size={16} />
-            {tab === "tiendas" ? "Nueva tienda" : "Nuevo usuario"}
+          <button onClick={() => {
+            if (tab === "tiendas") { setEditandoTienda(null); setModalTienda(true); }
+            else { setEditandoUsuario(null); setModalUsuario(true); }
+          }} className="flex items-center gap-2 px-4 py-2.5 bg-[#00913f] text-white rounded-xl font-semibold text-sm hover:bg-[#007a34]">
+            <Plus size={16} />{tab === "tiendas" ? "Nueva tienda" : "Nuevo usuario"}
           </button>
         )}
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6 flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              tab === t.id ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"
-            }`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === t.id ? "bg-white text-[#007a34] shadow" : "text-gray-500 hover:text-gray-700"}`}>
             <t.icon size={15} /> {t.label}
           </button>
         ))}
       </div>
 
-      {/* ── TIENDAS ── */}
+      {/* TIENDAS */}
       {tab === "tiendas" && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="bg-[#edf7f2] border border-[#b3dfc4] rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">🏪</span>
-                <span className="font-bold text-[#007a34]">Estaciones</span>
-              </div>
+              <div className="flex items-center gap-2 mb-1"><span className="text-2xl">🏪</span><span className="font-bold text-[#007a34]">Estaciones</span></div>
               <p className="text-sm text-[#007a34]">Ven productos marcados como "estación" o "ambas"</p>
             </div>
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">☕</span>
-                <span className="font-bold text-orange-800">Cafeterías</span>
-              </div>
+              <div className="flex items-center gap-2 mb-1"><span className="text-2xl">☕</span><span className="font-bold text-orange-800">Cafeterías</span></div>
               <p className="text-sm text-orange-700">Ven productos marcados como "cafetería" o "ambas"</p>
             </div>
           </div>
           <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
             {loading ? (
-              <div className="p-8 text-center">
-                <Loader2 className="animate-spin mx-auto text-[#00913f]" />
-              </div>
+              <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-[#00913f]" /></div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[820px]">
@@ -836,31 +783,17 @@ export default function Tiendas() {
                           <td className="px-4 py-3 font-mono text-sm text-gray-500">{t.codigo || "—"}</td>
                           <td className="px-4 py-3 font-semibold text-sm">{t.nombre}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">{t.email || "—"}</td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${gi.color}`}>
-                              {gi.label}
-                            </span>
-                          </td>
+                          <td className="px-4 py-3"><span className={`text-xs px-2.5 py-1 rounded-full font-medium ${gi.color}`}>{gi.label}</span></td>
                           <td className="px-4 py-3"><BadgesDias dias={t.dia_pedido} /></td>
                           <td className="px-4 py-3">
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                              t.activa !== false
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-500"
-                            }`}>
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${t.activa !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                               {t.activa !== false ? "Activa" : "Inactiva"}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-1">
-                              <button onClick={() => { setEditandoTienda(t); setModalTienda(true); }}
-                                className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]">
-                                <Pencil size={15} />
-                              </button>
-                              <button onClick={() => eliminarTienda(t.id)}
-                                className="p-2 hover:bg-red-50 rounded-lg text-red-400">
-                                <Trash2 size={15} />
-                              </button>
+                              <button onClick={() => { setEditandoTienda(t); setModalTienda(true); }} className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]"><Pencil size={15} /></button>
+                              <button onClick={() => eliminarTienda(t.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400"><Trash2 size={15} /></button>
                             </div>
                           </td>
                         </tr>
@@ -874,65 +807,40 @@ export default function Tiendas() {
         </>
       )}
 
-      {/* ── USUARIOS ── */}
+      {/* USUARIOS */}
       {tab === "usuarios" && (
         <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
           {loadingUsuarios ? (
-            <div className="p-8 text-center">
-              <Loader2 className="animate-spin mx-auto text-[#00913f]" />
-            </div>
+            <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-[#00913f]" /></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[650px]">
                 <thead className="bg-gray-50 border-b">
-                  <tr>
-                    {["Usuario","Email","Rol","Tienda","Estado","Acciones"].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-sm font-semibold text-gray-600">{h}</th>
-                    ))}
-                  </tr>
+                  <tr>{["Usuario","Email","Rol","Tienda","Estado","Acciones"].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-sm font-semibold text-gray-600">{h}</th>
+                  ))}</tr>
                 </thead>
                 <tbody>
                   {usuarios.map(u => (
                     <tr key={u.id} className="border-b hover:bg-gray-50">
                       <td className="px-4 py-3 font-semibold text-sm">{u.nombre_completo || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        <div className="flex items-center gap-1.5">
-                          <Mail size={13} className="text-gray-400" />{u.email || "—"}
-                        </div>
-                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600"><div className="flex items-center gap-1.5"><Mail size={13} className="text-gray-400" />{u.email || "—"}</div></td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold ${
-                          (u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin")
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-[#d9f0e4] text-[#007a34]"
-                        }`}>
-                          {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin")
-                            ? <ShieldCheck size={11} />
-                            : <Store size={11} />}
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold ${(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? "bg-purple-100 text-purple-700" : "bg-[#d9f0e4] text-[#007a34]"}`}>
+                          {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? <ShieldCheck size={11} /> : <Store size={11} />}
                           {(u.tiendas?.nombre === "PRINCIPAL" || u.rol === "admin") ? "Admin" : "Tienda"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{u.tiendas?.nombre || "—"}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => toggleActivo(u)}
-                          className={`text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer ${
-                            u.activo !== false
-                              ? "bg-green-100 text-green-700 hover:bg-green-200"
-                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                          }`}>
+                        <button onClick={() => toggleActivo(u)} className={`text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer ${u.activo !== false ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                           {u.activo !== false ? "Activo" : "Inactivo"}
                         </button>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <button onClick={() => { setEditandoUsuario(u); setModalUsuario(true); }}
-                            className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]">
-                            <Pencil size={15} />
-                          </button>
-                          <button onClick={() => eliminarUsuario(u.id)}
-                            className="p-2 hover:bg-red-50 rounded-lg text-red-400">
-                            <Trash2 size={15} />
-                          </button>
+                          <button onClick={() => { setEditandoUsuario(u); setModalUsuario(true); }} className="p-2 hover:bg-[#edf7f2] rounded-lg text-[#00a847]"><Pencil size={15} /></button>
+                          <button onClick={() => eliminarUsuario(u.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-400"><Trash2 size={15} /></button>
                         </div>
                       </td>
                     </tr>
@@ -944,16 +852,14 @@ export default function Tiendas() {
         </div>
       )}
 
-      {/* ── CALENDARIOS ── */}
+      {/* CALENDARIOS */}
       {tab === "calendarios" && (
         <div>
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
             <Calendar size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-amber-800">Calendarios de Google para Caducidades</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Email del calendario de cada tienda. La cuenta <strong>caducidades@gmail.com</strong> debe tener acceso.
-              </p>
+              <p className="text-xs text-amber-700 mt-0.5">Email del calendario de cada tienda. La cuenta <strong>caducidades@gmail.com</strong> debe tener acceso.</p>
             </div>
           </div>
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -967,37 +873,22 @@ export default function Tiendas() {
               </thead>
               <tbody>
                 {tiendas.filter(t => t.nombre !== "PRINCIPAL").map(t => {
-                  const valor = editandoCalendario[t.id] !== undefined
-                    ? editandoCalendario[t.id]
-                    : (t.google_calendar_id || "");
+                  const valor = editandoCalendario[t.id] !== undefined ? editandoCalendario[t.id] : (t.google_calendar_id || "");
                   const guardando = guardandoCal[t.id];
                   return (
                     <tr key={t.id} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-3"><div className="font-semibold text-sm">{t.nombre}</div>{t.codigo && <div className="text-xs text-gray-400 font-mono">{t.codigo}</div>}</td>
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-sm">{t.nombre}</div>
-                        {t.codigo && <div className="text-xs text-gray-400 font-mono">{t.codigo}</div>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="email" value={valor}
+                        <input type="email" value={valor}
                           onChange={e => setEditandoCalendario(prev => ({ ...prev, [t.id]: e.target.value }))}
                           onKeyDown={e => e.key === "Enter" && guardarCalendario(t.id)}
                           placeholder="email@gmail.com"
-                          className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none ${
-                            valor && valor !== (t.google_calendar_id || "")
-                              ? "border-[#00c254] bg-[#edf7f2]"
-                              : "border-gray-200"
-                          }`}
-                        />
+                          className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none ${valor && valor !== (t.google_calendar_id || "") ? "border-[#00c254] bg-[#edf7f2]" : "border-gray-200"}`} />
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => guardarCalendario(t.id)}
-                          disabled={guardando || valor === (t.google_calendar_id || "")}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-[#00913f] text-white rounded-xl text-xs font-bold hover:bg-[#007a34] disabled:opacity-40 mx-auto"
-                        >
-                          {guardando ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                          Guardar
+                        <button onClick={() => guardarCalendario(t.id)} disabled={guardando || valor === (t.google_calendar_id || "")}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-[#00913f] text-white rounded-xl text-xs font-bold hover:bg-[#007a34] disabled:opacity-40 mx-auto">
+                          {guardando ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Guardar
                         </button>
                       </td>
                     </tr>
@@ -1009,11 +900,9 @@ export default function Tiendas() {
         </div>
       )}
 
-      {/* ── RECORDATORIOS ── */}
+      {/* RECORDATORIOS */}
       {tab === "recordatorios" && (
-        <PanelRecordatorios
-          tiendas={tiendas.filter(t => t.nombre !== "PRINCIPAL" && t.activa !== false)}
-        />
+        <PanelRecordatorios tiendas={tiendas.filter(t => t.nombre !== "PRINCIPAL" && t.activa !== false)} />
       )}
     </div>
   );
