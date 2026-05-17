@@ -26,16 +26,25 @@ const DIA_AVISO = {
 };
 
 // URL fija de la Edge Function — no necesita token (verify_jwt: false)
+// AHORA — con apikey resuelve el CORS
 const FN_URL = "https://pasllyqgczegpvquaxvb.supabase.co/functions/v1/recordatorio-pedido";
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 async function llamarFuncion(body) {
   const res = await fetch(FN_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": ANON_KEY,
+      "Authorization": `Bearer ${ANON_KEY}`,
+    },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
-  return data;
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Error ${res.status}: ${txt}`);
+  }
+  return res.json();
 }
 
 // ── Selector de días múltiple ────────────────────────────────────────
