@@ -4,7 +4,7 @@ import {
   Plus, Pencil, Trash2, Store, X, Check, Loader2,
   Users, Mail, ShieldCheck, ShieldAlert,
   UserPlus, Eye, EyeOff, RefreshCw, Calendar, Save,
-  Bell, Play, CheckCircle
+  Bell, Play, CheckCircle, FlaskConical
 } from "lucide-react";
 
 const DIAS_SEMANA = [
@@ -17,7 +17,18 @@ const DIAS_SEMANA = [
   { value: 6, label: "Domingo",   short: "D" },
 ];
 
-// ── Selector de días múltiple (botones L M X J V S D) ───────────────
+// Día en que se envía el aviso para cada día de llegada
+// Llegada Lunes(0) → aviso Viernes(4) anterior
+// Llegada Mar-Vie  → aviso el día anterior
+const DIA_AVISO: Record<number, string> = {
+  0: "Viernes (semana anterior)",
+  1: "Lunes",
+  2: "Martes",
+  3: "Miércoles",
+  4: "Jueves",
+};
+
+// ── Selector de días múltiple ────────────────────────────────────────
 function SelectorDias({ value = [], onChange }) {
   const actual = Array.isArray(value) ? value : [];
   const toggle = (diaVal) => {
@@ -49,7 +60,7 @@ function SelectorDias({ value = [], onChange }) {
   );
 }
 
-// ── Badges de días para mostrar en tabla ─────────────────────────────
+// ── Badges de días con su día de aviso ──────────────────────────────
 function BadgesDias({ dias }) {
   if (!Array.isArray(dias) || dias.length === 0) return <span className="text-xs text-gray-300">—</span>;
   return (
@@ -100,6 +111,8 @@ function TiendaModal({ tienda, onSave, onClose }) {
     onSave();
   };
 
+  const diasSeleccionados = Array.isArray(form.dia_pedido) ? form.dia_pedido : [];
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
@@ -122,22 +135,37 @@ function TiendaModal({ tienda, onSave, onClose }) {
             </div>
           ))}
 
-          {/* Selector múltiple de días */}
+          {/* Selector días + tabla de avisos */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">
-              <span className="flex items-center gap-1.5">
-                <Bell size={14} className="text-[#00913f]" />
-                Días de pedido
-                {Array.isArray(form.dia_pedido) && form.dia_pedido.length > 0 && (
-                  <span className="text-xs text-gray-400 font-normal">
-                    ({form.dia_pedido.length === 1 ? "1 día" : `${form.dia_pedido.length} días`})
-                  </span>
-                )}
-              </span>
+            <label className="block text-sm font-medium mb-2 text-gray-700 flex items-center gap-1.5">
+              <Bell size={14} className="text-[#00913f]" />
+              Días que llega el pedido
+              {diasSeleccionados.length > 0 && (
+                <span className="text-xs text-gray-400 font-normal">({diasSeleccionados.length} día{diasSeleccionados.length > 1 ? "s" : ""})</span>
+              )}
             </label>
             <SelectorDias value={form.dia_pedido} onChange={dias => setForm(f => ({ ...f, dia_pedido: dias }))} />
-            <p className="text-xs text-gray-400 mt-2">
-              Selecciona uno o varios días. Si ese día llega y la tienda no ha pedido esa semana, recibirá un aviso automático por email.
+
+            {/* Tabla de cuándo salta el aviso */}
+            {diasSeleccionados.length > 0 && (
+              <div className="mt-2 rounded-xl border border-[#b3dfc4] bg-[#edf7f2] overflow-hidden">
+                <div className="px-3 py-1.5 text-xs font-semibold text-[#007a34] border-b border-[#b3dfc4]">
+                  📬 Cuándo se enviará el aviso si no hay pedido
+                </div>
+                {diasSeleccionados.map(v => {
+                  const d = DIAS_SEMANA.find(x => x.value === v);
+                  const aviso = DIA_AVISO[v] ?? "—";
+                  return d ? (
+                    <div key={v} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-[#d9f0e4] last:border-0">
+                      <span className="text-gray-600">Llega el <strong>{d.label}</strong></span>
+                      <span className="text-[#007a34] font-semibold">→ aviso el {aviso}</span>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            )}
+            <p className="text-xs text-gray-400 mt-1.5">
+              El aviso se envía el día laborable anterior si esa semana no hay pedido registrado.
             </p>
           </div>
 
@@ -168,7 +196,8 @@ function TiendaModal({ tienda, onSave, onClose }) {
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.doble_pedido === true} onChange={e => setForm(f => ({ ...f, doble_pedido: e.target.checked }))} className="rounded" />
+            <input type="checkbox" checked={form.doble_pedido === true}
+              onChange={e => setForm(f => ({ ...f, doble_pedido: e.target.checked }))} className="rounded" />
             <div>
               <span className="text-sm font-medium">Doble pedido semanal</span>
               <p className="text-xs text-gray-400">Avisa en catálogo cuando un producto ya fue pedido esta semana</p>
@@ -176,7 +205,8 @@ function TiendaModal({ tienda, onSave, onClose }) {
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.activa !== false} onChange={e => setForm(f => ({ ...f, activa: e.target.checked }))} className="rounded" />
+            <input type="checkbox" checked={form.activa !== false}
+              onChange={e => setForm(f => ({ ...f, activa: e.target.checked }))} className="rounded" />
             <span className="text-sm font-medium">Tienda activa</span>
           </label>
         </div>
@@ -222,7 +252,8 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
           tiendaIdEdit = principal?.id || null;
         }
         const { error: e } = await supabase.from("perfiles").update({
-          nombre_completo: form.nombre_completo, rol: "tienda", tienda_id: tiendaIdEdit, activo: form.activo,
+          nombre_completo: form.nombre_completo, rol: "tienda",
+          tienda_id: tiendaIdEdit, activo: form.activo,
         }).eq("id", usuarioEditar.id);
         if (e) throw e;
         if (password.trim().length >= 6) {
@@ -308,7 +339,8 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
             </div>
           )}
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.activo !== false} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="rounded" />
+            <input type="checkbox" checked={form.activo !== false}
+              onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="rounded" />
             <span className="text-sm font-medium">Usuario activo</span>
           </label>
         </div>
@@ -327,10 +359,15 @@ function UsuarioModal({ tiendas, usuarioEditar, onSave, onClose }) {
 
 // ── Panel de Recordatorios ───────────────────────────────────────────
 function PanelRecordatorios({ tiendas }) {
-  const [ejecutando, setEjecutando] = useState(false);
-  const [resultado, setResultado]   = useState(null);
-  const [historial, setHistorial]   = useState([]);
+  const [ejecutando, setEjecutando]   = useState(false);
+  const [resultado, setResultado]     = useState(null);
+  const [historial, setHistorial]     = useState([]);
   const [loadingHist, setLoadingHist] = useState(false);
+
+  // Test
+  const [emailTest, setEmailTest]       = useState("");
+  const [enviandoTest, setEnviandoTest] = useState(false);
+  const [resultadoTest, setResultadoTest] = useState(null);
 
   const cargarHistorial = async () => {
     setLoadingHist(true);
@@ -345,11 +382,16 @@ function PanelRecordatorios({ tiendas }) {
 
   useEffect(() => { cargarHistorial(); }, []);
 
+  const getSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
+  };
+
   const ejecutarAhora = async () => {
     setEjecutando(true);
     setResultado(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getSession();
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/recordatorio-pedido`,
         { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: "{}" }
@@ -363,23 +405,82 @@ function PanelRecordatorios({ tiendas }) {
     setEjecutando(false);
   };
 
+  const enviarTest = async () => {
+    if (!emailTest.trim()) { alert("Introduce un email para el test"); return; }
+    setEnviandoTest(true);
+    setResultadoTest(null);
+    try {
+      const session = await getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/recordatorio-pedido`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ test: true, email: emailTest.trim(), nombre: "Tienda de Prueba" }),
+        }
+      );
+      const json = await res.json();
+      setResultadoTest(json);
+    } catch (err) {
+      setResultadoTest({ ok: false, error: err.message });
+    }
+    setEnviandoTest(false);
+  };
+
   const tiendasConDia = tiendas.filter(t => Array.isArray(t.dia_pedido) && t.dia_pedido.length > 0);
 
   return (
     <div className="space-y-5">
-      <div className="bg-[#edf7f2] border border-[#b3dfc4] rounded-xl p-4 flex items-start gap-3">
-        <Bell size={16} className="text-[#00913f] flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-[#007a34]">
-          <strong>Cron automático activo</strong> — se ejecuta cada día a las 09:00 (Madrid).
-          Solo envía aviso si la tienda no ha pedido esa semana y no se mandó aviso hoy.
-          Emails salen desde <code className="bg-[#d9f0e4] px-1 rounded text-xs">onboarding@resend.dev</code>.
+
+      {/* Explicación lógica */}
+      <div className="bg-[#edf7f2] border border-[#b3dfc4] rounded-xl p-4 text-sm text-[#007a34] space-y-1">
+        <p><strong>Cron automático:</strong> se ejecuta cada día laborable a las 09:00 Madrid.</p>
+        <p><strong>Lógica:</strong> si hoy es el día laborable anterior al día de llegada del pedido, y esa tienda no tiene ningún pedido registrado esta semana → envía aviso.</p>
+        <p><strong>Ejemplo:</strong> pedido llega el Martes → aviso el Lunes. Pedido llega el Lunes → aviso el Viernes anterior.</p>
+        <p><strong>Fin de semana:</strong> no se envían avisos sábado ni domingo.</p>
+        <p className="text-xs text-[#007a34]/70">Emails desde <code className="bg-[#d9f0e4] px-1 rounded">onboarding@resend.dev</code></p>
+      </div>
+
+      {/* Test de email */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b bg-amber-50 flex items-center gap-2">
+          <FlaskConical size={16} className="text-amber-600" />
+          <p className="font-semibold text-amber-800 text-sm">Probar que los emails llegan</p>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-gray-500">Envía un email de prueba a cualquier dirección para verificar que el sistema funciona. No registra nada ni comprueba pedidos.</p>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={emailTest}
+              onChange={e => setEmailTest(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && enviarTest()}
+              placeholder="tu@email.com"
+              className="flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#00c254]"
+            />
+            <button onClick={enviarTest} disabled={enviandoTest || !emailTest.trim()}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition-colors whitespace-nowrap">
+              {enviandoTest ? <Loader2 size={15} className="animate-spin" /> : <FlaskConical size={15} />}
+              {enviandoTest ? "Enviando..." : "Enviar test"}
+            </button>
+          </div>
+          {resultadoTest && (
+            <div className={`rounded-xl p-3 flex items-start gap-2 text-sm ${resultadoTest.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-700"}`}>
+              {resultadoTest.ok
+                ? <><CheckCircle size={16} className="flex-shrink-0 mt-0.5" /><span>Email enviado a <strong>{emailTest}</strong>. Si no llega en 1-2 minutos, revisa la carpeta de spam.</span></>
+                : <><X size={16} className="flex-shrink-0 mt-0.5" /><span>Error: {resultadoTest.error}</span></>
+              }
+              <button onClick={() => setResultadoTest(null)} className="ml-auto text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={13} /></button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Tabla configuración */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
           <div>
-            <p className="font-semibold text-gray-800">Días de pedido configurados</p>
+            <p className="font-semibold text-gray-800">Días configurados por tienda</p>
             <p className="text-xs text-gray-400 mt-0.5">{tiendasConDia.length} tienda{tiendasConDia.length !== 1 ? "s" : ""} con recordatorio activo</p>
           </div>
           <button onClick={ejecutarAhora} disabled={ejecutando}
@@ -393,26 +494,45 @@ function PanelRecordatorios({ tiendas }) {
           <div className="p-8 text-center text-gray-400 text-sm">
             <Bell size={36} className="mx-auto mb-2 opacity-20" />
             Ninguna tienda tiene días configurados.<br />
-            Edita una tienda y selecciona sus días de pedido.
+            Edita una tienda y selecciona sus días de llegada de pedido.
           </div>
         ) : (
           <div className="divide-y">
             {tiendasConDia.map(t => (
-              <div key={t.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50">
-                <div className="w-2 h-2 rounded-full bg-[#00913f] flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-gray-900">{t.nombre}</p>
-                  <p className="text-xs text-gray-400">
-                    {t.email || <span className="text-amber-500 font-medium">Sin email — no recibirá avisos</span>}
-                  </p>
+              <div key={t.id} className="px-5 py-3 hover:bg-gray-50">
+                <div className="flex items-start gap-4">
+                  <div className="w-2 h-2 rounded-full bg-[#00913f] flex-shrink-0 mt-1.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900">{t.nombre}</p>
+                    <p className="text-xs text-gray-400">
+                      {t.email || <span className="text-amber-500 font-medium">Sin email — no recibirá avisos</span>}
+                    </p>
+                    {/* Detallar cada día con su día de aviso */}
+                    {Array.isArray(t.dia_pedido) && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {t.dia_pedido.map(v => {
+                          const d = DIAS_SEMANA.find(x => x.value === v);
+                          const aviso = DIA_AVISO[v];
+                          return d && aviso ? (
+                            <p key={v} className="text-xs text-gray-500">
+                              Llega el <span className="font-semibold text-gray-700">{d.label}</span>
+                              <span className="text-gray-400"> → aviso el </span>
+                              <span className="font-semibold text-[#00913f]">{aviso}</span>
+                            </p>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <BadgesDias dias={t.dia_pedido} />
                 </div>
-                <BadgesDias dias={t.dia_pedido} />
               </div>
             ))}
           </div>
         )}
       </div>
 
+      {/* Resultado ejecución manual */}
       {resultado && (
         <div className={`rounded-2xl border-2 p-4 ${resultado.ok ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
           <div className="flex items-center gap-2 mb-2">
@@ -433,6 +553,7 @@ function PanelRecordatorios({ tiendas }) {
         </div>
       )}
 
+      {/* Historial */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
           <p className="font-semibold text-gray-700 text-sm">Historial de envíos</p>
@@ -579,10 +700,10 @@ export default function Tiendas() {
               <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-[#00913f]" /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[800px]">
+                <table className="w-full min-w-[820px]">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      {["Código","Nombre","Email","Tipo","Días pedido","Estado","Acciones"].map(h => (
+                      {["Código","Nombre","Email","Tipo","Días llegada pedido","Estado","Acciones"].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-sm font-semibold text-gray-600">{h}</th>
                       ))}
                     </tr>
