@@ -59,69 +59,78 @@ function ResumenBadges({ lineas }) {
 // ─── Modal: Subir albarán ─────────────────────────────────────────────────────
 function ModalSubir({ tiendas, onClose, onSaved }) {
   const { perfil } = useAuth();
-  const [tiendaId, setTiendaId]       = useState('');
-  const [fecha, setFecha]             = useState(new Date().toISOString().split('T')[0]);
-  const [numero, setNumero]           = useState('');
-  const [notas, setNotas]             = useState('');
-  const [lineasAlbaran, setLineas]    = useState([]); // líneas parseadas del Excel
-  const [procesando, setProcesando]   = useState(false);
-  const [guardando, setGuardando]     = useState(false);
-  const [error, setError]             = useState('');
-  const [paso, setPaso]               = useState(1); // 1=datos, 2=excel, 3=preview
+  const [tiendaId, setTiendaId]         = useState('');
+  const [numero, setNumero]             = useState('');
+  const [notas, setNotas]               = useState('');
+  const [lineasAlbaran, setLineas]      = useState([]);
+  const [procesando, setProcesando]     = useState(false);
+  const [guardando, setGuardando]       = useState(false);
+  const [error, setError]               = useState('');
+  const [paso, setPaso]                 = useState(1); // 1=datos 2=archivo 3=preview
   const fileRef = useRef();
 
-  // Parsear el archivo Excel en el cliente
+  // Pedidos disponibles de la tienda seleccionada (últimos 30)
+  const [pedidosTienda, setPedidosTienda]   = useState([]);
+  const [cargandoPedidos, setCargandoPedidos] = useState(false);
+  // Set de pedido_id seleccionados para cruzar (puede ser 1 o 2)
+  const [pedidosSelec, setPedidosSelec]     = useState(new Set());
+
+  // Al cambiar tienda cargar sus últimos 30 pedidos
+  useEffect(() => {
+    if (!tiendaId) { setPedidosTienda([]); setPedidosSelec(new Set()); return; }
+    setCargandoPedidos(true);
+    supabase.from('pedidos')
+      .select('id, numero_pedido, fecha_pedido, total_lineas')
+      .eq('tienda_id', tiendaId)
+      .order('fecha_pedido', { ascending: false })
+      .limit(30)
+      .then(({ data }) => {
+        setPedidosTienda(data || []);
+        setCargandoPedidos(false);
+      });
+  }, [tiendaId]);
+
+  const togglePedido = (id) => {
+    setPedidosSelec(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  // Parsear Excel en cliente
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setProcesando(true);
-    setError('');
+    setProcesando(true); setError('');
     try {
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer);
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-      // Detectar cabecera: buscar fila con "Artículo" y "Unidades"
-      let headerIdx = -1;
-      let colCodigo = -1, colUnidades = -1, colDesc = -1;
-
+      let headerIdx = -1, colCodigo = -1, colUnidades = -1, colDesc = -1;
       for (let i = 0; i < Math.min(10, rows.length); i++) {
         const row = rows[i].map(v => String(v || '').toLowerCase().trim());
         const artIdx  = row.findIndex(c => c.includes('artículo') || c.includes('articulo') || c === 'código' || c === 'codigo');
         const unidIdx = row.findIndex(c => c.includes('unidades') || c.includes('cantidad') || c.includes('uds'));
         const descIdx = row.findIndex(c => c.includes('descripción') || c.includes('descripcion') || c.includes('nombre'));
-        if (artIdx >= 0 && unidIdx >= 0) {
-          headerIdx = i; colCodigo = artIdx; colUnidades = unidIdx; colDesc = descIdx;
-          break;
-        }
+        if (artIdx >= 0 && unidIdx >= 0) { headerIdx = i; colCodigo = artIdx; colUnidades = unidIdx; colDesc = descIdx; break; }
       }
-
-      if (headerIdx < 0) {
-        // Fallback: asumir columna 1 = código, col 2 = unidades, col 3 = descripción
-        headerIdx = 0; colCodigo = 1; colUnidades = 2; colDesc = 3;
-      }
+      if (headerIdx < 0) { headerIdx = 0; colCodigo = 1; colUnidades = 2; colDesc = 3; }
 
       const parsed = [];
       for (let i = headerIdx + 1; i < rows.length; i++) {
         const row = rows[i];
-        const cod = row[colCodigo] !== null && row[colCodigo] !== undefined
-          ? String(row[colCodigo]).trim().replace(/\.0+$/, '')
-          : null;
+        const cod = row[colCodigo] != null ? String(row[colCodigo]).trim().replace(/\.0+$/, '') : null;
         const uds = row[colUnidades];
         const desc = colDesc >= 0 && row[colDesc] ? String(row[colDesc]).trim() : '';
         if (!cod || !uds || isNaN(Number(uds))) continue;
         parsed.push({ codigo: cod, cantidad_servida: parseInt(uds), descripcion: desc });
       }
 
-      if (!parsed.length) { setError('No se encontraron líneas con código y cantidad en el archivo.'); return; }
-
-      // Intentar extraer nombre del archivo como sugerencia de número
-      if (!numero) {
-        const nombre = file.name.replace(/\.[^.]+$/, '');
-        setNumero(nombre);
-      }
-
+      if (!parsed.length) { setError('No se encontraron líneas con código y cantidad.'); return; }
+      if (!numero) setNumero(file.name.replace(/\.[^.]+$/, ''));
       setLineas(parsed);
       setPaso(3);
     } catch (e) {
@@ -133,32 +142,33 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
   };
 
   const handleGuardar = async () => {
-    if (!tiendaId || !fecha || !lineasAlbaran.length) return;
-    setGuardando(true);
-    setError('');
+    if (!tiendaId || !lineasAlbaran.length) return;
+    setGuardando(true); setError('');
     try {
       const tienda = tiendas.find(t => t.id === tiendaId);
 
-      // 1. Buscar pedidos de esa tienda en ±7 días de la fecha del albarán
-      const fechaD = new Date(fecha);
-      const desde = new Date(fechaD); desde.setDate(desde.getDate() - 7);
-      const hasta = new Date(fechaD); hasta.setDate(hasta.getDate() + 7);
-
-      const { data: pedidosData } = await supabase
-        .from('pedido_items')
-        .select('producto_codigo, cantidad, pedido_id, pedidos!inner(tienda_id, fecha_pedido)')
-        .eq('pedidos.tienda_id', tiendaId)
-        .gte('pedidos.fecha_pedido', desde.toISOString())
-        .lte('pedidos.fecha_pedido', hasta.toISOString());
-
-      // Construir mapa código → cantidad pedida (suma si hay varios pedidos)
+      // ── Cruce contra los pedidos seleccionados explícitamente ──────────
+      // Si no se seleccionó ningún pedido → todas las líneas quedan como "no_pedido"
       const mapaPedido = {};
-      (pedidosData || []).forEach(item => {
-        const cod = (item.producto_codigo || '').trim();
-        if (cod) mapaPedido[cod] = (mapaPedido[cod] || 0) + item.cantidad;
-      });
+      if (pedidosSelec.size > 0) {
+        const { data: items } = await supabase
+          .from('pedido_items')
+          .select('producto_codigo, cantidad')
+          .in('pedido_id', [...pedidosSelec]);
+        // Sumar cantidades — correcto para doble pedido: se suman los dos
+        (items || []).forEach(item => {
+          const cod = (item.producto_codigo || '').trim();
+          if (cod) mapaPedido[cod] = (mapaPedido[cod] || 0) + item.cantidad;
+        });
+      }
 
-      // 2. Cruzar albarán con pedidos
+      // Fecha del albarán: extraemos del pedido más reciente seleccionado, o hoy
+      const pedidoRef = pedidosTienda.find(p => pedidosSelec.has(p.id));
+      const fechaAlbaran = pedidoRef
+        ? new Date(pedidoRef.fecha_pedido).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+
+      // Líneas del albarán cruzadas con el pedido
       const lineasConDif = lineasAlbaran.map(l => ({
         codigo_producto:  l.codigo,
         descripcion:      l.descripcion,
@@ -167,37 +177,32 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
         tipo_diferencia:  calcTipo(mapaPedido[l.codigo] ?? null, l.cantidad_servida),
       }));
 
-      // Añadir productos que estaban en el pedido pero NO en el albarán (no servidos)
+      // Productos del pedido NO presentes en el albarán → no_servido
       Object.entries(mapaPedido).forEach(([cod, qty]) => {
-        const yaEnAlbaran = lineasAlbaran.some(l => l.codigo === cod);
-        if (!yaEnAlbaran) {
+        if (!lineasAlbaran.some(l => l.codigo === cod)) {
           lineasConDif.push({
-            codigo_producto:  cod,
-            descripcion:      '',
-            cantidad_servida: 0,
-            cantidad_pedida:  qty,
-            tipo_diferencia:  'no_servido',
+            codigo_producto: cod, descripcion: '', cantidad_servida: 0,
+            cantidad_pedida: qty, tipo_diferencia: 'no_servido',
           });
         }
       });
 
-      // 3. Insertar albarán
+      // Insertar albarán
       const { data: albaran, error: errAlb } = await supabase
         .from('albaranes')
         .insert([{
           tienda_id:      tiendaId,
           tienda_nombre:  tienda?.nombre || '',
           numero_albaran: numero.trim() || `ALB-${Date.now()}`,
-          fecha_albaran:  fecha,
+          fecha_albaran:  fechaAlbaran,
           total_lineas:   lineasConDif.length,
           subido_por:     perfil?.id || null,
           notas:          notas.trim(),
         }])
-        .select()
-        .single();
+        .select().single();
       if (errAlb) throw errAlb;
 
-      // 4. Insertar líneas en lotes de 100
+      // Insertar líneas en lotes de 100
       for (let i = 0; i < lineasConDif.length; i += 100) {
         const lote = lineasConDif.slice(i, i + 100).map(l => ({ ...l, albaran_id: albaran.id }));
         const { error: errL } = await supabase.from('albaran_lineas').insert(lote);
@@ -215,11 +220,9 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[92vh]">
-        {/* Cabecera */}
         <div className="flex items-center justify-between p-5 border-b">
           <h2 className="font-bold text-lg flex items-center gap-2">
-            <FileSpreadsheet size={20} className="text-[#00913f]" />
-            Subir albarán
+            <FileSpreadsheet size={20} className="text-[#00913f]" /> Subir albarán
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
         </div>
@@ -227,33 +230,80 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
 
-          {/* Paso 1 + 2: datos básicos + subir archivo */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="block text-sm font-semibold mb-1">Tienda *</label>
-              <select value={tiendaId} onChange={e => setTiendaId(e.target.value)}
-                className="w-full border rounded-xl px-4 py-2.5 text-sm bg-white">
-                <option value="">— Selecciona tienda —</option>
-                {tiendas.filter(t => t.nombre !== 'PRINCIPAL').map(t =>
-                  <option key={t.id} value={t.id}>{t.nombre}</option>
-                )}
-              </select>
-            </div>
+          {/* Tienda */}
+          <div>
+            <label className="block text-sm font-semibold mb-1">Tienda *</label>
+            <select value={tiendaId} onChange={e => setTiendaId(e.target.value)}
+              className="w-full border rounded-xl px-4 py-2.5 text-sm bg-white">
+              <option value="">— Selecciona tienda —</option>
+              {tiendas.filter(t => t.nombre !== 'PRINCIPAL').map(t =>
+                <option key={t.id} value={t.id}>{t.nombre}</option>
+              )}
+            </select>
+          </div>
+
+          {/* Selección de pedido(s) — el núcleo del cruce correcto */}
+          {tiendaId && (
             <div>
-              <label className="block text-sm font-semibold mb-1">Fecha del albarán *</label>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-                className="w-full border rounded-xl px-4 py-2.5 text-sm" />
+              <label className="block text-sm font-semibold mb-1">
+                Pedido(s) a conciliar
+                <span className="ml-2 text-gray-400 font-normal text-xs">
+                  Selecciona 1 pedido normal, o 2 si la tienda tiene doble pedido
+                </span>
+              </label>
+              {cargandoPedidos ? (
+                <div className="flex items-center gap-2 p-3 text-gray-400 text-sm">
+                  <Loader2 size={16} className="animate-spin" /> Cargando pedidos...
+                </div>
+              ) : pedidosTienda.length === 0 ? (
+                <div className="p-3 bg-gray-50 border rounded-xl text-sm text-gray-500">
+                  No hay pedidos para esta tienda. Puedes subir el albarán igualmente — todas las líneas quedarán como "No pedido".
+                </div>
+              ) : (
+                <div className="border rounded-xl overflow-hidden max-h-44 overflow-y-auto">
+                  {pedidosTienda.map(p => {
+                    const sel = pedidosSelec.has(p.id);
+                    const fecha = new Date(p.fecha_pedido).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+                    return (
+                      <label key={p.id}
+                        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors border-b last:border-0 ${sel ? 'bg-[#edf7f2]' : 'hover:bg-gray-50'}`}>
+                        <input type="checkbox" checked={sel} onChange={() => togglePedido(p.id)} className="rounded flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-semibold text-sm text-gray-800">{p.numero_pedido}</span>
+                          <span className="ml-2 text-xs text-gray-400">{fecha}</span>
+                          <span className="ml-2 text-xs text-gray-400">{p.total_lineas} líneas</span>
+                        </div>
+                        {sel && <span className="text-[#00913f] text-xs font-bold flex-shrink-0">✓ Seleccionado</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {pedidosSelec.size === 0 && pedidosTienda.length > 0 && (
+                <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                  <AlertTriangle size={12} /> Sin pedido seleccionado: todas las líneas del albarán aparecerán como "No pedido"
+                </p>
+              )}
+              {pedidosSelec.size === 2 && (
+                <p className="text-xs text-blue-600 mt-1.5 flex items-center gap-1">
+                  ℹ️ Doble pedido: se sumarán las cantidades de ambos para la comparación
+                </p>
+              )}
             </div>
+          )}
+
+          {/* Nº albarán + notas */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold mb-1">Nº albarán</label>
               <input type="text" value={numero} onChange={e => setNumero(e.target.value)}
                 placeholder="Ej: ARENAS_13-5"
                 className="w-full border rounded-xl px-4 py-2.5 text-sm" />
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="block text-sm font-semibold mb-1">Notas (opcional)</label>
               <input type="text" value={notas} onChange={e => setNotas(e.target.value)}
-                placeholder="Cualquier anotación..."
+                placeholder="Anotaciones..."
                 className="w-full border rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
@@ -264,14 +314,14 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
               <label className="block text-sm font-semibold mb-2">Archivo del albarán *</label>
               {procesando ? (
                 <div className="flex items-center justify-center gap-2 p-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-500">
-                  <Loader2 size={20} className="animate-spin" /> Procesando archivo...
+                  <Loader2 size={20} className="animate-spin" /> Procesando...
                 </div>
               ) : (
                 <label className="cursor-pointer block">
                   <div className="p-8 border-2 border-dashed border-gray-300 rounded-xl text-center hover:border-[#00913f] hover:bg-green-50 transition-colors">
                     <Upload size={28} className="mx-auto mb-2 text-gray-400" />
-                    <p className="font-semibold text-gray-600 text-sm">Haz clic para subir el Excel</p>
-                    <p className="text-xs text-gray-400 mt-1">Formato: .xlsx — columnas Artículo + Unidades</p>
+                    <p className="font-semibold text-gray-600 text-sm">Haz clic para subir el Excel del albarán</p>
+                    <p className="text-xs text-gray-400 mt-1">Formato .xlsx — columnas Artículo + Unidades</p>
                   </div>
                   <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} className="hidden" />
                 </label>
@@ -279,19 +329,15 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
             </div>
           )}
 
-          {/* Preview de líneas parseadas */}
+          {/* Preview líneas */}
           {paso === 3 && lineasAlbaran.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-gray-700">
-                  ✓ {lineasAlbaran.length} líneas leídas del archivo
-                </p>
+                <p className="text-sm font-semibold text-gray-700">✓ {lineasAlbaran.length} líneas leídas</p>
                 <button onClick={() => { setLineas([]); setPaso(2); }}
-                  className="text-xs text-gray-400 hover:text-gray-600 underline">
-                  Cambiar archivo
-                </button>
+                  className="text-xs text-gray-400 hover:text-gray-600 underline">Cambiar archivo</button>
               </div>
-              <div className="border rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+              <div className="border rounded-xl overflow-hidden max-h-40 overflow-y-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
@@ -305,7 +351,7 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="px-3 py-1.5 font-mono text-gray-600">{l.codigo}</td>
                         <td className="px-3 py-1.5 text-gray-700 max-w-[200px] truncate">{l.descripcion}</td>
-                        <td className="px-3 py-1.5 text-right font-bold text-gray-800">{l.cantidad_servida}</td>
+                        <td className="px-3 py-1.5 text-right font-bold">{l.cantidad_servida}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -315,14 +361,10 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
           )}
         </div>
 
-        {/* Pie */}
         <div className="p-5 border-t flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">
-            Cancelar
-          </button>
-          <button
-            onClick={handleGuardar}
-            disabled={guardando || !tiendaId || !fecha || lineasAlbaran.length === 0}
+          <button onClick={onClose} className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
+          <button onClick={handleGuardar}
+            disabled={guardando || !tiendaId || lineasAlbaran.length === 0}
             className="flex-1 py-2.5 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] disabled:opacity-50 flex items-center justify-center gap-2">
             {guardando ? <><Loader2 size={16} className="animate-spin" /> Procesando...</> : 'Guardar albarán'}
           </button>
