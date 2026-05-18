@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
-import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2, Radio, SlidersHorizontal, Package2, Table2 } from 'lucide-react';
+import { ShoppingCart, Package, Store, Settings, ClipboardList, LogOut, Menu, X, Upload, Home, Image, Bell, AlertTriangle, BarChart2, Radio, SlidersHorizontal, Package2, Table2, FileSpreadsheet } from 'lucide-react';
 
 export default function Layout({ children }) {
   const { user, perfil, isAdmin, signOut } = useAuth();
@@ -41,6 +41,7 @@ export default function Layout({ children }) {
     { path: '/Tiendas',           label: 'Tiendas',      icon: Store },
     { path: '/Productos',         label: 'Productos',    icon: Package },
     { path: '/ExcelSelogas',      label: 'Excel',        icon: Table2 },
+    { path: '/Albaranes',         label: 'Albaranes',    icon: FileSpreadsheet },
     { path: '/ImportarProductos', label: 'Importar',     icon: Upload },
     { path: '/SubirImagenes',     label: 'Imágenes',     icon: Image },
     { path: '/Configuracion',     label: 'Config',       icon: Settings },
