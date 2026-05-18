@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from:        'SELOGAS Pedidos <pedidos@megino.com>',
+          from:        'SELOGAS Pedidos <onboarding@resend.dev>',
           to:          [to],
           subject:     body.subject || `${prefijo}Devolución — ${tienda_nombre||''} — ${fechaStr2}`,
           html:        htmlDev,
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
       const r = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: 'SELOGAS Pedidos <pedidos@megino.com>', to: [to], subject: subject || 'Solicitud de Palet - SELOGAS', html: html_override }),
+        body: JSON.stringify({ from: 'SELOGAS Pedidos <onboarding@resend.dev>', to: [to], subject: subject || 'Solicitud de Palet - SELOGAS', html: html_override }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error('Resend palet error: ' + JSON.stringify(d));
@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'SELOGAS Pedidos <pedidos@megino.com>',
+        from: 'SELOGAS Pedidos <onboarding@resend.dev>',
         to: [to],
         subject: subject || ('Nuevo pedido - '+(tienda_nombre||'')+' - '+fechaStr),
         html: htmlBody,
