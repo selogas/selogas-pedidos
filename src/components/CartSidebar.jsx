@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { X, Trash2, ShoppingCart, Send, ChevronDown, AlertCircle, Plus, Lightbulb, Clock, TrendingDown, TrendingUp } from 'lucide-react';
 
-export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onAddSugerencia, tiendaNombre, pedidoEstaSemanaPorProducto = {}, mediasPorProducto = {} }) {
+export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onConfirmarClick, onAddSugerencia, tiendaNombre, pedidoEstaSemanaPorProducto = {}, mediasPorProducto = {} }) {
   const [observaciones, setObservaciones] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showSugerencias, setShowSugerencias] = useState(true);
@@ -19,10 +19,17 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
 
   const totalLineas = lineas.length;
 
+  // Si existe onConfirmarClick (módulo devoluciones activo), lo usa.
+  // Si no, llama onEnviar directamente — comportamiento idéntico al original.
   const handleEnviar = () => {
     if (totalLineas === 0) return;
-    onEnviar(observaciones, lineas);
-    setConfirmOpen(false);
+    if (onConfirmarClick) {
+      onConfirmarClick(observaciones, lineas);
+      setConfirmOpen(false);
+    } else {
+      onEnviar(observaciones, lineas);
+      setConfirmOpen(false);
+    }
   };
 
   return (

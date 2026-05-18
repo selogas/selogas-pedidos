@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { SlidersHorizontal, Loader2, Check, Store, Bell } from "lucide-react";
+import { SlidersHorizontal, Loader2, Check, Store, Bell, Package } from "lucide-react";
 
 function Toggle({ value, onChange }) {
   return (
@@ -111,6 +111,13 @@ export default function Preferencias() {
   const [guardandoRec, setGuardandoRec] = useState(false);
   const [savedRec, setSavedRec]         = useState(false);
 
+  // ── Módulo devoluciones ──────────────────────────────────────────
+  const [devActivas, setDevActivas]         = useState(false);
+  const [devTestMode, setDevTestMode]       = useState(false);
+  const [devTestEmail, setDevTestEmail]     = useState('');
+  const [guardandoDev, setGuardandoDev]     = useState({});
+  const [savedDev, setSavedDev]             = useState({});
+
   useEffect(() => {
     // Cargar tiendas
     supabase.from("tiendas")
@@ -121,6 +128,18 @@ export default function Preferencias() {
     // Cargar estado de recordatorios
     supabase.from("configuracion").select("valor").eq("clave", "recordatorios_activos").single()
       .then(({ data }) => { if (data) setRecordatoriosActivos(data.valor !== "false"); });
+
+    // ── Cargar configuración de devoluciones ──────────────────────
+    supabase.from("configuracion")
+      .select("clave, valor")
+      .in("clave", ["devoluciones_activas", "devoluciones_test_mode", "devoluciones_test_email"])
+      .then(({ data }) => {
+        if (!data) return;
+        const m = Object.fromEntries(data.map(r => [r.clave, r.valor]));
+        if (m.devoluciones_activas    !== undefined) setDevActivas(m.devoluciones_activas === 'true');
+        if (m.devoluciones_test_mode  !== undefined) setDevTestMode(m.devoluciones_test_mode === 'true');
+        if (m.devoluciones_test_email !== undefined) setDevTestEmail(m.devoluciones_test_email || '');
+      });
   }, []);
 
   const handleToggle = async (tiendaId, key, val) => {
@@ -141,6 +160,30 @@ export default function Preferencias() {
     setGuardandoRec(false);
     setSavedRec(true);
     setTimeout(() => setSavedRec(false), 2000);
+  };
+
+  // ── Guardado de configuración de devoluciones ────────────────────
+  const toggleDevolucion = async (clave, val) => {
+    const setters = {
+      devoluciones_activas:   setDevActivas,
+      devoluciones_test_mode: setDevTestMode,
+    };
+    setters[clave]?.(val);
+    setGuardandoDev(p => ({ ...p, [clave]: true }));
+    await supabase.from("configuracion").update({ valor: String(val) }).eq("clave", clave);
+    setGuardandoDev(p => ({ ...p, [clave]: false }));
+    setSavedDev(p => ({ ...p, [clave]: true }));
+    setTimeout(() => setSavedDev(p => ({ ...p, [clave]: false })), 2000);
+  };
+
+  const guardarTestEmail = async () => {
+    setGuardandoDev(p => ({ ...p, email: true }));
+    await supabase.from("configuracion")
+      .update({ valor: devTestEmail })
+      .eq("clave", "devoluciones_test_email");
+    setGuardandoDev(p => ({ ...p, email: false }));
+    setSavedDev(p => ({ ...p, email: true }));
+    setTimeout(() => setSavedDev(p => ({ ...p, email: false })), 2000);
   };
 
   return (
@@ -181,6 +224,95 @@ export default function Preferencias() {
             )}
             {guardandoRec && <Loader2 size={14} className="animate-spin text-[#00913f]" />}
             <Toggle value={recordatoriosActivos} onChange={toggleRecordatorios} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Módulo devoluciones ── */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+        <div className="px-5 py-3 border-b bg-gray-50 flex items-center gap-2">
+          <Package size={15} className="text-[#00913f]" />
+          <p className="font-semibold text-gray-700 text-sm">Módulo de devoluciones</p>
+        </div>
+
+        {/* Toggle activar devoluciones */}
+        <div className="flex items-start gap-4 px-5 py-4 border-b border-gray-100">
+          <div className="text-2xl flex-shrink-0">📦</div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-gray-900">Activar devoluciones</p>
+            <p className="text-xs text-gray-400 mt-0.5 leading-snug">
+              Muestra el modal "¿Tienes devolución?" al confirmar un pedido. Si está desactivado, el sistema funciona exactamente igual que antes.
+            </p>
+            {devActivas && (
+              <div className="mt-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-xs text-green-700 font-medium">
+                ✓ Activo — las tiendas verán el modal al confirmar pedidos.
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {savedDev.devoluciones_activas && (
+              <span className="flex items-center gap-1 text-xs text-[#00913f] font-semibold">
+                <Check size={12} /> Guardado
+              </span>
+            )}
+            {guardandoDev.devoluciones_activas && <Loader2 size={14} className="animate-spin text-[#00913f]" />}
+            <Toggle value={devActivas} onChange={v => toggleDevolucion('devoluciones_activas', v)} />
+          </div>
+        </div>
+
+        {/* Toggle modo test */}
+        <div className="flex items-start gap-4 px-5 py-4 border-b border-gray-100">
+          <div className="text-2xl flex-shrink-0">🧪</div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-gray-900">Modo TEST</p>
+            <p className="text-xs text-gray-400 mt-0.5 leading-snug">
+              Las devoluciones solo llegan al email de prueba. El pedido normal sigue yendo al almacén real sin cambios.
+            </p>
+            {devTestMode && (
+              <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700 font-medium">
+                ⚠️ Modo TEST activo — devoluciones solo al email de prueba.
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {savedDev.devoluciones_test_mode && (
+              <span className="flex items-center gap-1 text-xs text-[#00913f] font-semibold">
+                <Check size={12} /> Guardado
+              </span>
+            )}
+            {guardandoDev.devoluciones_test_mode && <Loader2 size={14} className="animate-spin text-[#00913f]" />}
+            <Toggle value={devTestMode} onChange={v => toggleDevolucion('devoluciones_test_mode', v)} />
+          </div>
+        </div>
+
+        {/* Email de prueba */}
+        <div className="flex items-start gap-4 px-5 py-4">
+          <div className="text-2xl flex-shrink-0">✉️</div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-gray-900">Email de prueba</p>
+            <p className="text-xs text-gray-400 mt-0.5 mb-2 leading-snug">
+              Destino de devoluciones cuando el modo TEST está activo. Si está vacío, el modo TEST no tiene efecto.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={devTestEmail}
+                onChange={e => setDevTestEmail(e.target.value)}
+                placeholder="email@prueba.com"
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#00913f]"
+              />
+              <button
+                onClick={guardarTestEmail}
+                className="px-4 py-2 bg-[#00913f] text-white text-xs font-bold rounded-xl hover:bg-[#007a34] transition-colors flex items-center gap-1.5"
+              >
+                {guardandoDev.email
+                  ? <Loader2 size={12} className="animate-spin" />
+                  : savedDev.email
+                    ? <><Check size={12} /> Guardado</>
+                    : 'Guardar'
+                }
+              </button>
+            </div>
           </div>
         </div>
       </div>

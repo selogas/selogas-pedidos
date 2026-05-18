@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
-import { ShoppingCart, Search, Package, Loader2, CheckCircle } from "lucide-react";
+import { ShoppingCart, Search, Package, Loader2, CheckCircle, RotateCcw } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import CartSidebar from "@/components/CartSidebar";
+import ModalDevolucion from "@/components/ModalDevolucion";
 import { useTopProductos, invalidateTopProductosCache } from "@/lib/useTopProductos";
 
 const CAT_COLORS = [
@@ -51,6 +52,15 @@ export default function Catalogo() {
   const [plantillaActiva, setPlantilla] = useState(null);
   const [plantillaOn, setPlantillaOn]   = useState(false);
   const [mapaCaducidades, setMapaCaducidades] = useState({});
+
+  // ── Módulo devoluciones ───────────────────────────────────────────
+  const [devolucionesActivas, setDevolucionesActivas] = useState(false);
+  const [modalPreguntaOpen, setModalPreguntaOpen]     = useState(false);
+  const [modalDevolucionOpen, setModalDevolucionOpen] = useState(false);
+  const [pendingLineas, setPendingLineas]             = useState(null);
+  const [pendingObs, setPendingObs]                   = useState('');
+  const [borradorActivo, setBorradorActivo]           = useState(null);
+  const [bannerBorrador, setBannerBorrador]           = useState(false);
 
   const { topSet: topProductos } = useTopProductos();
 
@@ -121,14 +131,25 @@ export default function Catalogo() {
 
         setProductos(listaProductos);
 
-        const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla, caducMap] = await Promise.all([
+        const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla, caducMap, confDev, borradorDev] = await Promise.all([
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
           (tienda?.id && tienda?.doble_pedido && prefDoblePedido) ? cargarPedidosRecientes(tienda.id) : Promise.resolve({}),
           (tienda?.id && prefAvisosCantidad) ? cargarMediasHistoricas(tienda.id) : Promise.resolve({}),
           tienda?.id ? cargarFavoritos(tienda.id) : Promise.resolve(new Set()),
           tienda?.id ? cargarPlantilla(tienda.id) : Promise.resolve(null),
-          // ── Solo cargar caducidades si la tienda tiene calendario Y la pref está activa ──
           (tienda?.google_calendar_id && prefAvisoCaducidad) ? cargarCaducidades() : Promise.resolve({}),
+          // ── Devoluciones: leer toggle y buscar borrador pendiente ──
+          supabase.from('configuracion').select('valor').eq('clave', 'devoluciones_activas').maybeSingle(),
+          (tienda?.id && user?.id)
+            ? supabase.from('devoluciones')
+                .select('id, observaciones, devolucion_items(*)')
+                .eq('tienda_id', tienda.id)
+                .eq('usuario_id', user.id)
+                .eq('estado', 'borrador')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
         ]);
 
         if (Object.keys(pedidosRecientes).length > 0) setPedidoEstaSemanaPorProducto(pedidosRecientes);
@@ -136,6 +157,14 @@ export default function Catalogo() {
         if (Object.keys(mediasHistoricas).length > 0) setMediasPorProducto(mediasHistoricas);
         if (favSet.size > 0) setFavoritos(favSet);
         if (plantilla) setPlantilla(plantilla);
+
+        // ── Módulo devoluciones ──────────────────────────────────────
+        if (confDev?.data?.valor === 'true') setDevolucionesActivas(true);
+        if (borradorDev?.data) {
+          setBorradorActivo(borradorDev.data);
+          setBannerBorrador(true);
+          console.log('[DEVOLUCION] Borrador pendiente encontrado:', borradorDev.data.id);
+        }
 
         if (sugsData.length > 0 && listaProductos.length > 0) {
           const idsYaPedidos = new Set(sugsData);
@@ -362,7 +391,77 @@ export default function Catalogo() {
     setSugerencias(prev => prev.filter(s => s.id !== prod.id));
   };
 
-  const handleEnviar = async (observaciones, lineas) => {
+  // ── Módulo devoluciones ─────────────────────────────────────────────────────
+
+  // Intercepta el botón Confirmar de CartSidebar
+  const handleConfirmarClick = (observaciones, lineas) => {
+    if (!devolucionesActivas) {
+      // Toggle OFF: comportamiento idéntico al original
+      handleEnviar(observaciones, lineas);
+      return;
+    }
+    // Toggle ON: guardar datos del pedido y mostrar pregunta
+    setPendingObs(observaciones);
+    setPendingLineas(lineas);
+    setCartOpen(false);
+    setModalPreguntaOpen(true);
+  };
+
+  // Usuario pulsa "No" en el modal pregunta
+  const handleNoDevolucion = () => {
+    setModalPreguntaOpen(false);
+    handleEnviar(pendingObs, pendingLineas);
+  };
+
+  // Usuario pulsa "Sí" en el modal pregunta
+  const handleSiDevolucion = () => {
+    setModalPreguntaOpen(false);
+    setModalDevolucionOpen(true);
+  };
+
+  // Devolución enviada con éxito — ejecutar pedido + actualizar devolución
+  const handleDevolucionEnviada = async (borradorId, lineasDev, obsDev) => {
+    setEnviando(true);
+    try {
+      // 1. Enviar el pedido normal — exactamente igual que siempre
+      await handleEnviar(pendingObs, pendingLineas, borradorId);
+      // 2. Marcar devolución como enviada
+      await supabase.from('devoluciones')
+        .update({ estado: 'enviada', updated_at: new Date().toISOString() })
+        .eq('id', borradorId);
+      console.log('[DEVOLUCION] Marcada como enviada:', borradorId);
+    } catch (err) {
+      console.error('[DEVOLUCION] Error en handleDevolucionEnviada:', err.message);
+    } finally {
+      setModalDevolucionOpen(false);
+      setBorradorActivo(null);
+      setBannerBorrador(false);
+    }
+  };
+
+  // Usuario cancela devolución desde el modal (pedido se envía igualmente)
+  const handleCancelarDevolucion = () => {
+    setModalDevolucionOpen(false);
+    handleEnviar(pendingObs, pendingLineas);
+  };
+
+  // Usuario recupera borrador desde el banner
+  const handleContinuarBorrador = () => {
+    setBannerBorrador(false);
+    setModalDevolucionOpen(true);
+  };
+
+  // Usuario descarta borrador desde el banner
+  const handleDescartarBorrador = async () => {
+    if (borradorActivo?.id) {
+      await supabase.from('devoluciones').delete().eq('id', borradorActivo.id);
+      console.log('[DEVOLUCION] Borrador descartado:', borradorActivo.id);
+    }
+    setBorradorActivo(null);
+    setBannerBorrador(false);
+  };
+
+  const handleEnviar = async (observaciones, lineas, borradorDevolucionId = null) => {
     if (!lineas.length) return;
     setEnviando(true);
     try {
@@ -400,7 +499,23 @@ export default function Catalogo() {
       if (lineasError) throw lineasError;
 
       invalidateTopProductosCache();
-      enviarEmail(pedido.id, numeroPedido, fecha, tiendaNombre, observaciones, lineasData).catch(() => {});
+
+      // ── Email pedido: fire-and-forget — no bloquea el flujo ──────
+      enviarEmail(pedido.id, numeroPedido, fecha, tiendaNombre, observaciones, lineasData).catch((err) => {
+        console.error('[PEDIDO] Error enviando email pedido:', err.message);
+      });
+
+      // ── Email devolución: TOTALMENTE independiente — si falla, el pedido ya está enviado ──
+      if (borradorDevolucionId) {
+        enviarEmailDevolucion(borradorDevolucionId, tiendaNombre, numeroPedido).catch(async (err) => {
+          console.error('[DEVOLUCION] Error enviando email devolución:', err.message);
+          // Registrar el error en Supabase para visibilidad desde admin
+          await supabase.from('devoluciones')
+            .update({ email_enviado: false, error_envio: err.message })
+            .eq('id', borradorDevolucionId)
+            .catch(() => {});
+        });
+      }
 
       setCarrito({});
       localStorage.removeItem('selogas_carrito');
@@ -408,6 +523,7 @@ export default function Catalogo() {
       setExito(numeroPedido);
       setTimeout(() => setExito(null), 6000);
     } catch (e) {
+      console.error('[PEDIDO] Error al enviar pedido:', e.message);
       alert("Error al enviar el pedido: " + e.message);
     } finally {
       setEnviando(false);
@@ -434,6 +550,65 @@ export default function Catalogo() {
               lineas: lineasData, todos_productos: todosProds || [] }
     });
     await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedidoId);
+  }
+
+  // ── Email devolución — proceso completamente independiente ─────────────────
+  async function enviarEmailDevolucion(borradorId, tiendaNombre, numeroPedido) {
+    console.log('[DEVOLUCION] Iniciando envío email devolución — borrador:', borradorId);
+    try {
+      // Leer configuración de devoluciones (test mode, emails)
+      const { data: config } = await supabase.from('configuracion').select('clave, valor');
+      const getConf = (clave) => (config || []).find(c => c.clave === clave)?.valor || '';
+
+      const emailAlmacen  = getConf('email_almacen');
+      const testMode      = getConf('devoluciones_test_mode') === 'true';
+      const testEmail     = getConf('devoluciones_test_email');
+      const destinatario  = (testMode && testEmail) ? testEmail : emailAlmacen;
+
+      if (!destinatario) {
+        console.warn('[DEVOLUCION] Sin destinatario configurado — abortando');
+        return;
+      }
+
+      // Leer items del borrador
+      const { data: devolucion, error } = await supabase
+        .from('devoluciones')
+        .select('*, devolucion_items(*)')
+        .eq('id', borradorId)
+        .single();
+      if (error) throw error;
+      if (!devolucion?.devolucion_items?.length) {
+        console.warn('[DEVOLUCION] Borrador sin líneas — abortando envío email');
+        return;
+      }
+
+      const fechaStr = new Date().toLocaleDateString('es-ES');
+      const prefijo  = testMode ? '[TEST] ' : '';
+      const asunto   = `${prefijo}Devolución — ${tiendaNombre} — ${fechaStr}`;
+
+      await supabase.functions.invoke('send-email', {
+        body: {
+          to:               destinatario,
+          subject:          asunto,
+          tienda_nombre:    tiendaNombre,
+          numero_pedido:    numeroPedido,
+          fecha:            new Date().toISOString(),
+          es_devolucion:    true,
+          devolucion_items: devolucion.devolucion_items,
+          observaciones_devolucion: devolucion.observaciones || '',
+          test_mode:        testMode,
+        }
+      });
+
+      await supabase.from('devoluciones')
+        .update({ email_enviado: true, error_envio: null })
+        .eq('id', borradorId);
+
+      console.log('[DEVOLUCION] Email enviado OK a:', destinatario);
+    } catch (err) {
+      console.error('[DEVOLUCION] Error en enviarEmailDevolucion:', err.message);
+      throw err; // re-throw para que el catch del caller registre el error
+    }
   }
 
   if (loading) return (
@@ -469,12 +644,84 @@ export default function Catalogo() {
             carrito={carrito} productos={productos} sugerencias={sugerencias}
             onClose={() => setCartOpen(false)} onQtyChange={handleQtyChange}
             onRemove={handleRemove} onEnviar={handleEnviar}
+            onConfirmarClick={devolucionesActivas ? handleConfirmarClick : null}
             onAddSugerencia={handleAddSugerencia}
             tiendaNombre={tienda?.nombre || ""}
             enviando={enviando}
             pedidoEstaSemanaPorProducto={pedidoEstaSemanaPorProducto}
             mediasPorProducto={mediasPorProducto}
           />
+        </div>
+      )}
+
+      {/* ── Modal pregunta "¿Tienes devolución?" ── */}
+      {modalPreguntaOpen && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
+            <div className="text-center">
+              <div className="text-3xl mb-2">📋</div>
+              <h3 className="font-bold text-gray-900 text-lg">¿Tienes alguna devolución?</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Puedes añadir productos a devolver junto con este pedido.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleNoDevolucion}
+                className="flex-1 py-3 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                No, enviar el pedido
+              </button>
+              <button
+                onClick={handleSiDevolucion}
+                className="flex-1 py-3 bg-[#00913f] text-white rounded-xl text-sm font-bold hover:bg-[#007a34] transition-colors"
+              >
+                Sí, añadir devolución
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 text-center">
+              Si cierras este aviso, el pedido no se enviará todavía.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal devolución ── */}
+      {modalDevolucionOpen && (
+        <ModalDevolucion
+          borradorInicial={borradorActivo}
+          productos={productos}
+          tienda={tienda}
+          usuario={{ id: user?.id, email: user?.email, nombre: perfil?.nombre_completo || perfil?.nombre }}
+          onEnviada={handleDevolucionEnviada}
+          onCancelar={handleCancelarDevolucion}
+          onClose={() => setModalDevolucionOpen(false)}
+          enviandoPedido={enviando}
+        />
+      )}
+
+      {/* ── Banner borrador pendiente (solo dentro del catálogo) ── */}
+      {bannerBorrador && borradorActivo && (
+        <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+          <RotateCcw size={18} className="text-amber-600 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800">Tienes una devolución pendiente sin enviar</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Guardada el {new Date(borradorActivo.created_at || Date.now()).toLocaleDateString('es-ES')}
+            </p>
+          </div>
+          <button
+            onClick={handleContinuarBorrador}
+            className="px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-colors flex-shrink-0"
+          >
+            Continuar
+          </button>
+          <button
+            onClick={handleDescartarBorrador}
+            className="px-3 py-1.5 border border-amber-300 text-amber-700 text-xs font-medium rounded-lg hover:bg-amber-100 transition-colors flex-shrink-0"
+          >
+            Descartar
+          </button>
         </div>
       )}
 
