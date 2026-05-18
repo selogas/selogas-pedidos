@@ -209,7 +209,7 @@ function CeldaSeccion({ value, productoId, onSave }) {
   );
 }
 
-// ── Panel de orden de hojas (drag & drop) ─────────────────────────────────
+// ── Panel de orden de hojas (drag & drop) + control de tamaño de fila ───────
 function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
   const [lista, setLista] = useState([]);
   const [guardando, setGuardando] = useState(false);
@@ -217,15 +217,29 @@ function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
   const dragIdx = useRef(null);
   const [overIdx, setOverIdx] = useState(null);
 
-  // Inicializar lista combinando orden guardado + hojas en BD no incluidas
+  // rh_override por hoja: { "BEBIDAS 1": "13.5", ... } — cadena para el input
+  const [rhMap, setRhMap] = useState({});
+  const [rhGuardando, setRhGuardando] = useState({});
+  const [rhGuardado, setRhGuardado] = useState({});
+
   useEffect(() => {
     const ordenadas = [...ordenGuardado];
     for (const h of hojasEnBD) {
       if (!ordenadas.includes(h)) ordenadas.push(h);
     }
-    // Quitar las que ya no existen en BD
     setLista(ordenadas.filter(h => hojasEnBD.includes(h)));
   }, [ordenGuardado, hojasEnBD]);
+
+  // Cargar rh_override de todas las hojas
+  useEffect(() => {
+    supabase.from("hojas_orden").select("nombre,rh_override").then(({ data }) => {
+      const m = {};
+      for (const r of (data || [])) {
+        m[r.nombre] = r.rh_override != null ? String(r.rh_override) : "";
+      }
+      setRhMap(m);
+    });
+  }, []);
 
   const onDragStart = (idx) => { dragIdx.current = idx; };
   const onDragEnter = (idx) => setOverIdx(idx);
@@ -242,7 +256,6 @@ function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
 
   const guardar = async () => {
     setGuardando(true);
-    // Upsert todas las posiciones
     const rows = lista.map((nombre, i) => ({ nombre, posicion: i }));
     for (const row of rows) {
       await supabase.from("hojas_orden").upsert(row, { onConflict: "nombre" });
@@ -253,8 +266,21 @@ function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
     onOrdenCambiado(lista);
   };
 
+  const guardarRh = async (nombre) => {
+    const val = rhMap[nombre];
+    const num = val === "" ? null : parseFloat(val);
+    if (val !== "" && (isNaN(num) || num < 7 || num > 18)) return;
+    setRhGuardando(p => ({ ...p, [nombre]: true }));
+    await supabase.from("hojas_orden")
+      .upsert({ nombre, rh_override: num }, { onConflict: "nombre" });
+    setRhGuardando(p => ({ ...p, [nombre]: false }));
+    setRhGuardado(p => ({ ...p, [nombre]: true }));
+    setTimeout(() => setRhGuardado(p => ({ ...p, [nombre]: false })), 2000);
+  };
+
   return (
     <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-secondary)", borderRadius: "var(--border-radius-lg)", padding: "16px", marginBottom: "20px" }}>
+      {/* Cabecera orden */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <Layers size={16} style={{ color: "#00913f" }} />
@@ -272,15 +298,13 @@ function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
             fontSize: "12px", fontWeight: 500, cursor: "pointer",
           }}
         >
-          {guardando
-            ? <Loader2 size={13} style={{ animation: "xspin 1s linear infinite" }} />
-            : <Save size={13} />
-          }
+          {guardando ? <Loader2 size={13} style={{ animation: "xspin 1s linear infinite" }} /> : <Save size={13} />}
           {guardado ? "Guardado" : "Guardar orden"}
         </button>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+      {/* Chips drag & drop */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "20px" }}>
         {lista.map((nombre, idx) => (
           <div
             key={nombre}
@@ -292,12 +316,8 @@ function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
             style={{
               display: "flex", alignItems: "center", gap: "5px",
               padding: "5px 10px", borderRadius: "var(--border-radius-md)",
-              border: overIdx === idx && dragIdx.current !== idx
-                ? "1.5px solid #00913f"
-                : "0.5px solid var(--color-border-secondary)",
-              background: overIdx === idx && dragIdx.current !== idx
-                ? "#e8f5e9"
-                : "var(--color-background-secondary)",
+              border: overIdx === idx && dragIdx.current !== idx ? "1.5px solid #00913f" : "0.5px solid var(--color-border-secondary)",
+              background: overIdx === idx && dragIdx.current !== idx ? "#e8f5e9" : "var(--color-background-secondary)",
               cursor: "grab", userSelect: "none",
               opacity: dragIdx.current === idx ? 0.4 : 1,
               fontSize: "12px", color: "var(--color-text-primary)",
@@ -308,6 +328,84 @@ function PanelOrdenHojas({ hojasEnBD, ordenGuardado, onOrdenCambiado }) {
             <span>{nombre}</span>
           </div>
         ))}
+      </div>
+
+      {/* Control de tamaño de fila por hoja */}
+      <div style={{ borderTop: "0.5px solid var(--color-border-secondary)", paddingTop: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text-primary)" }}>📐 Tamaño de fila por hoja</span>
+          <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>
+            — Vacío = automático · Rango válido: 7–18 pt · Reduce si la hoja se parte en 2 páginas
+          </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "8px" }}>
+          {lista.map(nombre => {
+            const val = rhMap[nombre] ?? "";
+            const guardandoRh = rhGuardando[nombre];
+            const guardadoRh = rhGuardado[nombre];
+            const valNum = parseFloat(val);
+            const invalido = val !== "" && (isNaN(valNum) || valNum < 7 || valNum > 18);
+            return (
+              <div key={nombre} style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                padding: "7px 10px",
+                background: val ? "#fffde7" : "var(--color-background-secondary)",
+                border: invalido ? "1px solid #ef9a9a" : val ? "1px solid #f9a825" : "0.5px solid var(--color-border-secondary)",
+                borderRadius: "var(--border-radius-md)",
+              }}>
+                <span style={{ fontSize: "12px", flex: 1, color: "var(--color-text-primary)", fontWeight: val ? 500 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  title={nombre}>{nombre}</span>
+                <input
+                  type="number"
+                  min="7" max="18" step="0.5"
+                  placeholder="auto"
+                  value={val}
+                  onChange={e => setRhMap(p => ({ ...p, [nombre]: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && guardarRh(nombre)}
+                  style={{
+                    width: "54px", fontSize: "11px", padding: "3px 5px",
+                    border: invalido ? "1px solid #e53935" : "1px solid #ccc",
+                    borderRadius: "4px",
+                    background: invalido ? "#ffebee" : "#fff",
+                    fontFamily: "var(--font-mono)",
+                    textAlign: "center",
+                  }}
+                />
+                <span style={{ fontSize: "10px", color: "var(--color-text-tertiary)" }}>pt</span>
+                <button
+                  onClick={() => guardarRh(nombre)}
+                  disabled={guardandoRh || invalido}
+                  title={guardadoRh ? "Guardado" : "Guardar tamaño"}
+                  style={{
+                    border: "none", background: "none", cursor: "pointer",
+                    padding: "2px", display: "flex", alignItems: "center",
+                    color: guardadoRh ? "#2e7d32" : "#00913f", opacity: invalido ? 0.4 : 1,
+                  }}
+                >
+                  {guardandoRh
+                    ? <Loader2 size={13} style={{ animation: "xspin 1s linear infinite" }} />
+                    : guardadoRh
+                      ? <span style={{ fontSize: "13px" }}>✓</span>
+                      : <Save size={13} />
+                  }
+                </button>
+                {val && !invalido && (
+                  <button
+                    onClick={() => { setRhMap(p => ({ ...p, [nombre]: "" })); setTimeout(() => guardarRh(nombre), 50); }}
+                    title="Volver a automático"
+                    style={{ border: "none", background: "none", cursor: "pointer", padding: "2px", color: "#aaa", fontSize: "11px" }}
+                  >✕</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {lista.length > 0 && (
+          <p style={{ fontSize: "11px", color: "var(--color-text-tertiary)", marginTop: "8px" }}>
+            💡 Si una hoja sale en 2 páginas, reduce su valor (prueba 12 o 11). Si queda mucho espacio, auméntalo.
+            Deja vacío para que se calcule automáticamente.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -334,7 +432,7 @@ export default function ExcelSelogas() {
         .limit(3000),
       supabase
         .from("hojas_orden")
-        .select("nombre,posicion")
+        .select("nombre,posicion,rh_override")
         .order("posicion", { ascending: true }),
     ]);
     setProductos(prods || []);
