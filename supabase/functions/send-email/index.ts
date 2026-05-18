@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts, degrees } from 'https://esm.sh/pdf-lib@1.17.1';
+import { PDFDocument, rgb, StandardFonts } from 'https://esm.sh/pdf-lib@1.17.1';
 import * as ExcelJS from 'https://esm.sh/exceljs@4.4.0';
 
 const corsHeaders = {
@@ -31,137 +31,80 @@ Deno.serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not set');
 
-    // ── Rama: email de DEVOLUCIÓN (completamente independiente del pedido) ──
+    // ── Email DEVOLUCIÓN — independiente del pedido ──────────────────────────
     if (es_devolucion && devolucion_items) {
-      console.log('[DEVOLUCION] Generando Excel — líneas:', (devolucion_items || []).length);
+      console.log('[DEVOLUCION] Generando Excel', (devolucion_items || []).length, 'lineas');
       let excelBase64: string | null = null;
-
       try {
-        const wb  = new ExcelJS.Workbook();
-        const ws  = wb.addWorksheet('Devolución');
-        const fechaStr = new Date().toLocaleDateString('es-ES');
-
-        // Cabecera de documento
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Devolucion');
+        const fDev = new Date().toLocaleDateString('es-ES');
         ws.mergeCells('A1:D1');
-        ws.getCell('A1').value = 'HOJA DE DEVOLUCIÓN — SELOGAS';
-        ws.getCell('A1').font  = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
-        ws.getCell('A1').fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00913F' } };
+        ws.getCell('A1').value = 'HOJA DE DEVOLUCION - SELOGAS';
+        ws.getCell('A1').font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+        ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00913F' } };
         ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
         ws.getRow(1).height = 24;
-
         ws.mergeCells('A2:D2');
-        ws.getCell('A2').value     = `Tienda: ${tienda_nombre || ''}   |   Fecha: ${fechaStr}`;
-        ws.getCell('A2').font      = { size: 10 };
+        ws.getCell('A2').value = `Tienda: ${tienda_nombre || ''}   |   Fecha: ${fDev}`;
+        ws.getCell('A2').font = { size: 10 };
         ws.getCell('A2').alignment = { horizontal: 'left', vertical: 'middle' };
         ws.getRow(2).height = 18;
-
-        if (observaciones_devolucion) {
-          ws.mergeCells('A3:D3');
-          ws.getCell('A3').value     = `Observaciones: ${observaciones_devolucion}`;
-          ws.getCell('A3').font      = { size: 9, italic: true, color: { argb: 'FF555555' } };
-          ws.getCell('A3').alignment = { horizontal: 'left', vertical: 'middle' };
-          ws.getRow(3).height = 14;
-        }
-
-        const headerRow = observaciones_devolucion ? 5 : 4;
-
-        // Cabecera de tabla
-        const hRow = ws.getRow(headerRow);
-        hRow.values = ['', 'REF.', 'DESCRIPCIÓN', 'UDS.', 'OBSERVACIONES'];
-        hRow.eachCell((cell, col) => {
-          if (col < 2) return;
-          cell.font      = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-          cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A3D2B' } };
-          cell.alignment = { horizontal: col === 4 ? 'center' : 'left', vertical: 'middle' };
-          cell.border    = { bottom: { style: 'thin', color: { argb: 'FF00913F' } } };
+        const hRow = ws.getRow(4);
+        hRow.values = ['REF.', 'DESCRIPCION', 'UDS.', 'OBSERVACIONES'];
+        hRow.eachCell((cell: any, col: number) => {
+          cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A3D2B' } };
+          cell.alignment = { horizontal: col === 3 ? 'center' : 'left', vertical: 'middle' };
         });
         hRow.height = 18;
-
-        // Filas de datos
         (devolucion_items || []).forEach((item: any, idx: number) => {
-          const row = ws.getRow(headerRow + 1 + idx);
-          row.values = ['', item.producto_codigo || '', item.producto_nombre || '', item.cantidad || 1, item.observaciones || ''];
-          row.eachCell((cell, col) => {
-            if (col < 2) return;
-            cell.font      = { size: 9 };
-            cell.alignment = { horizontal: col === 4 ? 'center' : 'left', vertical: 'middle' };
-            cell.border    = { bottom: { style: 'hair', color: { argb: 'FFDDDDDD' } } };
-            if (idx % 2 === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7FAF8' } };
-          });
+          const row = ws.getRow(5 + idx);
+          row.values = [item.producto_codigo || '', item.producto_nombre || '', item.cantidad || 1, item.observaciones || ''];
+          if (idx % 2 === 1) row.eachCell((cell: any) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7FAF8' } }; });
           row.height = 15;
         });
-
-        // Anchos de columna
-        ws.columns = [
-          { width: 2 },   // margen
-          { width: 14 },  // REF
-          { width: 42 },  // DESCRIPCIÓN
-          { width: 8 },   // UDS
-          { width: 28 },  // OBSERVACIONES
-        ];
-
+        ws.columns = [{ width: 16 }, { width: 45 }, { width: 8 }, { width: 30 }];
         const buf = await wb.xlsx.writeBuffer() as ArrayBuffer;
-        const bytes = new Uint8Array(buf);
-        excelBase64 = uint8ArrayToBase64(bytes);
-        console.log('[DEVOLUCION] Excel generado OK — tamaño bytes:', bytes.length);
+        excelBase64 = uint8ArrayToBase64(new Uint8Array(buf));
+        console.log('[DEVOLUCION] Excel OK');
       } catch (excelErr) {
-        // El fallo en Excel NO bloquea el envío del email de devolución
-        console.error('[DEVOLUCION] Error generando Excel:', (excelErr as Error).message);
+        console.error('[DEVOLUCION] Error Excel:', (excelErr as Error).message);
       }
-
-      const fechaStr2 = new Date().toLocaleDateString('es-ES');
-      const prefijo   = test_mode ? '[TEST] ' : '';
-      const htmlDev   =
-        `<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;">` +
-        `<div style="background:#00913f;color:white;padding:20px;border-radius:8px 8px 0 0;">` +
-        `<h1 style="margin:0;">Hoja de Devolución${test_mode ? ' <span style="background:#f59e0b;color:#000;padding:2px 8px;border-radius:4px;font-size:14px;">TEST</span>' : ''}</h1>` +
-        `<p style="margin:5px 0 0;opacity:0.85;">${tienda_nombre || ''} — ${fechaStr2}</p>` +
-        `</div><div style="background:#f8f9fa;padding:20px;border:1px solid #dee2e6;border-radius:0 0 8px 8px;">` +
-        `<table style="width:100%;border-collapse:collapse;">` +
-        `<thead><tr style="background:#1a3d2b;color:white;">` +
-        `<th style="padding:8px;text-align:left;font-size:12px;">REF.</th>` +
-        `<th style="padding:8px;text-align:left;font-size:12px;">DESCRIPCIÓN</th>` +
-        `<th style="padding:8px;text-align:center;font-size:12px;">UDS.</th>` +
-        `<th style="padding:8px;text-align:left;font-size:12px;">OBSERVACIONES</th>` +
-        `</tr></thead><tbody>` +
+      const fDev2 = new Date().toLocaleDateString('es-ES');
+      const prefijo = test_mode ? '[TEST] ' : '';
+      const htmlDev = '<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;">' +
+        '<div style="background:#00913f;color:white;padding:20px;border-radius:8px 8px 0 0;">' +
+        '<h1 style="margin:0;">Hoja de Devolucion' + (test_mode ? ' <span style="background:#f59e0b;color:#000;padding:2px 8px;border-radius:4px;font-size:14px;">TEST</span>' : '') + '</h1>' +
+        '<p style="margin:5px 0 0;opacity:0.85;">' + (tienda_nombre || '') + ' - ' + fDev2 + '</p>' +
+        '</div><div style="background:#f8f9fa;padding:20px;border:1px solid #dee2e6;border-radius:0 0 8px 8px;">' +
+        '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#1a3d2b;color:white;">' +
+        '<th style="padding:8px;text-align:left;">REF.</th><th style="padding:8px;text-align:left;">DESCRIPCION</th>' +
+        '<th style="padding:8px;text-align:center;">UDS.</th><th style="padding:8px;text-align:left;">OBSERVACIONES</th>' +
+        '</tr></thead><tbody>' +
         (devolucion_items || []).map((it: any, i: number) =>
-          `<tr style="background:${i%2===0?'#fff':'#f7faf8'};">` +
-          `<td style="padding:6px 8px;font-family:monospace;font-size:11px;border-bottom:1px solid #eee;">${it.producto_codigo||''}</td>` +
-          `<td style="padding:6px 8px;font-size:12px;border-bottom:1px solid #eee;">${it.producto_nombre||''}</td>` +
-          `<td style="padding:6px 8px;text-align:center;font-weight:bold;font-size:12px;border-bottom:1px solid #eee;">${it.cantidad||1}</td>` +
-          `<td style="padding:6px 8px;font-size:11px;color:#666;border-bottom:1px solid #eee;">${it.observaciones||''}</td>` +
-          `</tr>`
+          '<tr style="background:' + (i%2===0?'#fff':'#f7faf8') + ';">' +
+          '<td style="padding:6px 8px;font-family:monospace;font-size:11px;border-bottom:1px solid #eee;">' + (it.producto_codigo||'') + '</td>' +
+          '<td style="padding:6px 8px;font-size:12px;border-bottom:1px solid #eee;">' + (it.producto_nombre||'') + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:bold;font-size:12px;border-bottom:1px solid #eee;">' + (it.cantidad||1) + '</td>' +
+          '<td style="padding:6px 8px;font-size:11px;color:#666;border-bottom:1px solid #eee;">' + (it.observaciones||'') + '</td></tr>'
         ).join('') +
-        `</tbody></table>` +
-        (observaciones_devolucion ? `<p style="margin-top:12px;font-size:12px;color:#555;"><strong>Observaciones:</strong> ${observaciones_devolucion}</p>` : '') +
-        `<p style="margin-top:16px;color:#888;font-size:11px;">Hoja de devolución adjunta en Excel.</p>` +
-        `</div></div>`;
-
+        '</tbody></table>' +
+        '<p style="margin-top:16px;color:#888;font-size:11px;">Hoja de devolucion adjunta en Excel.</p></div></div>';
       const attachments: any[] = [];
-      if (excelBase64) {
-        attachments.push({
-          filename: `devolucion_${(tienda_nombre||'selogas').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`,
-          content:  excelBase64,
-        });
-      }
-
-      const rResp = await fetch('https://api.resend.com/emails', {
+      if (excelBase64) attachments.push({
+        filename: `devolucion_${(tienda_nombre||'selogas').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`,
+        content: excelBase64,
+      });
+      const rDev = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from:        'SELOGAS Pedidos <onboarding@resend.dev>',
-          to:          [to],
-          subject:     body.subject || `${prefijo}Devolución — ${tienda_nombre||''} — ${fechaStr2}`,
-          html:        htmlDev,
-          attachments,
-        }),
+        body: JSON.stringify({ from: 'SELOGAS Pedidos <onboarding@resend.dev>', to: [to], subject: subject || `${prefijo}Devolucion - ${tienda_nombre||''} - ${fDev2}`, html: htmlDev, attachments }),
       });
-      const rData = await rResp.json();
-      if (!rResp.ok) throw new Error('[DEVOLUCION] Resend error: ' + JSON.stringify(rData));
-      console.log('[DEVOLUCION] Email enviado OK — id:', rData.id);
-      return new Response(JSON.stringify({ success: true, emailId: rData.id }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const dDev = await rDev.json();
+      if (!rDev.ok) throw new Error('[DEVOLUCION] Resend error: ' + JSON.stringify(dDev));
+      console.log('[DEVOLUCION] Email OK id:', dDev.id);
+      return new Response(JSON.stringify({ success: true, emailId: dDev.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Email palet sin PDF
@@ -240,7 +183,6 @@ Deno.serve(async (req) => {
     const newPage = () => {
       pageNum++;
       page = pdfDoc.addPage([PW, PH]);
-      page.setRotation(degrees(0));
       y = PH - mg;
       page.drawText('SELOGAS - HOJA DE PEDIDO', { x: mg, y, size: 9, font: fontBold, color: rgb(0,0,0) });
       page.drawText('Tienda: ' + (tienda_nombre || ''), { x: mg + 195, y, size: 8, font, color: rgb(0,0,0) });
