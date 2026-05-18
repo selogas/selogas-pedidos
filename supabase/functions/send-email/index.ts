@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from 'https://esm.sh/pdf-lib@1.17.1';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'https://esm.sh/pdf-lib@1.17.1';
 import * as ExcelJS from 'https://esm.sh/exceljs@4.4.0';
 
 const corsHeaders = {
@@ -240,6 +240,7 @@ Deno.serve(async (req) => {
     const newPage = () => {
       pageNum++;
       page = pdfDoc.addPage([PW, PH]);
+      page.setRotation(degrees(0));
       y = PH - mg;
       page.drawText('SELOGAS - HOJA DE PEDIDO', { x: mg, y, size: 9, font: fontBold, color: rgb(0,0,0) });
       page.drawText('Tienda: ' + (tienda_nombre || ''), { x: mg + 195, y, size: 8, font, color: rgb(0,0,0) });
