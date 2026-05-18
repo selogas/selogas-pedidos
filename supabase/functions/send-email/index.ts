@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const PW = 841.89; const PH = 595.28;
+    const PW = 595.28; const PH = 841.89;
     const mg = 20;
     const gapCols = 6;
     const totalW = PW - mg * 2;
