@@ -10,7 +10,7 @@ import { useTopProductos, invalidateTopProductosCache } from "@/lib/useTopProduc
 const CAT_COLORS = [
   "#00a847","#10b981","#f59e0b","#ef4444","#8b5cf6",
   "#f97316","#06b6d4","#ec4899","#84cc16","#6366f1",
-  "#14b8a6","#a855f7","#f43f5e","#0ea5e9","#d97706",
+  "#14b8a6","#a855f7","#f43f5e","#0ea5e9","#d97706",h
   "#4ade80","#fb7185","#38bdf8","#c084fc","#facc15",
 ];
 
@@ -565,11 +565,6 @@ await supabase.functions.invoke("send-email", {
     todos_productos: todosProds || [],
     _pdf_version: 'v2'
   }
-});
-      body: { to: emailAlmacen, subject: asunto, tienda_nombre: tiendaNombre,
-              numero_pedido: numeroPedido, fecha, observaciones,
-              lineas: lineasData, todos_productos: todosProds || [],
-		_pdf_version: PDF_VERSION }
     });
     await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedidoId);
   }
