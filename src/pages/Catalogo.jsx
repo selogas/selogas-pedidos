@@ -551,7 +551,21 @@ export default function Catalogo() {
       .eq("disponible", true)
       .order("orden_excel", { ascending: true })
       .limit(2000);
-    await supabase.functions.invoke("send-email", {
+    console.log('[PDF] Motor activo: v2');
+
+await supabase.functions.invoke("send-email", {
+  body: {
+    to: emailAlmacen,
+    subject: asunto,
+    tienda_nombre: tiendaNombre,
+    numero_pedido: numeroPedido,
+    fecha,
+    observaciones,
+    lineas: lineasData,
+    todos_productos: todosProds || [],
+    _pdf_version: 'v2'
+  }
+});
       body: { to: emailAlmacen, subject: asunto, tienda_nombre: tiendaNombre,
               numero_pedido: numeroPedido, fecha, observaciones,
               lineas: lineasData, todos_productos: todosProds || [],
