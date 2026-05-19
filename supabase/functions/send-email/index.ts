@@ -285,21 +285,7 @@ Deno.serve(async (req) => {
       y -= 6;
     }
 
-    // Pagina resumen
-    if (lineas && lineas.length > 0) {
-      newPage();
-      page.drawText('RESUMEN DEL PEDIDO - ' + (tienda_nombre||'') + ' - ' + fechaStr, { x: mg, y, size: 9, font: fontBold, color: rgb(0,0,0.55) });
-      y -= 14;
-      page.drawLine({ start: {x: mg, y}, end: {x: PW-mg, y}, thickness: 0.5, color: rgb(0,0,0) });
-      y -= 9;
-      for (const l of lineas) {
-        ensure(11);
-        page.drawText((l.producto_codigo||'').toString().substring(0,12), { x: mg,     y, size: 7.5, font,           color: rgb(0,0,0) });
-        page.drawText((l.producto_nombre||'').substring(0,60),            { x: mg+85,  y, size: 7.5, font,           color: rgb(0,0,0) });
-        page.drawText(l.cantidad.toString(),                               { x: mg+510, y, size: 8,   font: fontBold, color: rgb(0,0.38,0) });
-        y -= 11;
-      }
-    }
+
 
     const pdfBase64 = uint8ArrayToBase64(await pdfDoc.save());
 
