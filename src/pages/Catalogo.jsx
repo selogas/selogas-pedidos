@@ -18,6 +18,13 @@ function getCatColor(nombre, index) {
   return CAT_COLORS[index % CAT_COLORS.length];
 }
 
+// ─── FLAG DE VERSIÓN PDF ─────────────────────────────────────────────── //
+// Para rollback inmediato: cambiar 'v2' → 'v1'
+// v1 = motor legacy (usa todos_productos del frontend, orden_excel)
+// v2 = motor nuevo  (consulta BD directa, fila_pdf, layout fijo)
+const PDF_VERSION = 'v2';
+// ──────────────────────────────────────────────────────────────────────
+
 export default function Catalogo() {
   const { user, perfil, isAdmin, loading: authLoading } = useAuth();
 
@@ -547,7 +554,8 @@ export default function Catalogo() {
     await supabase.functions.invoke("send-email", {
       body: { to: emailAlmacen, subject: asunto, tienda_nombre: tiendaNombre,
               numero_pedido: numeroPedido, fecha, observaciones,
-              lineas: lineasData, todos_productos: todosProds || [] }
+              lineas: lineasData, todos_productos: todosProds || [],
+		_pdf_version: PDF_VERSION }
     });
     await supabase.from("pedidos").update({ email_enviado: true }).eq("id", pedidoId);
   }
