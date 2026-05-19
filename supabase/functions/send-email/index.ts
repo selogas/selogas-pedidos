@@ -202,9 +202,9 @@ Deno.serve(async (req) => {
       for (let c = 0; c < 3; c++) {
         const x = xC(c);
         page.drawRectangle({ x, y: y - rH, width: colW, height: rH, color: rgb(0.80, 0.80, 0.80) });
-        page.drawText('CODIGO',   { x: x + 2,               y: y - rH + 2.5, size: 6, font: fontBold, color: rgb(0,0,0) });
-        page.drawText('ARTICULO', { x: x + cCod + 2,        y: y - rH + 2.5, size: 6, font: fontBold, color: rgb(0,0,0) });
-        page.drawText('PED',      { x: x + cCod + cNom + 2, y: y - rH + 2.5, size: 6, font: fontBold, color: rgb(0,0,0) });
+        page.drawText('CODIGO',   { x: x + 2,               y: y - rH + 2.5, size: 5.5, font: fontBold, color: rgb(0,0,0) });
+        page.drawText('ARTICULO', { x: x + cCod + 2,        y: y - rH + 2.5, size: 5.5, font: fontBold, color: rgb(0,0,0) });
+        page.drawText('PED',      { x: x + cCod + cNom + 2, y: y - rH + 2.5, size: 5.5, font: fontBold, color: rgb(0,0,0) });
       }
       y -= rH;
     };
@@ -219,9 +219,9 @@ Deno.serve(async (req) => {
       if (qty > 0) page.drawRectangle({ x, y: ry, width: colW, height: rH, color: rgb(0.68, 0.92, 0.68) });
       page.drawLine({ start: {x: x+cCod, y: ry},        end: {x: x+cCod,       y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
       page.drawLine({ start: {x: x+cCod+cNom, y: ry},   end: {x: x+cCod+cNom,  y: ry+rH}, thickness: 0.15, color: rgb(0.78,0.78,0.78) });
-      page.drawText(codigoKey.substring(0, 10),           { x: x + 1.5,             y: ry + 2.5, size: 7,                font,            color: rgb(0,0,0) });
-      page.drawText((prod.nombre||'').substring(0, 33),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 7 : 6.5, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
-      if (qty > 0) page.drawText(qty.toString(),          { x: x + cCod + cNom + 2, y: ry + 2.5, size: 7.5, font: fontBold, color: rgb(0,0.38,0) });
+      page.drawText(codigoKey.substring(0, 10),           { x: x + 1.5,             y: ry + 2.5, size: 6,                font,            color: rgb(0,0,0) });
+      page.drawText((prod.nombre||'').substring(0, 38),   { x: x + cCod + 1.5,      y: ry + 2.5, size: qty > 0 ? 6 : 5.5, font: qty > 0 ? fontBold : font, color: rgb(0,0,0) });
+      if (qty > 0) page.drawText(qty.toString(),          { x: x + cCod + cNom + 2, y: ry + 2.5, size: 6.5, font: fontBold, color: rgb(0,0.38,0) });
     };
 
     newPage();
