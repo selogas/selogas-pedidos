@@ -671,7 +671,7 @@ await supabase.functions.invoke("send-email", {
           <CartSidebar
             carrito={carrito} productos={productos} sugerencias={sugerencias}
             onClose={() => setCartOpen(false)} onQtyChange={handleQtyChange}
-            onRemove={handleRemove} onEnviar={handleEnviar}
+            onRemove={handleRemove} onVaciar={() => setCarrito({})} onEnviar={handleEnviar}
             onConfirmarClick={devolucionesActivas ? handleConfirmarClick : null}
             onAddSugerencia={handleAddSugerencia}
             tiendaNombre={tienda?.nombre || ""}
