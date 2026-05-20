@@ -67,6 +67,7 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
   const [guardando, setGuardando]       = useState(false);
   const [error, setError]               = useState('');
   const [paso, setPaso]                 = useState(1); // 1=datos 2=archivo 3=preview
+  const [fechaExcel, setFechaExcel]     = useState(''); // fecha detectada del Excel
   const fileRef = useRef();
 
   // Pedidos disponibles de la tienda seleccionada (últimos 30)
@@ -98,7 +99,8 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
     });
   };
 
-  // Parsear Excel en cliente
+  // Parsear Excel — soporta formato Selogas (Artículo/CodBarras/Descripción/Unidades/Partida/Precio/%IVA/Importe)
+  // y formatos genéricos
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -109,28 +111,77 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-      let headerIdx = -1, colCodigo = -1, colUnidades = -1, colDesc = -1;
-      for (let i = 0; i < Math.min(10, rows.length); i++) {
-        const row = rows[i].map(v => String(v || '').toLowerCase().trim());
-        const artIdx  = row.findIndex(c => c.includes('artículo') || c.includes('articulo') || c === 'código' || c === 'codigo');
-        const unidIdx = row.findIndex(c => c.includes('unidades') || c.includes('cantidad') || c.includes('uds'));
-        const descIdx = row.findIndex(c => c.includes('descripción') || c.includes('descripcion') || c.includes('nombre'));
-        if (artIdx >= 0 && unidIdx >= 0) { headerIdx = i; colCodigo = artIdx; colUnidades = unidIdx; colDesc = descIdx; break; }
-      }
-      if (headerIdx < 0) { headerIdx = 0; colCodigo = 1; colUnidades = 2; colDesc = 3; }
+      // ── Buscar fila de cabecera ────────────────────────────────────────
+      let headerIdx = -1;
+      let cols = { codigo: -1, barcode: -1, desc: -1, uds: -1, precio: -1, iva: -1, importe: -1 };
 
+      for (let i = 0; i < Math.min(20, rows.length); i++) {
+        const row = rows[i].map(v => String(v || '').toLowerCase().trim());
+        const artIdx  = row.findIndex(c => c === 'artículo' || c === 'articulo' || c === 'código' || c === 'codigo' || c === 'ref' || c === 'referencia');
+        const unidIdx = row.findIndex(c => c === 'unidades' || c === 'cantidad' || c === 'uds' || c === 'uds.');
+        if (artIdx >= 0 && unidIdx >= 0) {
+          headerIdx    = i;
+          cols.codigo  = artIdx;
+          cols.uds     = unidIdx;
+          cols.barcode = row.findIndex(c => c.includes('barras') || c === 'ean' || c === 'cod. barras');
+          cols.desc    = row.findIndex(c => c.includes('descripci') || c === 'nombre' || c === 'producto');
+          cols.precio  = row.findIndex(c => c === 'precio' || c === 'p.u.' || c === 'precio unit.');
+          cols.iva     = row.findIndex(c => c === '%iva.' || c === '%iva' || c === 'iva');
+          cols.importe = row.findIndex(c => c.includes('importe') || c === 'total');
+          break;
+        }
+      }
+
+      // ── Detectar número de albarán y fecha en la cabecera ─────────────
+      let fechaDetectada = '';
+      let numDetectado = '';
+      for (let i = 0; i < Math.min(20, rows.length); i++) {
+        const row = rows[i];
+        const rowStr = row.map(v => String(v || '').toLowerCase().trim());
+        const numIdx = rowStr.findIndex(c => c === 'número' || c === 'numero' || c === 'serie' || c.includes('albar'));
+        if (numIdx >= 0 && !numDetectado) {
+          const val = row[numIdx + 1] ?? row[numIdx + 2];
+          if (val && String(val).trim()) numDetectado = String(val).trim();
+        }
+        const fechaIdx = rowStr.findIndex(c => c === 'fecha');
+        if (fechaIdx >= 0 && !fechaDetectada) {
+          const val = row[fechaIdx + 1] ?? row[fechaIdx + 2];
+          if (val) {
+            if (typeof val === 'number') {
+              const d = XLSX.SSF.parse_date_code(val);
+              if (d) fechaDetectada = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+            } else {
+              const m = String(val).match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+              if (m) fechaDetectada = `${m[3]}-${m[2]}-${m[1]}`;
+              else fechaDetectada = String(val).trim();
+            }
+          }
+        }
+      }
+
+      if (headerIdx < 0) { headerIdx = 0; cols.codigo = 0; cols.uds = 1; cols.desc = 2; }
+
+      // ── Parsear líneas de detalle ──────────────────────────────────────
       const parsed = [];
       for (let i = headerIdx + 1; i < rows.length; i++) {
         const row = rows[i];
-        const cod = row[colCodigo] != null ? String(row[colCodigo]).trim().replace(/\.0+$/, '') : null;
-        const uds = row[colUnidades];
-        const desc = colDesc >= 0 && row[colDesc] ? String(row[colDesc]).trim() : '';
-        if (!cod || !uds || isNaN(Number(uds))) continue;
-        parsed.push({ codigo: cod, cantidad_servida: parseInt(uds), descripcion: desc });
+        if (!row || row.every(v => v === null || v === '')) continue;
+        const cod = row[cols.codigo] != null ? String(row[cols.codigo]).trim().replace(/\.0+$/, '') : null;
+        const uds = row[cols.uds];
+        if (!cod || !uds || isNaN(Number(uds)) || Number(uds) === 0) continue;
+        if (/suma|sigue|total|importe neto/i.test(cod)) continue;
+        const desc    = cols.desc    >= 0 && row[cols.desc]    != null ? String(row[cols.desc]).trim()                          : '';
+        const barcode = cols.barcode >= 0 && row[cols.barcode] != null ? String(row[cols.barcode]).trim().replace(/\.0+$/, '') : '';
+        const precio  = cols.precio  >= 0 && row[cols.precio]  != null ? parseFloat(row[cols.precio])  || null                  : null;
+        const pct_iva = cols.iva     >= 0 && row[cols.iva]     != null ? parseFloat(row[cols.iva])     || null                  : null;
+        const importe = cols.importe >= 0 && row[cols.importe] != null ? parseFloat(row[cols.importe]) || null                  : null;
+        parsed.push({ codigo: cod, barcode, descripcion: desc, cantidad_servida: parseInt(uds), precio_unitario: precio, pct_iva, importe });
       }
 
       if (!parsed.length) { setError('No se encontraron líneas con código y cantidad.'); return; }
-      if (!numero) setNumero(file.name.replace(/\.[^.]+$/, ''));
+      if (!numero && numDetectado) setNumero(numDetectado);
+      else if (!numero) setNumero(file.name.replace(/\.[^.]+$/, ''));
+      if (fechaDetectada) setFechaExcel(fechaDetectada);
       setLineas(parsed);
       setPaso(3);
     } catch (e) {
@@ -162,19 +213,22 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
         });
       }
 
-      // Fecha del albarán: extraemos del pedido más reciente seleccionado, o hoy
+      // Fecha del albarán: prioridad → detectada del Excel, luego pedido seleccionado, luego hoy
       const pedidoRef = pedidosTienda.find(p => pedidosSelec.has(p.id));
-      const fechaAlbaran = pedidoRef
-        ? new Date(pedidoRef.fecha_pedido).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0];
+      const fechaAlbaran = fechaExcel
+        || (pedidoRef ? new Date(pedidoRef.fecha_pedido).toISOString().split('T')[0] : null)
+        || new Date().toISOString().split('T')[0];
 
-      // Líneas del albarán cruzadas con el pedido
+      // Líneas del albarán cruzadas con el pedido — incluye precio/IVA/importe si vienen del Excel
       const lineasConDif = lineasAlbaran.map(l => ({
         codigo_producto:  l.codigo,
         descripcion:      l.descripcion,
         cantidad_servida: l.cantidad_servida,
         cantidad_pedida:  mapaPedido[l.codigo] ?? null,
         tipo_diferencia:  calcTipo(mapaPedido[l.codigo] ?? null, l.cantidad_servida),
+        ...(l.precio_unitario != null && { precio_unitario: l.precio_unitario }),
+        ...(l.pct_iva         != null && { pct_iva:         l.pct_iva }),
+        ...(l.importe         != null && { importe:         l.importe }),
       }));
 
       // Productos del pedido NO presentes en el albarán → no_servido
@@ -344,14 +398,20 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
                       <th className="text-left px-3 py-2 font-semibold text-gray-600">Código</th>
                       <th className="text-left px-3 py-2 font-semibold text-gray-600">Descripción</th>
                       <th className="text-right px-3 py-2 font-semibold text-gray-600">Uds.</th>
+                      {lineasAlbaran.some(l => l.precio_unitario != null) && <th className="text-right px-3 py-2 font-semibold text-gray-600">Precio</th>}
+                      {lineasAlbaran.some(l => l.pct_iva != null) && <th className="text-right px-3 py-2 font-semibold text-gray-600">IVA%</th>}
+                      {lineasAlbaran.some(l => l.importe != null) && <th className="text-right px-3 py-2 font-semibold text-gray-600">Importe</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {lineasAlbaran.map((l, i) => (
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="px-3 py-1.5 font-mono text-gray-600">{l.codigo}</td>
-                        <td className="px-3 py-1.5 text-gray-700 max-w-[200px] truncate">{l.descripcion}</td>
+                        <td className="px-3 py-1.5 text-gray-700 max-w-[180px] truncate">{l.descripcion}</td>
                         <td className="px-3 py-1.5 text-right font-bold">{l.cantidad_servida}</td>
+                        {lineasAlbaran.some(l2 => l2.precio_unitario != null) && <td className="px-3 py-1.5 text-right text-gray-600">{l.precio_unitario != null ? l.precio_unitario.toFixed(4) : '—'}</td>}
+                        {lineasAlbaran.some(l2 => l2.pct_iva != null) && <td className="px-3 py-1.5 text-right text-gray-500">{l.pct_iva != null ? `${l.pct_iva}%` : '—'}</td>}
+                        {lineasAlbaran.some(l2 => l2.importe != null) && <td className="px-3 py-1.5 text-right font-semibold text-gray-800">{l.importe != null ? `${l.importe.toFixed(2)} €` : '—'}</td>}
                       </tr>
                     ))}
                   </tbody>
