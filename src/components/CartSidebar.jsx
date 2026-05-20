@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { X, Trash2, ShoppingCart, Send, ChevronDown, AlertCircle, Plus, Lightbulb, Clock, TrendingDown, TrendingUp } from 'lucide-react';
 
-export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onConfirmarClick, onAddSugerencia, tiendaNombre, pedidoEstaSemanaPorProducto = {}, mediasPorProducto = {} }) {
+export default function CartSidebar({ carrito, productos, sugerencias = [], onClose, onQtyChange, onRemove, onEnviar, onConfirmarClick, onAddSugerencia, onVaciar, tiendaNombre, pedidoEstaSemanaPorProducto = {}, mediasPorProducto = {} }) {
   const [observaciones, setObservaciones] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmVaciar, setConfirmVaciar] = useState(false);
   const [showSugerencias, setShowSugerencias] = useState(true);
 
   const lineas = useMemo(() => {
@@ -43,7 +44,31 @@ export default function CartSidebar({ carrito, productos, sugerencias = [], onCl
             {tiendaNombre && <div className="text-xs text-[#d9f0e4]">{tiendaNombre}</div>}
           </div>
         </div>
-        <button onClick={onClose} className="p-2 rounded-xl hover:bg-[#007a34] transition-colors"><X size={18} /></button>
+        <div className="flex items-center gap-1">
+          {lineas.length > 0 && onVaciar && !confirmVaciar && (
+            <button
+              onClick={() => setConfirmVaciar(true)}
+              title="Vaciar carrito"
+              className="p-2 rounded-xl hover:bg-[#007a34] transition-colors text-white/70 hover:text-white"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+          {confirmVaciar && (
+            <div className="flex items-center gap-1.5 bg-[#007a34] rounded-xl px-2 py-1">
+              <span className="text-xs text-white/90">¿Vaciar?</span>
+              <button
+                onClick={() => { onVaciar(); setConfirmVaciar(false); }}
+                className="text-xs bg-white text-[#00913f] font-bold px-2 py-0.5 rounded-lg hover:bg-green-50"
+              >Sí</button>
+              <button
+                onClick={() => setConfirmVaciar(false)}
+                className="text-xs text-white/80 hover:text-white px-1"
+              >No</button>
+            </div>
+          )}
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-[#007a34] transition-colors"><X size={18} /></button>
+        </div>
       </div>
 
       {/* Items */}
