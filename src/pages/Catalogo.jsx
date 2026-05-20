@@ -46,6 +46,7 @@ export default function Catalogo() {
   });
   const [categoriaActiva, setCategoriaActiva] = useState("__todas__");
   const [busqueda, setBusqueda]               = useState("");
+  const [mapaBarcodes, setMapaBarcodes]       = useState({}); // { prod_id: [barcode,...] }
   const [cartOpen, setCartOpen]               = useState(false);
   const [loading, setLoading]                 = useState(true);
   const [enviando, setEnviando]               = useState(false);
@@ -137,6 +138,15 @@ export default function Catalogo() {
         }
 
         setProductos(listaProductos);
+
+        // Cargar barcodes para búsqueda por EAN en el catálogo
+        supabase.from("producto_barcodes").select("producto_id, barcode").then(({ data: bcs }) => {
+          if (bcs) {
+            const mapa = {};
+            bcs.forEach(r => { if (!mapa[r.producto_id]) mapa[r.producto_id] = []; mapa[r.producto_id].push(r.barcode); });
+            setMapaBarcodes(mapa);
+          }
+        });
 
         const [sugsData, pedidosRecientes, mediasHistoricas, favSet, plantilla, caducMap, confDev, borradorDev] = await Promise.all([
           tienda?.id ? cargarSugerencias(tienda.id) : Promise.resolve([]),
@@ -368,11 +378,12 @@ export default function Catalogo() {
       list = list.filter(p =>
         p.nombre?.toLowerCase().includes(q) ||
         p.codigo?.toLowerCase().includes(q) ||
-        p.categorias?.nombre?.toLowerCase().includes(q)
+        p.categorias?.nombre?.toLowerCase().includes(q) ||
+        (mapaBarcodes[p.id] || []).some(b => b.includes(q))
       );
     }
     return list;
-  }, [productos, categoriaActiva, busqueda]);
+  }, [productos, categoriaActiva, busqueda, mapaBarcodes]);
 
   const cartCount = useMemo(() => Object.values(carrito).filter(v => v > 0).length, [carrito]);
 
