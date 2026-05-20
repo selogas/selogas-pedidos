@@ -99,91 +99,209 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
     });
   };
 
-  // Parsear Excel — soporta formato Selogas (Artículo/CodBarras/Descripción/Unidades/Partida/Precio/%IVA/Importe)
-  // y formatos genéricos
+  // ── Parser PDF: extrae texto de todas las páginas con pdfjs ────────────────
+  const parsePDF = async (buffer) => {
+    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    let fullText = '';
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const tc   = await page.getTextContent();
+      // Reconstruir líneas ordenando por posición Y (de mayor a menor = top-down)
+      const items = tc.items.map(i => ({ str: i.str, x: i.transform[4], y: i.transform[5] }));
+      items.sort((a, b) => b.y - a.y || a.x - b.x);
+      // Agrupar por fila (items con Y similar ±3px = misma línea)
+      const filas = [];
+      items.forEach(it => {
+        const last = filas[filas.length - 1];
+        if (last && Math.abs(last.y - it.y) < 4) {
+          last.items.push(it);
+        } else {
+          filas.push({ y: it.y, items: [it] });
+        }
+      });
+      fullText += filas.map(f => f.items.sort((a,b) => a.x - b.x).map(i => i.str).join(' ')).join('\n') + '\n';
+    }
+    return fullText;
+  };
+
+  // ── Parser de texto del PDF al formato interno ───────────────────────────
+  const parsearTextoPDF = (text) => {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    // Detectar número de albarán y fecha en cabecera
+    // Formato Selogas: "7021  20/05/2026  000270" o "Número  Fecha  Cliente"
+    let numDetectado = '';
+    let fechaDetectada = '';
+    for (const line of lines) {
+      // Buscar número de albarán (patrón: secuencia numérica corta tipo "7021")
+      if (!numDetectado) {
+        const mNum = line.match(/(?:número|numero|albar[aá]n)[:\s]+(\S+)/i);
+        if (mNum) numDetectado = mNum[1];
+      }
+      // Buscar fecha dd/mm/yyyy
+      if (!fechaDetectada) {
+        const mFecha = line.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+        if (mFecha) fechaDetectada = `${mFecha[3]}-${mFecha[2]}-${mFecha[1]}`;
+      }
+      if (numDetectado && fechaDetectada) break;
+    }
+
+    // Encontrar la línea de cabecera de la tabla
+    // Formato Selogas: "Artículo  Cod. Barras  Descripción  Unidades  Partida  Precio  %IVA.  Importe(EUR)"
+    let headerLineIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i].toLowerCase();
+      if ((l.includes('artículo') || l.includes('articulo')) && l.includes('unidades')) {
+        headerLineIdx = i;
+        break;
+      }
+    }
+    if (headerLineIdx < 0) return { parsed: [], numDetectado, fechaDetectada };
+
+    // Las líneas de datos vienen después de la cabecera
+    // Formato: "2455100  8410128122720  YOGUR PASCUAL SABOR FRESA 4*125 GRS.  2,00  02626  1,0550  4,00  2,11"
+    // El patrón es: código_interno  ean  descripcion  unidades  partida  precio  iva  importe
+    const parsed = [];
+    const reLinea = /^(\d{5,12})\s+(\d{8,14})\s+(.+?)\s+([\d]+[,.]?[\d]*)\s+\S+\s+([\d]+[,.][\d]+)\s+([\d]+[,.][\d]+)\s+([\d]+[,.][\d]+)\s*$/;
+    const reLineaSimple = /^(\d{5,12})\s+(.+?)\s+([\d]+)\s*$/;
+
+    for (let i = headerLineIdx + 1; i < lines.length; i++) {
+      const line = lines[i];
+      // Parar en líneas de pie de página
+      if (/suma y sigue|importe neto|base i\.v\.a|portes|total unidades|líquido|observaciones/i.test(line)) continue;
+      // Ignorar líneas muy cortas
+      if (line.length < 10) continue;
+
+      let m = line.match(reLinea);
+      if (m) {
+        const uds     = parseFloat(m[4].replace(',', '.'));
+        const precio  = parseFloat(m[5].replace(',', '.'));
+        const pct_iva = parseFloat(m[6].replace(',', '.'));
+        const importe = parseFloat(m[7].replace(',', '.'));
+        if (isNaN(uds) || uds === 0) continue;
+        parsed.push({
+          codigo:           m[1],
+          barcode:          m[2],
+          descripcion:      m[3].trim(),
+          cantidad_servida: Math.round(uds),
+          precio_unitario:  isNaN(precio)  ? null : precio,
+          pct_iva:          isNaN(pct_iva) ? null : pct_iva,
+          importe:          isNaN(importe) ? null : importe,
+        });
+        continue;
+      }
+
+      // Fallback: solo código + descripción + unidades
+      m = line.match(reLineaSimple);
+      if (m) {
+        const uds = parseInt(m[3]);
+        if (!uds) continue;
+        parsed.push({ codigo: m[1], barcode: '', descripcion: m[2].trim(), cantidad_servida: uds, precio_unitario: null, pct_iva: null, importe: null });
+      }
+    }
+
+    return { parsed, numDetectado, fechaDetectada };
+  };
+
+  // ── handleFile: detecta PDF vs Excel y delega ────────────────────────────
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setProcesando(true); setError('');
     try {
+      const isPDF = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
       const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer);
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-      // ── Buscar fila de cabecera ────────────────────────────────────────
-      let headerIdx = -1;
-      let cols = { codigo: -1, barcode: -1, desc: -1, uds: -1, precio: -1, iva: -1, importe: -1 };
+      if (isPDF) {
+        // ── Ruta PDF ────────────────────────────────────────────────────
+        const text = await parsePDF(buffer);
+        const { parsed, numDetectado, fechaDetectada } = parsearTextoPDF(text);
+        if (!parsed.length) { setError('No se encontraron líneas en el PDF. Asegúrate de que es el albarán de Selogas.'); return; }
+        if (!numero && numDetectado) setNumero(numDetectado);
+        else if (!numero) setNumero(file.name.replace(/\.[^.]+$/, ''));
+        if (fechaDetectada) setFechaExcel(fechaDetectada);
+        setLineas(parsed);
+        setPaso(3);
 
-      for (let i = 0; i < Math.min(20, rows.length); i++) {
-        const row = rows[i].map(v => String(v || '').toLowerCase().trim());
-        const artIdx  = row.findIndex(c => c === 'artículo' || c === 'articulo' || c === 'código' || c === 'codigo' || c === 'ref' || c === 'referencia');
-        const unidIdx = row.findIndex(c => c === 'unidades' || c === 'cantidad' || c === 'uds' || c === 'uds.');
-        if (artIdx >= 0 && unidIdx >= 0) {
-          headerIdx    = i;
-          cols.codigo  = artIdx;
-          cols.uds     = unidIdx;
-          cols.barcode = row.findIndex(c => c.includes('barras') || c === 'ean' || c === 'cod. barras');
-          cols.desc    = row.findIndex(c => c.includes('descripci') || c === 'nombre' || c === 'producto');
-          cols.precio  = row.findIndex(c => c === 'precio' || c === 'p.u.' || c === 'precio unit.');
-          cols.iva     = row.findIndex(c => c === '%iva.' || c === '%iva' || c === 'iva');
-          cols.importe = row.findIndex(c => c.includes('importe') || c === 'total');
-          break;
+      } else {
+        // ── Ruta Excel ──────────────────────────────────────────────────
+        const wb = XLSX.read(buffer);
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+        let headerIdx = -1;
+        let cols = { codigo: -1, barcode: -1, desc: -1, uds: -1, precio: -1, iva: -1, importe: -1 };
+
+        for (let i = 0; i < Math.min(20, rows.length); i++) {
+          const row = rows[i].map(v => String(v || '').toLowerCase().trim());
+          const artIdx  = row.findIndex(c => c === 'artículo' || c === 'articulo' || c === 'código' || c === 'codigo' || c === 'ref' || c === 'referencia');
+          const unidIdx = row.findIndex(c => c === 'unidades' || c === 'cantidad' || c === 'uds' || c === 'uds.');
+          if (artIdx >= 0 && unidIdx >= 0) {
+            headerIdx    = i;
+            cols.codigo  = artIdx;
+            cols.uds     = unidIdx;
+            cols.barcode = row.findIndex(c => c.includes('barras') || c === 'ean' || c === 'cod. barras');
+            cols.desc    = row.findIndex(c => c.includes('descripci') || c === 'nombre' || c === 'producto');
+            cols.precio  = row.findIndex(c => c === 'precio' || c === 'p.u.' || c === 'precio unit.');
+            cols.iva     = row.findIndex(c => c === '%iva.' || c === '%iva' || c === 'iva');
+            cols.importe = row.findIndex(c => c.includes('importe') || c === 'total');
+            break;
+          }
         }
-      }
 
-      // ── Detectar número de albarán y fecha en la cabecera ─────────────
-      let fechaDetectada = '';
-      let numDetectado = '';
-      for (let i = 0; i < Math.min(20, rows.length); i++) {
-        const row = rows[i];
-        const rowStr = row.map(v => String(v || '').toLowerCase().trim());
-        const numIdx = rowStr.findIndex(c => c === 'número' || c === 'numero' || c === 'serie' || c.includes('albar'));
-        if (numIdx >= 0 && !numDetectado) {
-          const val = row[numIdx + 1] ?? row[numIdx + 2];
-          if (val && String(val).trim()) numDetectado = String(val).trim();
-        }
-        const fechaIdx = rowStr.findIndex(c => c === 'fecha');
-        if (fechaIdx >= 0 && !fechaDetectada) {
-          const val = row[fechaIdx + 1] ?? row[fechaIdx + 2];
-          if (val) {
-            if (typeof val === 'number') {
-              const d = XLSX.SSF.parse_date_code(val);
-              if (d) fechaDetectada = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
-            } else {
-              const m = String(val).match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
-              if (m) fechaDetectada = `${m[3]}-${m[2]}-${m[1]}`;
-              else fechaDetectada = String(val).trim();
+        let fechaDetectada = '';
+        let numDetectado = '';
+        for (let i = 0; i < Math.min(20, rows.length); i++) {
+          const row = rows[i];
+          const rowStr = row.map(v => String(v || '').toLowerCase().trim());
+          const numIdx = rowStr.findIndex(c => c === 'número' || c === 'numero' || c === 'serie' || c.includes('albar'));
+          if (numIdx >= 0 && !numDetectado) {
+            const val = row[numIdx + 1] ?? row[numIdx + 2];
+            if (val && String(val).trim()) numDetectado = String(val).trim();
+          }
+          const fechaIdx = rowStr.findIndex(c => c === 'fecha');
+          if (fechaIdx >= 0 && !fechaDetectada) {
+            const val = row[fechaIdx + 1] ?? row[fechaIdx + 2];
+            if (val) {
+              if (typeof val === 'number') {
+                const d = XLSX.SSF.parse_date_code(val);
+                if (d) fechaDetectada = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+              } else {
+                const m = String(val).match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+                if (m) fechaDetectada = `${m[3]}-${m[2]}-${m[1]}`;
+                else fechaDetectada = String(val).trim();
+              }
             }
           }
         }
+
+        if (headerIdx < 0) { headerIdx = 0; cols.codigo = 0; cols.uds = 1; cols.desc = 2; }
+
+        const parsed = [];
+        for (let i = headerIdx + 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.every(v => v === null || v === '')) continue;
+          const cod = row[cols.codigo] != null ? String(row[cols.codigo]).trim().replace(/\.0+$/, '') : null;
+          const uds = row[cols.uds];
+          if (!cod || !uds || isNaN(Number(uds)) || Number(uds) === 0) continue;
+          if (/suma|sigue|total|importe neto/i.test(cod)) continue;
+          const desc    = cols.desc    >= 0 && row[cols.desc]    != null ? String(row[cols.desc]).trim()                          : '';
+          const barcode = cols.barcode >= 0 && row[cols.barcode] != null ? String(row[cols.barcode]).trim().replace(/\.0+$/, '') : '';
+          const precio  = cols.precio  >= 0 && row[cols.precio]  != null ? parseFloat(row[cols.precio])  || null                  : null;
+          const pct_iva = cols.iva     >= 0 && row[cols.iva]     != null ? parseFloat(row[cols.iva])     || null                  : null;
+          const importe = cols.importe >= 0 && row[cols.importe] != null ? parseFloat(row[cols.importe]) || null                  : null;
+          parsed.push({ codigo: cod, barcode, descripcion: desc, cantidad_servida: parseInt(uds), precio_unitario: precio, pct_iva, importe });
+        }
+
+        if (!parsed.length) { setError('No se encontraron líneas con código y cantidad.'); return; }
+        if (!numero && numDetectado) setNumero(numDetectado);
+        else if (!numero) setNumero(file.name.replace(/\.[^.]+$/, ''));
+        if (fechaDetectada) setFechaExcel(fechaDetectada);
+        setLineas(parsed);
+        setPaso(3);
       }
-
-      if (headerIdx < 0) { headerIdx = 0; cols.codigo = 0; cols.uds = 1; cols.desc = 2; }
-
-      // ── Parsear líneas de detalle ──────────────────────────────────────
-      const parsed = [];
-      for (let i = headerIdx + 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.every(v => v === null || v === '')) continue;
-        const cod = row[cols.codigo] != null ? String(row[cols.codigo]).trim().replace(/\.0+$/, '') : null;
-        const uds = row[cols.uds];
-        if (!cod || !uds || isNaN(Number(uds)) || Number(uds) === 0) continue;
-        if (/suma|sigue|total|importe neto/i.test(cod)) continue;
-        const desc    = cols.desc    >= 0 && row[cols.desc]    != null ? String(row[cols.desc]).trim()                          : '';
-        const barcode = cols.barcode >= 0 && row[cols.barcode] != null ? String(row[cols.barcode]).trim().replace(/\.0+$/, '') : '';
-        const precio  = cols.precio  >= 0 && row[cols.precio]  != null ? parseFloat(row[cols.precio])  || null                  : null;
-        const pct_iva = cols.iva     >= 0 && row[cols.iva]     != null ? parseFloat(row[cols.iva])     || null                  : null;
-        const importe = cols.importe >= 0 && row[cols.importe] != null ? parseFloat(row[cols.importe]) || null                  : null;
-        parsed.push({ codigo: cod, barcode, descripcion: desc, cantidad_servida: parseInt(uds), precio_unitario: precio, pct_iva, importe });
-      }
-
-      if (!parsed.length) { setError('No se encontraron líneas con código y cantidad.'); return; }
-      if (!numero && numDetectado) setNumero(numDetectado);
-      else if (!numero) setNumero(file.name.replace(/\.[^.]+$/, ''));
-      if (fechaDetectada) setFechaExcel(fechaDetectada);
-      setLineas(parsed);
-      setPaso(3);
     } catch (e) {
       setError('Error al leer el archivo: ' + e.message);
     } finally {
@@ -375,9 +493,9 @@ function ModalSubir({ tiendas, onClose, onSaved }) {
                   <div className="p-8 border-2 border-dashed border-gray-300 rounded-xl text-center hover:border-[#00913f] hover:bg-green-50 transition-colors">
                     <Upload size={28} className="mx-auto mb-2 text-gray-400" />
                     <p className="font-semibold text-gray-600 text-sm">Haz clic para subir el Excel del albarán</p>
-                    <p className="text-xs text-gray-400 mt-1">Formato .xlsx — columnas Artículo + Unidades</p>
+                    <p className="text-xs text-gray-400 mt-1">Formato .pdf o .xlsx — albarán Selogas</p>
                   </div>
-                  <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} className="hidden" />
+                  <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.pdf" onChange={handleFile} className="hidden" />
                 </label>
               )}
             </div>
