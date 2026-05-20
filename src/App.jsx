@@ -18,6 +18,7 @@ import Preferencias from './pages/Preferencias';
 import Palets from './pages/Palets';
 import ExcelSelogas from './pages/ExcelSelogas';
 import Albaranes from './pages/Albaranes';
+import CodigosBarras from './pages/CodigosBarras';
 import ImportacionMasiva from './pages/ImportacionMasiva';
 
 // Protege rutas solo para admin — si eres tienda redirige al catálogo
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/Tiendas"           element={<AdminRoute><Tiendas /></AdminRoute>} />
         <Route path="/ExcelSelogas"      element={<AdminRoute><ExcelSelogas /></AdminRoute>} />
         <Route path="/Albaranes"          element={<AdminRoute><Albaranes /></AdminRoute>} />
+        <Route path="/CodigosBarras"       element={<AdminRoute><CodigosBarras /></AdminRoute>} />
         <Route path="/ImportacionMasiva"  element={<AdminRoute><ImportacionMasiva /></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/Catalogo" replace />} />
